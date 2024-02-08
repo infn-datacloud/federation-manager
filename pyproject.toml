@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "federation-dealer"
+version = "0.1.0"
+description = ""
+authors = ["Giovanni Savarese <giovanni.savarese@lnl.infn.it>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+sqlalchemy = "^2.0.25"
+federation-registry = {git = "https://github.com/indigo-paas/federation-registry.git", branch = "build-docker"}
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+ruff = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+# Add rules on PyFlakes(F), pycodestyle (E,W), isort (I), 
+# mccabe (C90) pep8-naming (N), pydocstyle (D), pyupgrade (UP), 
+# ruff specific rules (RUF),
+# flake8-bugbear (B), flake8-logging-format (G), flake8-quotes (Q)
+extend-select = ["B", "C90", "E", "F", "G", "I", "N", "Q", "RUF", "UP", "W"]
