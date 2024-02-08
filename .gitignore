@@ -1,0 +1,11 @@
+# VSCode and other IDEs
+**/.vscode/**
+!**/.vscode/launch.json
+
+# Python Build
+**/__pycache__
+**/*.py[cod]
+
+# Tests and coverage
+**/.coverage
+**/coverage*.xml
