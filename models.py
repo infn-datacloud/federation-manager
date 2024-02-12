@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Optional
 
 from app.provider.enum import ProviderStatus, ProviderType
 from sqlmodel import Field, Relationship, SQLModel
@@ -8,12 +9,14 @@ from enums import (
     ProviderFederationType,
     ResourceUsageStatus,
     SLANegotiationStatus,
+    SLAStatus,
 )
 
-USER_ID_COL = "users.id"
-REQ_ID_COL = "requests.id"
 PROV_ID_COL = "providers.id"
 PROV_FED_ID_COL = "provider_federations.id"
+QUOTA_ID_COL = "quotas.id"
+REQ_ID_COL = "requests.id"
+USER_ID_COL = "users.id"
 
 
 class Administrates(SQLModel, table=True):
@@ -155,6 +158,25 @@ class ResourceUsage(RequestBase, table=True):
 
     issuer: "UserGroupManager" = Relationship(back_populates="submitted_requests")
     moderator: "SLAModerator" = Relationship(back_populates="assigned_requests")
+    negotiations: list["SLANegotiation"] = Relationship(back_populates="parent_request")
+    tot_block_storage_quota: "TotBlockStorageQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
+    tot_compute_quota: "TotComputeQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
+    tot_network_quota: "TotNetworkQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
+    user_block_storage_quota: "UserBlockStorageQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
+    user_compute_quota: "UserComputeQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
+    user_network_quota: "UserNetworkQuota" = Relationship(
+        back_populates="mentioning_request"
+    )
 
 
 class SLANegotiation(RequestBase, table=True):
@@ -163,6 +185,13 @@ class SLANegotiation(RequestBase, table=True):
     status: SLANegotiationStatus = Field(
         nullable=False, default=SLANegotiationStatus.SUBMITTED
     )
+    provider_id: int = Field(foreign_key=PROV_ID_COL, nullable=False)
+    parent_request_id: int = Field(foreign_key="resource_usages.id", nullable=False)
+    sla_id: int = Field(foreign_key="slas.id", nullable=False)
+
+    provider: "Provider" = Relationship(back_populates="negotiations")
+    parent_request: "ResourceUsage" = Relationship(back_populates="negotiations")
+    sla: "SLA" = Relationship(back_populates="negotiation")
 
 
 class Provider(SQLModel, table=True):
@@ -178,21 +207,23 @@ class Provider(SQLModel, table=True):
     description: str = Field(nullable=True)
     image_tags: str = Field(nullable=True)
     network_tags: str = Field(nullable=True)
-    # next_version_id: int | None = Field(foreign_key="provider.id", nullable=True)
+    next_version_id: int | None = Field(foreign_key=PROV_ID_COL, nullable=True)
+    # TODO evaluate to use prev_version_id instead of next_version_id
 
     mentioning_requests: list["ProviderFederation"] = Relationship(
         back_populates="provider"
     )
-    # prev_version: "Provider" = Relationship(back_populates="next_version")
-    # next_version: "Provider" = Relationship(back_populates="prev_version")
+    prev_version: Optional["Provider"] = Relationship(back_populates="next_version")
+    next_version: Optional["Provider"] = Relationship(
+        back_populates="prev_version",
+        sa_relationship_kwargs={"remote_side": "Provider.id"},
+    )
     regions: list["Region"] = Relationship(back_populates="provider")
-    # identity_providers: list["IdentityProvider"] = Relationship(
-    #    back_populates="provider"
-    # )
     site_admins: list["SiteAdmin"] = Relationship(
         back_populates="providers", link_model=Administrates
     )
     trusted_identity_providers: list["Trusts"] = Relationship(back_populates="provider")
+    negotiations: list["SLANegotiation"] = Relationship(back_populates="provider")
 
 
 class Region(SQLModel, table=True):
@@ -231,3 +262,106 @@ class IdentityProvider(SQLModel, table=True):
     authorized_providers: list["Trusts"] = Relationship(
         back_populates="identity_providers"
     )
+
+
+class Quota(SQLModel):
+    id: int | None = Field(primary_key=True)
+    mentioning_request_id: int = Field(foreign_key="resource_usages.id", nullable=False)
+    sla_id: int | None = Field(foreign_key="slas.id", nullable=False)
+
+
+class BlockStorageQuota(Quota):
+    gigabytes: int | None = Field(nullable=True)
+    per_volume_gigabytes: int | None = Field(nullable=True)
+    volumes: int | None = Field(nullable=True)
+
+
+class TotBlockStorageQuota(BlockStorageQuota, table=True):
+    __tablename__ = "tot_block_storage_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="tot_block_storage_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="tot_block_storage_quota")
+
+
+class UserBlockStorageQuota(BlockStorageQuota, table=True):
+    __tablename__ = "user_block_storage_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="user_block_storage_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="user_block_storage_quota")
+
+
+class ComputeQuota(Quota):
+    cores: int | None = Field(nullable=True)
+    instances: int | None = Field(nullable=True)
+    ram: int | None = Field(nullable=True)
+
+
+class TotComputeQuota(ComputeQuota, table=True):
+    __tablename__ = "tot_compute_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="tot_compute_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="tot_compute_quota")
+
+
+class UserComputeQuota(Quota, table=True):
+    __tablename__ = "user_compute_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="user_compute_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="user_compute_quota")
+
+
+class NetworkQuota(Quota):
+    networks: int | None = Field(nullable=True)
+    ports: int | None = Field(nullable=True)
+    public_ips: int | None = Field(nullable=True)
+    security_groups: int | None = Field(nullable=True)
+    security_groups_rules: int | None = Field(nullable=True)
+
+
+class TotNetworkQuota(NetworkQuota, table=True):
+    __tablename__ = "tot_network_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="tot_network_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="tot_network_quota")
+
+
+class UserNetworkQuota(NetworkQuota, table=True):
+    __tablename__ = "user_network_quotas"
+
+    mentioning_request: "ResourceUsage" = Relationship(
+        back_populates="user_network_quota"
+    )
+    sla: "SLA" = Relationship(back_populates="user_network_quota")
+
+
+class SLA(SQLModel, table=True):
+    __tablename__ = "slas"
+
+    id: int | None = Field(primary_key=True)
+    doc_uuid: str | None = Field(nullable=True)
+    start_date: date = Field(nullable=False)
+    end_date: date = Field(nullable=False)
+    status: SLAStatus = Field(nullable=False, default=SLAStatus.DISCUSSING)
+
+    negotiation: "SLANegotiation" = Relationship(back_populates="sla")
+    tot_block_storage_quota: "TotBlockStorageQuota" = Relationship(back_populates="sla")
+    tot_compute_quota: "TotComputeQuota" = Relationship(back_populates="sla")
+    tot_network_quota: "TotNetworkQuota" = Relationship(back_populates="sla")
+    user_block_storage_quota: "UserBlockStorageQuota" = Relationship(
+        back_populates="sla"
+    )
+    user_compute_quota: "UserComputeQuota" = Relationship(back_populates="sla")
+    user_network_quota: "UserNetworkQuota" = Relationship(back_populates="sla")
+
+
+# TODO Add "sa_relationship_kwargs={'uselist': False}" to 1-1 relationship
