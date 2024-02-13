@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
-from models import ResourceUsage, SLAModerator, User, UserGroupManager
-from tests.item_data import request_dict, user_dict
+from models import Provider, ResourceUsage, SLAModerator, User, UserGroupManager
+from tests.item_data import provider_dict, request_dict, user_dict
 
 
 @event.listens_for(Engine, "connect")
@@ -71,3 +71,13 @@ def db_resource_usage_request(
     db_session.commit()
     db_session.refresh(res_use_req)
     return res_use_req
+
+
+@pytest.fixture(scope="function")
+def db_provider(db_session: Session) -> Provider:
+    data = provider_dict()
+    db_provider = Provider(**data)
+    db_session.add(db_provider)
+    db_session.commit()
+    db_session.refresh(db_provider)
+    return db_provider

@@ -6,10 +6,12 @@ from pytest_cases import parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from enums import ResourceUsageStatus
+from enums import ResourceUsageStatus, SLANegotiationStatus
 from models import (
     Admin,
+    Provider,
     ResourceUsage,
+    SLANegotiation,
     SiteAdmin,
     SiteTester,
     SLAModerator,
@@ -26,6 +28,7 @@ from tests.item_data import (
     block_storage_dict,
     compute_dict,
     network_dict,
+    provider_dict,
     request_dict,
     user_dict,
 )
@@ -171,12 +174,13 @@ def test_block_storage_quota(
     db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
 ) -> None:
     data = block_storage_dict()
-
     if quota_scope == "tot":
+        assert db_resource_usage_request.tot_block_storage_quota is None
         quota = TotBlockStorageQuota(
             **data, mentioning_request=db_resource_usage_request
         )
     elif quota_scope == "per_user":
+        assert db_resource_usage_request.user_block_storage_quota is None
         quota = UserBlockStorageQuota(
             **data, mentioning_request=db_resource_usage_request
         )
@@ -201,10 +205,11 @@ def test_compute_quota(
     db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
 ) -> None:
     data = compute_dict()
-
     if quota_scope == "tot":
+        assert db_resource_usage_request.tot_compute_quota is None
         quota = TotComputeQuota(**data, mentioning_request=db_resource_usage_request)
     elif quota_scope == "per_user":
+        assert db_resource_usage_request.user_compute_quota is None
         quota = UserComputeQuota(**data, mentioning_request=db_resource_usage_request)
 
     db_session.add(quota)
@@ -227,10 +232,11 @@ def test_network_quota(
     db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
 ) -> None:
     data = network_dict()
-
     if quota_scope == "tot":
+        assert db_resource_usage_request.tot_network_quota is None
         quota = TotNetworkQuota(**data, mentioning_request=db_resource_usage_request)
     elif quota_scope == "per_user":
+        assert db_resource_usage_request.user_network_quota is None
         quota = UserNetworkQuota(**data, mentioning_request=db_resource_usage_request)
 
     db_session.add(quota)
@@ -276,5 +282,79 @@ def test_quota_wit_multi_res_usage_req(
         db_session.commit()
 
 
-# TODO: Test negotiations
-# TODO: Test resource usage request with negotiations
+# TODO: Test provider
+
+# def test_provider(db_session: Session) -> None:
+#     data = provider_dict()
+#     provider = Provider(**data)
+#     db_session.add(provider)
+#     db_session.commit()
+#     db_session.refresh(provider)
+
+#     assert provider.id is not None
+#     assert provider.name == data.get("name")
+#     assert provider.description == data.get("description")
+#     assert provider.url == data.get("url")
+#     assert provider.email == data.get("email")
+#     assert provider.logo == data.get("logo")
+#     assert provider.logo_url == data.get("logo_url")
+
+
+def test_sla_negotiation(
+    db_session: Session,
+    db_provider: Provider,
+    db_resource_usage_request: ResourceUsage,
+) -> None:
+    assert len(db_resource_usage_request.negotiations) == 0
+    assert len(db_provider.negotiations) == 0
+
+    data = request_dict()
+    negotiation = SLANegotiation(
+        **data, parent_request=db_resource_usage_request, provider=db_provider
+    )
+    db_session.add(negotiation)
+    db_session.commit()
+    db_session.refresh(negotiation)
+
+    assert db_resource_usage_request.id is not None
+    assert len(db_resource_usage_request.negotiations) == 1
+    assert negotiation.id == db_resource_usage_request.negotiations[0].id
+    assert negotiation.parent_request_id == db_resource_usage_request.id
+
+    assert db_provider.id is not None
+    assert len(db_provider.negotiations) == 1
+    assert negotiation.id == db_provider.negotiations[0].id
+    assert negotiation.provider_id == db_provider.id
+
+    assert negotiation.id is not None
+    assert negotiation.status == SLANegotiationStatus.SUBMITTED
+    assert negotiation.issue_date == data.get("issue_date")
+    assert negotiation.update_date == data.get("update_date")
+    assert negotiation.message == data.get("message")
+
+    assert negotiation.sla_id is None
+    assert negotiation.sla is None
+
+
+# TODO test SLA (with and without quotas)
+# TODO test negotiation with SLA
+
+
+def test_negotiation_without_provider(
+    db_session: Session, db_resource_usage_request: ResourceUsage
+) -> None:
+    data = request_dict()
+    item = SLANegotiation(**data, parent_request=db_resource_usage_request)
+    db_session.add(item)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_negotiation_without_parent_request(
+    db_session: Session, db_provider: Provider
+) -> None:
+    data = request_dict()
+    item = SLANegotiation(**data, provider=db_provider)
+    db_session.add(item)
+    with pytest.raises(IntegrityError):
+        db_session.commit()

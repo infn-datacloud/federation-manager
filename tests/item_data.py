@@ -1,7 +1,13 @@
 from datetime import datetime
-from random import randint
+from random import getrandbits, randint
 
-from tests.utils import random_email, random_lower_string
+from tests.utils import (
+    random_email,
+    random_lower_string,
+    random_provider_status,
+    random_provider_type,
+    random_url,
+)
 
 
 def user_dict() -> dict[str, str]:
@@ -35,4 +41,14 @@ def network_dict() -> dict[str, int]:
         "public_ips": randint(0, 100),
         "security_groups": randint(0, 100),
         "security_group_rules": randint(0, 100),
+    }
+
+
+def provider_dict() -> dict[str, str]:
+    return {
+        "name": random_lower_string(),
+        "type": random_provider_type(),
+        "auth_url": random_url(),
+        "is_public": getrandbits(1),
+        "status": random_provider_status(),
     }

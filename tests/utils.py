@@ -1,7 +1,10 @@
 import string
 import time
 from datetime import date
-from random import choices, randint
+from random import choice, choices, randint
+
+from app.provider.enum import ProviderStatus, ProviderType
+from pydantic import AnyHttpUrl
 
 
 def random_date() -> date:
@@ -20,6 +23,22 @@ def random_lower_string() -> str:
     return "".join(choices(string.ascii_lowercase, k=32))
 
 
+def random_provider_type(*, exclude: list[str] | None = None) -> str:
+    """Return one of the possible provider types."""
+    if exclude is None:
+        exclude = []
+    choices = set([i for i in ProviderType]) - set(exclude)
+    return choice(list(choices))
+
+
+def random_provider_status(*, exclude: list[str] | None = None) -> str:
+    """Return one of the possible provider statuses."""
+    if exclude is None:
+        exclude = []
+    choices = set([i for i in ProviderStatus]) - set(exclude)
+    return choice(list(choices))
+
+
 def random_start_end_dates() -> tuple[date, date]:
     """Return a random couples of valid start and end dates (in order)."""
     d1 = random_date()
@@ -33,3 +52,8 @@ def random_start_end_dates() -> tuple[date, date]:
         start_date = d2
         end_date = d1
     return start_date, end_date
+
+
+def random_url() -> AnyHttpUrl:
+    """Return a random URL."""
+    return "https://" + random_lower_string() + ".com"
