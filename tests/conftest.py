@@ -6,13 +6,14 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from models import (
     Provider,
+    Region,
     ResourceUsage,
-    SLAModerator,
     SiteAdmin,
+    SLAModerator,
     User,
     UserGroupManager,
 )
-from tests.item_data import provider_dict, request_dict, user_dict
+from tests.item_data import provider_dict, region_dict, request_dict, user_dict
 
 
 @event.listens_for(Engine, "connect")
@@ -97,3 +98,13 @@ def db_provider(db_session: Session) -> Provider:
     db_session.commit()
     db_session.refresh(db_provider)
     return db_provider
+
+
+@pytest.fixture(scope="function")
+def db_region(db_session: Session, db_provider: Provider) -> Region:
+    data = region_dict()
+    db_region = Region(**data, provider=db_provider)
+    db_session.add(db_region)
+    db_session.commit()
+    db_session.refresh(db_region)
+    return db_region

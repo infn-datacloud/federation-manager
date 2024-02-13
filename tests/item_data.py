@@ -49,3 +49,11 @@ def provider_dict() -> dict[str, str]:
         "type": random_provider_type(),
         "auth_url": random_url(),
     }
+
+
+def region_dict() -> dict[str, str]:
+    return {"name": random_lower_string()}
+
+
+def location_dict() -> dict[str, str]:
+    return {"site": random_lower_string(), "country": random_lower_string()}

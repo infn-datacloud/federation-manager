@@ -11,7 +11,9 @@ from sqlmodel import Session
 from enums import ResourceUsageStatus, SLANegotiationStatus
 from models import (
     Admin,
+    Location,
     Provider,
+    Region,
     ResourceUsage,
     SiteAdmin,
     SiteTester,
@@ -29,12 +31,15 @@ from models import (
 from tests.item_data import (
     block_storage_dict,
     compute_dict,
+    location_dict,
     network_dict,
     provider_dict,
+    region_dict,
     request_dict,
     user_dict,
 )
 from tests.utils import (
+    random_float,
     random_lower_string,
     random_provider_status,
     random_start_end_dates,
@@ -90,6 +95,38 @@ class CaseProviderData:
 
     def case_is_public(self) -> dict[str, Any]:
         return {**provider_dict(), "is_public": getrandbits(1)}
+
+
+class CaseRegionData:
+    def case_short(self) -> dict[str, str]:
+        return region_dict()
+
+    def case_desc(self) -> dict[str, str]:
+        return {**region_dict(), "description": random_lower_string()}
+
+
+class CaseLocationData:
+    def case_short(self) -> dict[str, str]:
+        return location_dict()
+
+    def case_desc(self) -> dict[str, str]:
+        return {**location_dict(), "description": random_lower_string()}
+
+    def case_latitude(self) -> dict[str, str]:
+        return {**location_dict(), "latitude": random_float(-90, 90)}
+
+    def case_longitude(self) -> dict[str, str]:
+        return {**location_dict(), "longitude": random_float(-180, 180)}
+
+
+class CaseInvalidLocationData:
+    @parametrize(value=[-91, 91])
+    def case_latitude(self, value: float) -> dict[str, Any]:
+        return {"latitude": value}
+
+    @parametrize(value=[-181, 181])
+    def case_longitude(self, value: float) -> dict[str, Any]:
+        return {"longitude": value}
 
 
 class CaseQuotaDerived:
@@ -349,9 +386,100 @@ def test_provider_with_site_admins(
 
 # TODO: Test provider with versions?
 
-# TODO: Test region
-# TODO: Test provider with regions
-# TODO: Test region with location
+
+@parametrize_with_cases("data", cases=CaseRegionData)
+def test_region(
+    db_session: Session, db_provider: Provider, data: dict[str, Any]
+) -> None:
+    assert len(db_provider.regions) == 0
+
+    region = Region(**data, provider=db_provider)
+    db_session.add(region)
+    db_session.commit()
+    db_session.refresh(region)
+
+    assert len(db_provider.regions) == 1
+    assert region.id == db_provider.regions[0].id
+    assert region.provider_id == db_provider.id
+
+    assert region.id is not None
+    assert region.name == data.get("name")
+    assert region.description == data.get("description")
+
+    assert region.location_id is None
+    assert region.location is None
+
+
+def test_region_without_provider(db_session: Session) -> None:
+    data = region_dict()
+    region = Region(**data)
+    db_session.add(region)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+@parametrize_with_cases("data", cases=CaseLocationData)
+def test_location(db_session: Session, data: dict[str, Any]) -> None:
+    location = Location(**data)
+    db_session.add(location)
+    db_session.commit()
+    db_session.refresh(location)
+
+    assert location.id is not None
+    assert location.site == data.get("site")
+    assert location.country == data.get("country")
+    assert location.description == data.get("description")
+    assert location.latitude == data.get("latitude")
+    assert location.longitude == data.get("longitude")
+
+    assert len(location.regions) == 0
+
+
+def test_location_with_region(db_session: Session, db_region: Region) -> None:
+    assert db_region.location is None
+
+    data = location_dict()
+    location = Location(**data, regions=[db_region])
+
+    # ! Adding multiple times the same region brings the same result
+    # location = Location(**data, regions=[db_region, db_region])
+
+    db_session.add(location)
+    db_session.commit()
+    db_session.refresh(location)
+
+    assert len(location.regions) == 1
+    assert location.regions[0].id == db_region.id
+    assert location.id == db_region.location_id
+
+
+def test_location_with_regions(db_session: Session, db_region: Region) -> None:
+    assert db_region.location is None
+
+    db_region2 = Region(**region_dict(), provider=db_region.provider)
+    location = Location(**location_dict(), regions=[db_region, db_region2])
+    db_session.add(location)
+    db_session.commit()
+    db_session.refresh(location)
+
+    assert db_region.location_id is not None
+    assert db_region2.location_id is not None
+    assert db_region.location_id == db_region2.location_id
+
+    assert len(location.regions) == 2
+    assert location.regions[0].id == db_region.id
+    assert location.id == db_region.location_id
+
+
+@parametrize_with_cases("data", cases=CaseInvalidLocationData)
+def test_invalid_location(data: dict[str, Any]) -> None:
+    """Invalid values are discarded before committing."""
+    location = Location(**location_dict(), **data)
+
+    for k, v in data.items():
+        assert v is not None
+        assert location.__getattribute__(k) is None
+
 
 # TODO: Test idp
 # TODO: Test provider with idps

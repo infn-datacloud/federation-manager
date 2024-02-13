@@ -1,7 +1,7 @@
 import string
 import time
 from datetime import date
-from random import choice, choices, randint
+from random import choice, choices, randint, random
 
 from app.provider.enum import ProviderStatus, ProviderType
 from pydantic import AnyHttpUrl
@@ -16,6 +16,11 @@ def random_date() -> date:
 def random_email() -> str:
     """Return a generic email."""
     return f"{random_lower_string()}@{random_lower_string()}.com"
+
+
+def random_float(start: int, end: int) -> float:
+    """Return a random float between start and end (included)."""
+    return randint(start, end - 1) + random()
 
 
 def random_lower_string() -> str:

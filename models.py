@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from app.provider.enum import ProviderStatus, ProviderType
+from sqlalchemy import CheckConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from enums import (
@@ -238,7 +239,7 @@ class Region(SQLModel, table=True):
     location_id: int | None = Field(foreign_key="locations.id", nullable=True)
 
     provider: "Provider" = Relationship(back_populates="regions")
-    location: "Location" = Relationship(back_populates="regions")
+    location: Optional["Location"] = Relationship(back_populates="regions")
 
 
 class Location(SQLModel, table=True):
@@ -248,8 +249,8 @@ class Location(SQLModel, table=True):
     site: str = Field(nullable=False)
     country: str = Field(nullable=False)
     description: str | None = Field(nullable=True)
-    latitude: float | None = Field(nullable=True)
-    longitude: float | None = Field(nullable=True)
+    latitude: float | None = Field(nullable=True, ge=-90.0, le=90.0)
+    longitude: float | None = Field(nullable=True, ge=-180.0, le=180.0)
 
     regions: list["Region"] = Relationship(back_populates="location")
 
