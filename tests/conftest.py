@@ -4,7 +4,14 @@ import pytest
 from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
-from models import Provider, ResourceUsage, SLAModerator, User, UserGroupManager
+from models import (
+    Provider,
+    ResourceUsage,
+    SLAModerator,
+    SiteAdmin,
+    User,
+    UserGroupManager,
+)
 from tests.item_data import provider_dict, request_dict, user_dict
 
 
@@ -45,12 +52,12 @@ def db_user(db_session: Session) -> User:
 
 
 @pytest.fixture(scope="function")
-def db_user_group_manager(db_session: Session, db_user: User) -> UserGroupManager:
-    user_group_manager = UserGroupManager(id=db_user.id)
-    db_session.add(user_group_manager)
+def db_site_admin(db_session: Session, db_user: User) -> SiteAdmin:
+    site_admin = SiteAdmin(id=db_user.id)
+    db_session.add(site_admin)
     db_session.commit()
-    db_session.refresh(user_group_manager)
-    return user_group_manager
+    db_session.refresh(site_admin)
+    return site_admin
 
 
 @pytest.fixture(scope="function")
@@ -60,6 +67,15 @@ def db_sla_moderator(db_session: Session, db_user: User) -> SLAModerator:
     db_session.commit()
     db_session.refresh(sla_moderator)
     return sla_moderator
+
+
+@pytest.fixture(scope="function")
+def db_user_group_manager(db_session: Session, db_user: User) -> UserGroupManager:
+    user_group_manager = UserGroupManager(id=db_user.id)
+    db_session.add(user_group_manager)
+    db_session.commit()
+    db_session.refresh(user_group_manager)
+    return user_group_manager
 
 
 @pytest.fixture(scope="function")

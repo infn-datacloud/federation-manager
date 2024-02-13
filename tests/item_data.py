@@ -1,10 +1,9 @@
 from datetime import datetime
-from random import getrandbits, randint
+from random import randint
 
 from tests.utils import (
     random_email,
     random_lower_string,
-    random_provider_status,
     random_provider_type,
     random_url,
 )
@@ -49,6 +48,4 @@ def provider_dict() -> dict[str, str]:
         "name": random_lower_string(),
         "type": random_provider_type(),
         "auth_url": random_url(),
-        "is_public": getrandbits(1),
-        "status": random_provider_status(),
     }

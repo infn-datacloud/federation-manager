@@ -1,7 +1,9 @@
 from datetime import datetime
+from random import getrandbits
 from typing import Any, Type
 
 import pytest
+from app.provider.enum import ProviderStatus
 from pytest_cases import parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
@@ -11,10 +13,10 @@ from models import (
     Admin,
     Provider,
     ResourceUsage,
-    SLANegotiation,
     SiteAdmin,
     SiteTester,
     SLAModerator,
+    SLANegotiation,
     TotBlockStorageQuota,
     TotComputeQuota,
     TotNetworkQuota,
@@ -32,7 +34,11 @@ from tests.item_data import (
     request_dict,
     user_dict,
 )
-from tests.utils import random_lower_string, random_start_end_dates
+from tests.utils import (
+    random_lower_string,
+    random_provider_status,
+    random_start_end_dates,
+)
 
 
 class CaseUserDerived:
@@ -64,6 +70,26 @@ class CaseResourceUsageData:
 
     def case_identity_providers(self) -> dict[str, Any]:
         return {**request_dict(), "preferred_identity_providers": random_lower_string()}
+
+
+class CaseProviderData:
+    def case_short(self) -> dict[str, datetime]:
+        return provider_dict()
+
+    def case_desc(self) -> dict[str, Any]:
+        return {**provider_dict(), "description": random_lower_string()}
+
+    def case_image_tags(self) -> dict[str, Any]:
+        return {**provider_dict(), "image_tags": random_lower_string()}
+
+    def case_network_tags(self) -> dict[str, Any]:
+        return {**provider_dict(), "network_tags": random_lower_string()}
+
+    def case_status(self) -> dict[str, Any]:
+        return {**provider_dict(), "status": random_provider_status()}
+
+    def case_is_public(self) -> dict[str, Any]:
+        return {**provider_dict(), "is_public": getrandbits(1)}
 
 
 class CaseQuotaDerived:
@@ -282,22 +308,53 @@ def test_quota_wit_multi_res_usage_req(
         db_session.commit()
 
 
-# TODO: Test provider
+@parametrize_with_cases("data", cases=CaseProviderData)
+def test_provider(db_session: Session, data: dict[str, Any]) -> None:
+    provider = Provider(**data)
+    db_session.add(provider)
+    db_session.commit()
+    db_session.refresh(provider)
 
-# def test_provider(db_session: Session) -> None:
-#     data = provider_dict()
-#     provider = Provider(**data)
-#     db_session.add(provider)
-#     db_session.commit()
-#     db_session.refresh(provider)
+    assert provider.id is not None
+    assert provider.name == data.get("name")
+    assert provider.type == data.get("type")
+    assert provider.auth_url == data.get("auth_url")
+    assert provider.is_public == data.get("is_public", False)
+    assert provider.status == data.get("status", ProviderStatus.ACTIVE)
+    assert provider.description == data.get("description")
+    assert provider.image_tags == data.get("image_tags")
+    assert provider.network_tags == data.get("network_tags")
 
-#     assert provider.id is not None
-#     assert provider.name == data.get("name")
-#     assert provider.description == data.get("description")
-#     assert provider.url == data.get("url")
-#     assert provider.email == data.get("email")
-#     assert provider.logo == data.get("logo")
-#     assert provider.logo_url == data.get("logo_url")
+    assert len(provider.regions) == 0
+    assert len(provider.site_admins) == 0
+    assert len(provider.trusted_identity_providers) == 0
+    assert len(provider.negotiations) == 0
+
+
+def test_provider_with_site_admins(
+    db_session: Session, db_provider: Provider, db_site_admin: SiteAdmin
+) -> None:
+    assert len(db_provider.site_admins) == 0
+
+    db_provider.site_admins.append(db_site_admin)
+    db_session.add(db_provider)
+    db_session.commit()
+    db_session.refresh(db_provider)
+
+    assert len(db_provider.site_admins) == 1
+    assert db_provider.site_admins[0].id == db_site_admin.id
+    assert len(db_site_admin.providers) == 1
+    assert db_provider.id == db_site_admin.providers[0].id
+
+
+# TODO: Test provider with versions?
+
+# TODO: Test region
+# TODO: Test provider with regions
+# TODO: Test region with location
+
+# TODO: Test idp
+# TODO: Test provider with idps
 
 
 def test_sla_negotiation(
