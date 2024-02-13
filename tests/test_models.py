@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Any, Type
 
+import pytest
 from pytest_cases import parametrize, parametrize_with_cases
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from enums import ResourceUsageStatus
@@ -11,10 +13,22 @@ from models import (
     SiteAdmin,
     SiteTester,
     SLAModerator,
+    TotBlockStorageQuota,
+    TotComputeQuota,
+    TotNetworkQuota,
     User,
+    UserBlockStorageQuota,
+    UserComputeQuota,
     UserGroupManager,
+    UserNetworkQuota,
 )
-from tests.item_data import request_dict, user_dict
+from tests.item_data import (
+    block_storage_dict,
+    compute_dict,
+    network_dict,
+    request_dict,
+    user_dict,
+)
 from tests.utils import random_lower_string, random_start_end_dates
 
 
@@ -47,6 +61,26 @@ class CaseResourceUsageData:
 
     def case_identity_providers(self) -> dict[str, Any]:
         return {**request_dict(), "preferred_identity_providers": random_lower_string()}
+
+
+class CaseQuotaDerived:
+    @parametrize(cls=[TotBlockStorageQuota, UserBlockStorageQuota])
+    def case_block_storage(self, cls) -> tuple[Any, dict[str, int]]:
+        return cls, block_storage_dict()
+
+    @parametrize(cls=[TotComputeQuota, UserComputeQuota])
+    def case_compute(self, cls) -> tuple[Any, dict[str, int]]:
+        return cls, compute_dict()
+
+    @parametrize(cls=[TotNetworkQuota, UserNetworkQuota])
+    def case_network(self, cls) -> tuple[Any, dict[str, int]]:
+        return cls, network_dict()
+
+
+class CaseQuotaScope:
+    @parametrize(q_scope=["tot", "per_user"])
+    def case_quota_type(self, q_scope: str) -> str:
+        return q_scope
 
 
 def test_user(db_session: Session) -> None:
@@ -102,6 +136,17 @@ def test_resource_usage_request(
         "preferred_identity_providers"
     )
 
+    assert resource_usage_request.moderator_id is None
+    assert resource_usage_request.moderator is None
+
+
+def test_resource_usage_request_without_issuer(db_session: Session) -> None:
+    data = request_dict()
+    item = ResourceUsage(**data)
+    db_session.add(item)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
 
 def test_assigned_moderator_to_resource_usage_request(
     db_session: Session,
@@ -119,3 +164,117 @@ def test_assigned_moderator_to_resource_usage_request(
     assert db_sla_moderator.assigned_requests[0].id == db_resource_usage_request.id
     assert db_sla_moderator.id == db_resource_usage_request.moderator.id
     assert db_sla_moderator.id == db_resource_usage_request.moderator_id
+
+
+@parametrize_with_cases("quota_scope", cases=CaseQuotaScope)
+def test_block_storage_quota(
+    db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
+) -> None:
+    data = block_storage_dict()
+
+    if quota_scope == "tot":
+        quota = TotBlockStorageQuota(
+            **data, mentioning_request=db_resource_usage_request
+        )
+    elif quota_scope == "per_user":
+        quota = UserBlockStorageQuota(
+            **data, mentioning_request=db_resource_usage_request
+        )
+
+    db_session.add(quota)
+    db_session.commit()
+    db_session.refresh(quota)
+
+    assert quota.id is not None
+    assert quota.gigabytes == data.get("gigabytes")
+    assert quota.per_volume_gigabytes == data.get("per_volume_gigabytes")
+    assert quota.volumes == data.get("volumes")
+    assert quota.mentioning_request_id == db_resource_usage_request.id
+    if quota_scope == "tot":
+        assert quota.id == db_resource_usage_request.tot_block_storage_quota.id
+    elif quota_scope == "per_user":
+        assert quota.id == db_resource_usage_request.user_block_storage_quota.id
+
+
+@parametrize_with_cases("quota_scope", cases=CaseQuotaScope)
+def test_compute_quota(
+    db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
+) -> None:
+    data = compute_dict()
+
+    if quota_scope == "tot":
+        quota = TotComputeQuota(**data, mentioning_request=db_resource_usage_request)
+    elif quota_scope == "per_user":
+        quota = UserComputeQuota(**data, mentioning_request=db_resource_usage_request)
+
+    db_session.add(quota)
+    db_session.commit()
+    db_session.refresh(quota)
+
+    assert quota.id is not None
+    assert quota.cores == data.get("cores")
+    assert quota.instances == data.get("instances")
+    assert quota.ram == data.get("ram")
+    assert quota.mentioning_request_id == db_resource_usage_request.id
+    if quota_scope == "tot":
+        assert quota.id == db_resource_usage_request.tot_compute_quota.id
+    elif quota_scope == "per_user":
+        assert quota.id == db_resource_usage_request.user_compute_quota.id
+
+
+@parametrize_with_cases("quota_scope", cases=CaseQuotaScope)
+def test_network_quota(
+    db_session: Session, db_resource_usage_request: ResourceUsage, quota_scope: str
+) -> None:
+    data = network_dict()
+
+    if quota_scope == "tot":
+        quota = TotNetworkQuota(**data, mentioning_request=db_resource_usage_request)
+    elif quota_scope == "per_user":
+        quota = UserNetworkQuota(**data, mentioning_request=db_resource_usage_request)
+
+    db_session.add(quota)
+    db_session.commit()
+    db_session.refresh(quota)
+
+    assert quota.id is not None
+    assert quota.networks == data.get("networks")
+    assert quota.ports == data.get("ports")
+    assert quota.public_ips == data.get("public_ips")
+    assert quota.security_groups == data.get("security_groups")
+    assert quota.security_group_rules == data.get("security_group_rules")
+    assert quota.mentioning_request_id == db_resource_usage_request.id
+    if quota_scope == "tot":
+        assert quota.id == db_resource_usage_request.tot_network_quota.id
+    elif quota_scope == "per_user":
+        assert quota.id == db_resource_usage_request.user_network_quota.id
+
+
+@parametrize_with_cases("cls, data", cases=CaseQuotaDerived)
+def test_quota_without_res_usage_req(
+    db_session: Session, cls: Any, data: dict[str, int]
+) -> None:
+    quota = cls(**data)
+    db_session.add(quota)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+@parametrize_with_cases("cls, data", cases=CaseQuotaDerived)
+def test_quota_wit_multi_res_usage_req(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    cls: Any,
+    data: dict[str, int],
+) -> None:
+    quota = cls(
+        **data,
+        mentioning_requests=[db_resource_usage_request, db_resource_usage_request],
+    )
+    db_session.add(quota)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+# TODO: Test negotiations
+# TODO: Test resource usage request with negotiations

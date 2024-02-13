@@ -99,7 +99,7 @@ class RequestBase(SQLModel):
     id: int | None = Field(primary_key=True)
     issue_date: datetime = Field(nullable=False)
     update_date: datetime = Field(nullable=False)
-    message: str = Field(nullable=True)
+    message: str | None = Field(nullable=True)
 
 
 class ProviderFederation(RequestBase, table=True):
@@ -110,11 +110,11 @@ class ProviderFederation(RequestBase, table=True):
     )
     operation: ProviderFederationType = Field(nullable=False)
     issuer_id: int = Field(foreign_key="site_admins.id", nullable=False)
-    tester_id: int = Field(foreign_key="site_testers.id", nullable=True)
+    tester_id: int | None = Field(foreign_key="site_testers.id", nullable=True)
     provider_id: int = Field(foreign_key=PROV_ID_COL, nullable=False)
 
     issuer: "SiteAdmin" = Relationship(back_populates="submitted_requests")
-    tester: "SiteTester" = Relationship(back_populates="assigned_requests")
+    tester: Optional["SiteTester"] = Relationship(back_populates="assigned_requests")
     provider: "Provider" = Relationship(back_populates="mentioning_requests")
 
 
@@ -148,34 +148,36 @@ class ResourceUsage(RequestBase, table=True):
     status: ResourceUsageStatus = Field(
         nullable=False, default=ResourceUsageStatus.SUBMITTED
     )
-    preferred_sites: str = Field(nullable=True)
-    preferred_locations: str = Field(nullable=True)
-    preferred_identity_providers: str = Field(nullable=True)
-    preferred_start_date: date = Field(nullable=True)
-    preferred_end_date: date = Field(nullable=True)
+    preferred_sites: str | None = Field(nullable=True)
+    preferred_locations: str | None = Field(nullable=True)
+    preferred_identity_providers: str | None = Field(nullable=True)
+    preferred_start_date: date | None = Field(nullable=True)
+    preferred_end_date: date | None = Field(nullable=True)
     issuer_id: int = Field(foreign_key="user_group_managers.id", nullable=False)
-    moderator_id: int = Field(foreign_key="sla_moderators.id", nullable=True)
+    moderator_id: int | None = Field(foreign_key="sla_moderators.id", nullable=True)
 
     issuer: "UserGroupManager" = Relationship(back_populates="submitted_requests")
-    moderator: "SLAModerator" = Relationship(back_populates="assigned_requests")
+    moderator: Optional["SLAModerator"] = Relationship(
+        back_populates="assigned_requests"
+    )
     negotiations: list["SLANegotiation"] = Relationship(back_populates="parent_request")
-    tot_block_storage_quota: "TotBlockStorageQuota" = Relationship(
-        back_populates="mentioning_request"
+    tot_block_storage_quota: Optional["TotBlockStorageQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
-    tot_compute_quota: "TotComputeQuota" = Relationship(
-        back_populates="mentioning_request"
+    tot_compute_quota: Optional["TotComputeQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
-    tot_network_quota: "TotNetworkQuota" = Relationship(
-        back_populates="mentioning_request"
+    tot_network_quota: Optional["TotNetworkQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
-    user_block_storage_quota: "UserBlockStorageQuota" = Relationship(
-        back_populates="mentioning_request"
+    user_block_storage_quota: Optional["UserBlockStorageQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
-    user_compute_quota: "UserComputeQuota" = Relationship(
-        back_populates="mentioning_request"
+    user_compute_quota: Optional["UserComputeQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
-    user_network_quota: "UserNetworkQuota" = Relationship(
-        back_populates="mentioning_request"
+    user_network_quota: Optional["UserNetworkQuota"] = Relationship(
+        back_populates="mentioning_request", sa_relationship_kwargs={"uselist": False}
     )
 
 
@@ -204,9 +206,9 @@ class Provider(SQLModel, table=True):
     is_public: bool = Field(default=False)
     status: ProviderStatus = Field(nullable=False, default=ProviderStatus.ACTIVE)
     # vol_types: str = Field(nullable=False)
-    description: str = Field(nullable=True)
-    image_tags: str = Field(nullable=True)
-    network_tags: str = Field(nullable=True)
+    description: str | None = Field(nullable=True)
+    image_tags: str | None = Field(nullable=True)
+    network_tags: str | None = Field(nullable=True)
     next_version_id: int | None = Field(foreign_key=PROV_ID_COL, nullable=True)
     # TODO evaluate to use prev_version_id instead of next_version_id
 
@@ -231,7 +233,7 @@ class Region(SQLModel, table=True):
 
     id: int = Field(primary_key=True)
     name: str = Field(nullable=False)
-    description: str = Field(nullable=True)
+    description: str | None = Field(nullable=True)
     provider_id: int = Field(foreign_key=PROV_ID_COL, nullable=False)
     location_id: int | None = Field(foreign_key="locations.id", nullable=True)
 
@@ -245,9 +247,9 @@ class Location(SQLModel, table=True):
     id: int = Field(primary_key=True)
     site: str = Field(nullable=False)
     country: str = Field(nullable=False)
-    description: str = Field(nullable=True)
-    latitude: float = Field(nullable=True)
-    longitude: float = Field(nullable=True)
+    description: str | None = Field(nullable=True)
+    latitude: float | None = Field(nullable=True)
+    longitude: float | None = Field(nullable=True)
 
     regions: list["Region"] = Relationship(back_populates="location")
 
@@ -257,7 +259,7 @@ class IdentityProvider(SQLModel, table=True):
 
     id: int = Field(primary_key=True)
     endpoint: str = Field(nullable=False)
-    description: str = Field(nullable=True)
+    description: str | None = Field(nullable=True)
 
     authorized_providers: list["Trusts"] = Relationship(
         back_populates="identity_providers"
@@ -267,7 +269,7 @@ class IdentityProvider(SQLModel, table=True):
 class Quota(SQLModel):
     id: int | None = Field(primary_key=True)
     mentioning_request_id: int = Field(foreign_key="resource_usages.id", nullable=False)
-    sla_id: int | None = Field(foreign_key="slas.id", nullable=False)
+    sla_id: int | None = Field(foreign_key="slas.id", nullable=True)
 
 
 class BlockStorageQuota(Quota):
@@ -282,7 +284,7 @@ class TotBlockStorageQuota(BlockStorageQuota, table=True):
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="tot_block_storage_quota"
     )
-    sla: "SLA" = Relationship(back_populates="tot_block_storage_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="tot_block_storage_quota")
 
 
 class UserBlockStorageQuota(BlockStorageQuota, table=True):
@@ -291,7 +293,7 @@ class UserBlockStorageQuota(BlockStorageQuota, table=True):
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="user_block_storage_quota"
     )
-    sla: "SLA" = Relationship(back_populates="user_block_storage_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="user_block_storage_quota")
 
 
 class ComputeQuota(Quota):
@@ -306,16 +308,16 @@ class TotComputeQuota(ComputeQuota, table=True):
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="tot_compute_quota"
     )
-    sla: "SLA" = Relationship(back_populates="tot_compute_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="tot_compute_quota")
 
 
-class UserComputeQuota(Quota, table=True):
+class UserComputeQuota(ComputeQuota, table=True):
     __tablename__ = "user_compute_quotas"
 
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="user_compute_quota"
     )
-    sla: "SLA" = Relationship(back_populates="user_compute_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="user_compute_quota")
 
 
 class NetworkQuota(Quota):
@@ -323,7 +325,7 @@ class NetworkQuota(Quota):
     ports: int | None = Field(nullable=True)
     public_ips: int | None = Field(nullable=True)
     security_groups: int | None = Field(nullable=True)
-    security_groups_rules: int | None = Field(nullable=True)
+    security_group_rules: int | None = Field(nullable=True)
 
 
 class TotNetworkQuota(NetworkQuota, table=True):
@@ -332,7 +334,7 @@ class TotNetworkQuota(NetworkQuota, table=True):
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="tot_network_quota"
     )
-    sla: "SLA" = Relationship(back_populates="tot_network_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="tot_network_quota")
 
 
 class UserNetworkQuota(NetworkQuota, table=True):
@@ -341,7 +343,7 @@ class UserNetworkQuota(NetworkQuota, table=True):
     mentioning_request: "ResourceUsage" = Relationship(
         back_populates="user_network_quota"
     )
-    sla: "SLA" = Relationship(back_populates="user_network_quota")
+    sla: Optional["SLA"] = Relationship(back_populates="user_network_quota")
 
 
 class SLA(SQLModel, table=True):
@@ -353,15 +355,24 @@ class SLA(SQLModel, table=True):
     end_date: date = Field(nullable=False)
     status: SLAStatus = Field(nullable=False, default=SLAStatus.DISCUSSING)
 
-    negotiation: "SLANegotiation" = Relationship(back_populates="sla")
-    tot_block_storage_quota: "TotBlockStorageQuota" = Relationship(back_populates="sla")
-    tot_compute_quota: "TotComputeQuota" = Relationship(back_populates="sla")
-    tot_network_quota: "TotNetworkQuota" = Relationship(back_populates="sla")
-    user_block_storage_quota: "UserBlockStorageQuota" = Relationship(
-        back_populates="sla"
+    negotiation: "SLANegotiation" = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
     )
-    user_compute_quota: "UserComputeQuota" = Relationship(back_populates="sla")
-    user_network_quota: "UserNetworkQuota" = Relationship(back_populates="sla")
-
-
-# TODO Add "sa_relationship_kwargs={'uselist': False}" to 1-1 relationship
+    tot_block_storage_quota: Optional["TotBlockStorageQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )
+    tot_compute_quota: Optional["TotComputeQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )
+    tot_network_quota: Optional["TotNetworkQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )
+    user_block_storage_quota: Optional["UserBlockStorageQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )
+    user_compute_quota: Optional["UserComputeQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )
+    user_network_quota: Optional["UserNetworkQuota"] = Relationship(
+        back_populates="sla", sa_relationship_kwargs={"uselist": False}
+    )

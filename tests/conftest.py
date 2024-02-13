@@ -1,11 +1,18 @@
 from typing import Any, Generator
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
 from models import ResourceUsage, SLAModerator, User, UserGroupManager
 from tests.item_data import request_dict, user_dict
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 @pytest.fixture(scope="session")
