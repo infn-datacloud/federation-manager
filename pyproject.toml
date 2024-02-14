@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "federation-dealer"
+name = "federation-manager"
 version = "0.1.0"
 description = ""
 authors = ["Giovanni Savarese <giovanni.savarese@lnl.infn.it>"]
