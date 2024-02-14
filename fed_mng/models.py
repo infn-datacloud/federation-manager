@@ -4,13 +4,14 @@ from typing import Optional
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from sqlmodel import Field, Relationship, SQLModel
 
-from enums import (
+from fed_mng.enums import (
     ProviderFederationStatus,
     ProviderFederationType,
     ResourceUsageStatus,
     SLANegotiationStatus,
     SLAStatus,
 )
+
 
 PROV_ID_COL = "providers.id"
 PROV_FED_ID_COL = "provider_federations.id"
@@ -189,11 +190,11 @@ class SLANegotiation(RequestBase, table=True):
     )
     provider_id: int = Field(foreign_key=PROV_ID_COL, nullable=False)
     parent_request_id: int = Field(foreign_key="resource_usages.id", nullable=False)
-    sla_id: int | None = Field(foreign_key="slas.id", nullable=True)
+    sla_id: int = Field(foreign_key="slas.id", nullable=False)
 
     provider: "Provider" = Relationship(back_populates="negotiations")
     parent_request: "ResourceUsage" = Relationship(back_populates="negotiations")
-    sla: Optional["SLA"] = Relationship(back_populates="negotiation")
+    sla: "SLA" = Relationship(back_populates="negotiation")
 
 
 class Provider(SQLModel, table=True):

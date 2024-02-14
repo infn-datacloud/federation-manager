@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Giovanni Savarese <giovanni.savarese@lnl.infn.it>"]
 readme = "README.md"
+packages = [{ include = "fed_mng" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"

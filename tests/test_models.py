@@ -8,8 +8,8 @@ from pytest_cases import parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from enums import ResourceUsageStatus, SLANegotiationStatus
-from models import (
+from fed_mng.enums import ResourceUsageStatus, SLANegotiationStatus
+from fed_mng.models import (
     Admin,
     Location,
     Provider,

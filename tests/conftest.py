@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
-from models import (
+from fed_mng.models import (
     Provider,
     Region,
     ResourceUsage,
