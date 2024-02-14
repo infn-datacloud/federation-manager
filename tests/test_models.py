@@ -3,7 +3,7 @@ from random import getrandbits
 from typing import Any, Type
 
 import pytest
-from app.provider.enum import ProviderStatus
+from fed_reg.provider.enum import ProviderStatus
 from pytest_cases import parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session

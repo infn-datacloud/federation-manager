@@ -401,8 +401,8 @@ uvicorn = "^0.22.0"
 [package.source]
 type = "git"
 url = "https://github.com/indigo-paas/federation-registry.git"
-reference = "build-docker"
-resolved_reference = "1baa04e717570bfcee9d1be77f83352292770073"
+reference = "devel"
+resolved_reference = "d049f87eb5ec575fd75cf4104aeb3458ec3894a7"
 
 [[package]]
 name = "flaat"
@@ -1166,4 +1166,4 @@ standard = ["colorama (>=0.4)", "httptools (>=0.5.0)", "python-dotenv (>=0.13)",
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "9988d81c52aaaaf73cfc23a43e75667efcedfa877d9e61d2a94c3df432693eb4"
+content-hash = "7f403fc32f8fa9f5b2e48d62dea375c4d137618434b825119ac18b4e6f2a34b0"

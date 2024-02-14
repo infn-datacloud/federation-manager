@@ -3,7 +3,7 @@ import time
 from datetime import date
 from random import choice, choices, randint, random
 
-from app.provider.enum import ProviderStatus, ProviderType
+from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import AnyHttpUrl
 
 

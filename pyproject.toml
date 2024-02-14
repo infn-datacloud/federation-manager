@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-federation-registry = {git = "https://github.com/indigo-paas/federation-registry.git", branch = "build-docker"}
+federation-registry = {git = "https://github.com/indigo-paas/federation-registry.git", branch = "devel"}
 sqlmodel = "^0.0.14"
 
 

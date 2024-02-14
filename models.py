@@ -1,8 +1,7 @@
 from datetime import date, datetime
 from typing import Optional
 
-from app.provider.enum import ProviderStatus, ProviderType
-from sqlalchemy import CheckConstraint
+from fed_reg.provider.enum import ProviderStatus, ProviderType
 from sqlmodel import Field, Relationship, SQLModel
 
 from enums import (
