@@ -12,7 +12,6 @@ from fed_mng.enums import (
     SLAStatus,
 )
 
-
 PROV_ID_COL = "providers.id"
 PROV_FED_ID_COL = "provider_federations.id"
 QUOTA_ID_COL = "quotas.id"

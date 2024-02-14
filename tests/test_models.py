@@ -10,6 +10,7 @@ from sqlmodel import Session
 
 from fed_mng.enums import ResourceUsageStatus, SLANegotiationStatus
 from fed_mng.models import (
+    SLA,
     Admin,
     Location,
     Provider,
@@ -36,12 +37,14 @@ from tests.item_data import (
     provider_dict,
     region_dict,
     request_dict,
+    sla_dict,
     user_dict,
 )
 from tests.utils import (
     random_float,
     random_lower_string,
     random_provider_status,
+    random_sla_status,
     random_start_end_dates,
 )
 
@@ -50,6 +53,17 @@ class CaseUserDerived:
     @parametrize(cls=[Admin, SiteAdmin, SiteTester, SLAModerator, UserGroupManager])
     def case_user(self, cls) -> Any:
         return cls
+
+
+class CaseSLAData:
+    def case_short(self) -> dict[str, datetime]:
+        return sla_dict()
+
+    def case_doc_uuid(self) -> dict[str, Any]:
+        return {**sla_dict(), "doc_uuid": random_lower_string()}
+
+    def case_status(self) -> dict[str, Any]:
+        return {**sla_dict(), "status": random_sla_status()}
 
 
 class CaseResourceUsageData:
@@ -493,9 +507,13 @@ def test_sla_negotiation(
     assert len(db_resource_usage_request.negotiations) == 0
     assert len(db_provider.negotiations) == 0
 
+    db_sla = SLA(**sla_dict())
     data = request_dict()
     negotiation = SLANegotiation(
-        **data, parent_request=db_resource_usage_request, provider=db_provider
+        **data,
+        parent_request=db_resource_usage_request,
+        provider=db_provider,
+        sla=db_sla,
     )
     db_session.add(negotiation)
     db_session.commit()
@@ -517,12 +535,19 @@ def test_sla_negotiation(
     assert negotiation.update_date == data.get("update_date")
     assert negotiation.message == data.get("message")
 
-    assert negotiation.sla_id is None
-    assert negotiation.sla is None
+    assert db_sla.id is not None
+    assert negotiation.sla_id == db_sla.id
+    assert negotiation.sla.id == db_sla.id
+    assert negotiation.id == db_sla.negotiation.id
 
 
 # TODO test SLA (with and without quotas)
 # TODO test negotiation with SLA
+
+# @parametrize_with_cases("data", cases=CaseSLAData)
+# def test_sla(db_session: Session, db_negotiation, data: dict[str, Any]) -> None:
+#     assert
+#     sla = SLA(**data, negotiation=db_negotiation)
 
 
 def test_negotiation_without_provider(
@@ -540,6 +565,18 @@ def test_negotiation_without_parent_request(
 ) -> None:
     data = request_dict()
     item = SLANegotiation(**data, provider=db_provider)
+    db_session.add(item)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_negotiation_without_sla(
+    db_session: Session, db_provider: Provider, db_resource_usage_request: ResourceUsage
+) -> None:
+    data = request_dict()
+    item = SLANegotiation(
+        **data, provider=db_provider, parent_request=db_resource_usage_request
+    )
     db_session.add(item)
     with pytest.raises(IntegrityError):
         db_session.commit()

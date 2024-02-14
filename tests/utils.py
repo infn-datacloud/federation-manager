@@ -6,6 +6,8 @@ from random import choice, choices, randint, random
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import AnyHttpUrl
 
+from fed_mng.enums import SLAStatus
+
 
 def random_date() -> date:
     """Return a random date."""
@@ -41,6 +43,14 @@ def random_provider_status(*, exclude: list[str] | None = None) -> str:
     if exclude is None:
         exclude = []
     choices = set([i for i in ProviderStatus]) - set(exclude)
+    return choice(list(choices))
+
+
+def random_sla_status(*, exclude: list[str] | None = None) -> str:
+    """Return one of the possible provider statuses."""
+    if exclude is None:
+        exclude = []
+    choices = set([i for i in SLAStatus]) - set(exclude)
     return choice(list(choices))
 
 

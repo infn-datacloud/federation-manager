@@ -5,6 +5,7 @@ from tests.utils import (
     random_email,
     random_lower_string,
     random_provider_type,
+    random_start_end_dates,
     random_url,
 )
 
@@ -57,3 +58,8 @@ def region_dict() -> dict[str, str]:
 
 def location_dict() -> dict[str, str]:
     return {"site": random_lower_string(), "country": random_lower_string()}
+
+
+def sla_dict() -> dict[str, str]:
+    start_date, end_date = random_start_end_dates()
+    return {"start_date": start_date, "end_date": end_date}
