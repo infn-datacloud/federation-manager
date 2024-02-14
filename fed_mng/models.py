@@ -189,11 +189,10 @@ class SLANegotiation(RequestBase, table=True):
     )
     provider_id: int = Field(foreign_key=PROV_ID_COL, nullable=False)
     parent_request_id: int = Field(foreign_key="resource_usages.id", nullable=False)
-    sla_id: int = Field(foreign_key="slas.id", nullable=False)
 
     provider: "Provider" = Relationship(back_populates="negotiations")
     parent_request: "ResourceUsage" = Relationship(back_populates="negotiations")
-    sla: "SLA" = Relationship(back_populates="negotiation")
+    sla: Optional["SLA"] = Relationship(back_populates="negotiation")
 
 
 class Provider(SQLModel, table=True):
@@ -354,6 +353,9 @@ class SLA(SQLModel, table=True):
     start_date: date = Field(nullable=False)
     end_date: date = Field(nullable=False)
     status: SLAStatus = Field(nullable=False, default=SLAStatus.DISCUSSING)
+    negotiation_id: int | None = Field(
+        foreign_key="sla_negotiations.id", nullable=False
+    )
 
     negotiation: "SLANegotiation" = Relationship(
         back_populates="sla", sa_relationship_kwargs={"uselist": False}

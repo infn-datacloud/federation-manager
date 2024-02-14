@@ -8,7 +8,7 @@ from pytest_cases import parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from fed_mng.enums import ResourceUsageStatus, SLANegotiationStatus
+from fed_mng.enums import ResourceUsageStatus, SLANegotiationStatus, SLAStatus
 from fed_mng.models import (
     SLA,
     Admin,
@@ -499,7 +499,7 @@ def test_invalid_location(data: dict[str, Any]) -> None:
 # TODO: Test provider with idps
 
 
-def test_sla_negotiation(
+def test_negotiation(
     db_session: Session,
     db_provider: Provider,
     db_resource_usage_request: ResourceUsage,
@@ -507,13 +507,11 @@ def test_sla_negotiation(
     assert len(db_resource_usage_request.negotiations) == 0
     assert len(db_provider.negotiations) == 0
 
-    db_sla = SLA(**sla_dict())
     data = request_dict()
     negotiation = SLANegotiation(
         **data,
         parent_request=db_resource_usage_request,
         provider=db_provider,
-        sla=db_sla,
     )
     db_session.add(negotiation)
     db_session.commit()
@@ -535,19 +533,7 @@ def test_sla_negotiation(
     assert negotiation.update_date == data.get("update_date")
     assert negotiation.message == data.get("message")
 
-    assert db_sla.id is not None
-    assert negotiation.sla_id == db_sla.id
-    assert negotiation.sla.id == db_sla.id
-    assert negotiation.id == db_sla.negotiation.id
-
-
-# TODO test SLA (with and without quotas)
-# TODO test negotiation with SLA
-
-# @parametrize_with_cases("data", cases=CaseSLAData)
-# def test_sla(db_session: Session, db_negotiation, data: dict[str, Any]) -> None:
-#     assert
-#     sla = SLA(**data, negotiation=db_negotiation)
+    assert negotiation.sla is None
 
 
 def test_negotiation_without_provider(
@@ -570,13 +556,144 @@ def test_negotiation_without_parent_request(
         db_session.commit()
 
 
-def test_negotiation_without_sla(
-    db_session: Session, db_provider: Provider, db_resource_usage_request: ResourceUsage
+@parametrize_with_cases("data", cases=CaseSLAData)
+def test_sla(
+    db_session: Session, db_negotiation: SLANegotiation, data: dict[str, Any]
 ) -> None:
-    data = request_dict()
-    item = SLANegotiation(
-        **data, provider=db_provider, parent_request=db_resource_usage_request
-    )
-    db_session.add(item)
+    sla = SLA(**data, negotiation=db_negotiation)
+    db_session.add(sla)
+    db_session.commit()
+    db_session.refresh(sla)
+
+    assert sla.id is not None
+    assert sla.doc_uuid == data.get("doc_uuid")
+    assert sla.start_date == data.get("start_date")
+    assert sla.end_date == data.get("end_date")
+    assert sla.status == data.get("status", SLAStatus.DISCUSSING)
+
+    assert db_negotiation.id is not None
+    assert sla.negotiation_id == db_negotiation.id
+    assert sla.negotiation.id == db_negotiation.id
+    assert sla.id == db_negotiation.sla.id
+
+    assert sla.tot_block_storage_quota is None
+    assert sla.tot_compute_quota is None
+    assert sla.tot_network_quota is None
+    assert sla.user_block_storage_quota is None
+    assert sla.user_compute_quota is None
+    assert sla.user_network_quota is None
+
+
+def test_sla_with_tot_block_storage_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.tot_block_storage_quota is None
+
+    data = block_storage_dict()
+    quota = TotBlockStorageQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.tot_block_storage_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.tot_block_storage_quota is not None
+    assert db_sla.tot_block_storage_quota.id == quota.id
+
+
+def test_sla_with_user_block_storage_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.user_block_storage_quota is None
+
+    data = block_storage_dict()
+    quota = UserBlockStorageQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.user_block_storage_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.user_block_storage_quota is not None
+    assert db_sla.user_block_storage_quota.id == quota.id
+
+
+def test_sla_with_tot_compute_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.tot_compute_quota is None
+
+    data = compute_dict()
+    quota = TotComputeQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.tot_compute_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.tot_compute_quota is not None
+    assert db_sla.tot_compute_quota.id == quota.id
+
+
+def test_sla_with_user_compute_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.user_compute_quota is None
+
+    data = compute_dict()
+    quota = UserComputeQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.user_compute_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.user_compute_quota is not None
+    assert db_sla.user_compute_quota.id == quota.id
+
+
+def test_sla_with_tot_network_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.tot_network_quota is None
+
+    data = network_dict()
+    quota = TotNetworkQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.tot_network_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.tot_network_quota is not None
+    assert db_sla.tot_network_quota.id == quota.id
+
+
+def test_sla_with_user_network_quota(
+    db_session: Session,
+    db_resource_usage_request: ResourceUsage,
+    db_sla: SLA,
+) -> None:
+    assert db_sla.user_network_quota is None
+
+    data = network_dict()
+    quota = UserNetworkQuota(**data, mentioning_request=db_resource_usage_request)
+    db_sla.user_network_quota = quota
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+
+    assert db_sla.user_network_quota is not None
+    assert db_sla.user_network_quota.id == quota.id
+
+
+def test_sla_without_negotiation(db_session: Session) -> None:
+    sla = SLA(**sla_dict())
+    db_session.add(sla)
     with pytest.raises(IntegrityError):
         db_session.commit()

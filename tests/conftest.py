@@ -5,15 +5,23 @@ from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine
 
 from fed_mng.models import (
+    SLA,
     Provider,
     Region,
     ResourceUsage,
+    SLANegotiation,
     SiteAdmin,
     SLAModerator,
     User,
     UserGroupManager,
 )
-from tests.item_data import provider_dict, region_dict, request_dict, user_dict
+from tests.item_data import (
+    provider_dict,
+    region_dict,
+    request_dict,
+    sla_dict,
+    user_dict,
+)
 
 
 @event.listens_for(Engine, "connect")
@@ -108,3 +116,27 @@ def db_region(db_session: Session, db_provider: Provider) -> Region:
     db_session.commit()
     db_session.refresh(db_region)
     return db_region
+
+
+@pytest.fixture(scope="function")
+def db_negotiation(
+    db_session: Session, db_provider: Provider, db_resource_usage_request: ResourceUsage
+) -> SLANegotiation:
+    data = request_dict()
+    db_negotiation = SLANegotiation(
+        **data, parent_request=db_resource_usage_request, provider=db_provider
+    )
+    db_session.add(db_negotiation)
+    db_session.commit()
+    db_session.refresh(db_negotiation)
+    return db_negotiation
+
+
+@pytest.fixture(scope="function")
+def db_sla(db_session: Session, db_negotiation: SLANegotiation) -> SLA:
+    data = sla_dict()
+    db_sla = SLA(**data, negotiation=db_negotiation)
+    db_session.add(db_sla)
+    db_session.commit()
+    db_session.refresh(db_sla)
+    return db_sla
