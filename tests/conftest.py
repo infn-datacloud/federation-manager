@@ -9,9 +9,9 @@ from fed_mng.models import (
     Provider,
     Region,
     ResourceUsage,
-    SLANegotiation,
     SiteAdmin,
     SLAModerator,
+    SLANegotiation,
     User,
     UserGroupManager,
 )

@@ -121,25 +121,19 @@ class ProviderFederation(RequestBase, table=True):
 # class CreateProvider(ProviderFederation):
 #     __tablename__ = "create_providers"
 
-#     id: int] = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
-
-#     __mapper_args__: ClassVar = {"polymorphic_identity": ProviderFederationType.CREATE}
+#     id: int = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
 
 
 # class UpdateProvider(ProviderFederation):
 #     __tablename__ = "update_providers"
 
-#     id: int] = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
-
-#     __mapper_args__: ClassVar = {"polymorphic_identity": ProviderFederationType.UPDATE}
+#     id: int = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
 
 
 # class DeleteProvider(ProviderFederation):
 #     __tablename__ = "delete_providers"
 
-#     id: int] = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
-
-#     __mapper_args__: ClassVar = {"polymorphic_identity": ProviderFederationType.DELETE}
+#     id: int = Field(ForeignKey(PROV_FED_ID_COL), primary_key=True)
 
 
 class ResourceUsage(RequestBase, table=True):
