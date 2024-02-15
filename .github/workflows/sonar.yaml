@@ -1,0 +1,81 @@
+name: Test and analysis
+
+on:
+  push:
+    branches:
+      - main
+      - devel
+      - ci
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  test-analysis:
+    name: Python tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Install and configure poetry
+      - name: Install Poetry
+        id: install-poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      # Set up python versions to use
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+          cache-dependency-path: ${{ steps.install-poetry.cache-dir }}
+
+      # Install dependencies if cache does not exist
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      # Run tests
+      - name: Run tests
+        run: poetry run pytest --cov --cov-report=xml --cov-report=html
+
+      # Upload coverage as artifacts
+      - name: Upload HTML coverage as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-${{ matrix.python-version }}-html
+          path: htmlcov
+
+      - name: Upload XML coverage as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-${{ matrix.python-version }}-xml
+          path: coverage.xml
+
+      # Upload coverage to SonarCloud for code analysis
+      - name: SonarCloud analysis
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ github.repository_owner }}
+            -Dsonar.projectKey=${{ github.repository_owner }}_federation-manager
+            -Dsonar.sources=fed_mng
+            -Dsonar.tests=tests
+            -Dsonar.python.version=${{ matrix.python-version }}
+            -Dsonar.python.coverage.reportPaths=coverage.xml
