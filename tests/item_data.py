@@ -1,6 +1,8 @@
 from datetime import datetime
 from random import randint
 
+from pydantic import AnyHttpUrl
+
 from tests.utils import (
     random_email,
     random_lower_string,
@@ -63,3 +65,7 @@ def location_dict() -> dict[str, str]:
 def sla_dict() -> dict[str, str]:
     start_date, end_date = random_start_end_dates()
     return {"start_date": start_date, "end_date": end_date}
+
+
+def identity_provider_dict() -> dict[str, AnyHttpUrl]:
+    return {"endpoint": random_url()}

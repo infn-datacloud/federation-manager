@@ -4,6 +4,7 @@ from typing import Any, Type
 
 import pytest
 from fed_reg.provider.enum import ProviderStatus
+from pydantic import AnyHttpUrl
 from pytest_cases import case, get_case_tags, parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
@@ -12,6 +13,7 @@ from fed_mng.enums import ResourceUsageStatus, SLANegotiationStatus, SLAStatus
 from fed_mng.models import (
     SLA,
     Admin,
+    IdentityProvider,
     Location,
     Provider,
     Region,
@@ -23,6 +25,7 @@ from fed_mng.models import (
     TotBlockStorageQuota,
     TotComputeQuota,
     TotNetworkQuota,
+    Trusts,
     User,
     UserBlockStorageQuota,
     UserComputeQuota,
@@ -32,6 +35,7 @@ from fed_mng.models import (
 from tests.item_data import (
     block_storage_dict,
     compute_dict,
+    identity_provider_dict,
     location_dict,
     network_dict,
     provider_dict,
@@ -64,6 +68,14 @@ class CaseSLAData:
 
     def case_status(self) -> dict[str, Any]:
         return {**sla_dict(), "status": random_sla_status()}
+
+
+class CaseIdentityProviderData:
+    def case_short(self) -> dict[str, AnyHttpUrl]:
+        return identity_provider_dict()
+
+    def case_desc(self) -> dict[str, Any]:
+        return {**identity_provider_dict(), "description": random_lower_string()}
 
 
 class CaseResourceUsageData:
@@ -230,6 +242,13 @@ def test_resource_usage_request(
 
     assert resource_usage_request.moderator_id is None
     assert resource_usage_request.moderator is None
+
+    assert resource_usage_request.tot_block_storage_quota is None
+    assert resource_usage_request.tot_compute_quota is None
+    assert resource_usage_request.tot_network_quota is None
+    assert resource_usage_request.user_block_storage_quota is None
+    assert resource_usage_request.user_compute_quota is None
+    assert resource_usage_request.user_network_quota is None
 
 
 def test_resource_usage_request_without_issuer(db_session: Session) -> None:
@@ -402,7 +421,142 @@ def test_provider_with_site_admins(
     assert db_provider.id == db_site_admin.providers[0].id
 
 
-# TODO: Test provider with versions?
+# TODO: Test Provider federation requests
+# TODO: Test provider with versions and mentioning request
+
+
+@parametrize_with_cases("data", cases=CaseIdentityProviderData)
+def test_identity_provider(db_session: Session, data: dict[str, Any]) -> None:
+    identity_provider = IdentityProvider(**data)
+
+    db_session.add(identity_provider)
+    db_session.commit()
+    db_session.refresh(identity_provider)
+
+    assert identity_provider.id is not None
+    assert identity_provider.endpoint == data.get("endpoint")
+    assert identity_provider.description == data.get("description")
+    assert len(identity_provider.authorized_providers) == 0
+
+
+def test_identity_provider_with_provider(
+    db_session: Session, db_identity_provider: IdentityProvider, db_provider: Provider
+) -> None:
+    assert len(db_identity_provider.authorized_providers) == 0
+    assert len(db_provider.trusted_identity_providers) == 0
+
+    # Create the trust association object and link it
+    trust = Trusts(idp_name=random_lower_string(), protocol=random_lower_string())
+    trust.provider = db_provider
+    db_identity_provider.authorized_providers.append(trust)
+
+    db_session.add(db_identity_provider)
+    db_session.commit()
+    db_session.refresh(db_identity_provider)
+
+    assert len(db_identity_provider.authorized_providers) == 1
+    assert db_identity_provider.authorized_providers[0].provider_id == db_provider.id
+    assert (
+        db_identity_provider.authorized_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+    assert len(db_provider.trusted_identity_providers) == 1
+    assert db_provider.trusted_identity_providers[0].provider_id == db_provider.id
+    assert (
+        db_provider.trusted_identity_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+
+
+def test_identity_provider_with_multi_providers(
+    db_session: Session, db_identity_provider: IdentityProvider, db_provider: Provider
+) -> None:
+    assert len(db_identity_provider.authorized_providers) == 0
+    assert len(db_provider.trusted_identity_providers) == 0
+
+    # Create the trust association object and link it
+    trust = Trusts(idp_name=random_lower_string(), protocol=random_lower_string())
+    trust.provider = db_provider
+    db_identity_provider.authorized_providers.append(trust)
+
+    db_provider2 = Provider(**provider_dict())
+    trust = Trusts(idp_name=random_lower_string(), protocol=random_lower_string())
+    trust.provider = db_provider2
+    db_identity_provider.authorized_providers.append(trust)
+
+    db_session.add(db_identity_provider)
+    db_session.commit()
+    db_session.refresh(db_identity_provider)
+
+    assert len(db_identity_provider.authorized_providers) == 2
+    assert db_identity_provider.authorized_providers[0].provider_id == db_provider.id
+    assert db_identity_provider.authorized_providers[1].provider_id == db_provider2.id
+    assert (
+        db_identity_provider.authorized_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+    assert (
+        db_identity_provider.authorized_providers[1].identity_provider_id
+        == db_identity_provider.id
+    )
+
+    assert len(db_provider.trusted_identity_providers) == 1
+    assert db_provider.trusted_identity_providers[0].provider_id == db_provider.id
+    assert (
+        db_provider.trusted_identity_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+    assert db_provider2.trusted_identity_providers[0].provider_id == db_provider2.id
+    assert (
+        db_provider2.trusted_identity_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+
+
+def test_provider_with_multi_identity_providers(
+    db_session: Session, db_identity_provider: IdentityProvider, db_provider: Provider
+) -> None:
+    assert len(db_identity_provider.authorized_providers) == 0
+    assert len(db_provider.trusted_identity_providers) == 0
+
+    # Create the trust association object and link it
+    trust = Trusts(idp_name=random_lower_string(), protocol=random_lower_string())
+    trust.provider = db_provider
+    db_identity_provider.authorized_providers.append(trust)
+
+    db_identity_provider2 = IdentityProvider(**identity_provider_dict())
+    trust = Trusts(idp_name=random_lower_string(), protocol=random_lower_string())
+    trust.provider = db_provider
+    db_identity_provider2.authorized_providers.append(trust)
+
+    db_session.add(db_provider)
+    db_session.commit()
+    db_session.refresh(db_provider)
+
+    assert len(db_identity_provider.authorized_providers) == 1
+    assert db_identity_provider.authorized_providers[0].provider_id == db_provider.id
+    assert (
+        db_identity_provider.authorized_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+    assert len(db_identity_provider2.authorized_providers) == 1
+    assert db_identity_provider2.authorized_providers[0].provider_id == db_provider.id
+    assert (
+        db_identity_provider2.authorized_providers[0].identity_provider_id
+        == db_identity_provider2.id
+    )
+
+    assert len(db_provider.trusted_identity_providers) == 2
+    assert db_provider.trusted_identity_providers[0].provider_id == db_provider.id
+    assert db_provider.trusted_identity_providers[1].provider_id == db_provider.id
+    assert (
+        db_provider.trusted_identity_providers[0].identity_provider_id
+        == db_identity_provider.id
+    )
+    assert (
+        db_provider.trusted_identity_providers[1].identity_provider_id
+        == db_identity_provider2.id
+    )
 
 
 @parametrize_with_cases("data", cases=CaseRegionData)
@@ -497,10 +651,6 @@ def test_invalid_location(data: dict[str, Any]) -> None:
     for k, v in data.items():
         assert v is not None
         assert location.__getattribute__(k) is None
-
-
-# TODO: Test idp
-# TODO: Test provider with idps
 
 
 def test_negotiation(

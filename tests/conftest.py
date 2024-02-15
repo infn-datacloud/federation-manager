@@ -6,6 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from fed_mng.models import (
     SLA,
+    IdentityProvider,
     Provider,
     Region,
     ResourceUsage,
@@ -16,6 +17,7 @@ from fed_mng.models import (
     UserGroupManager,
 )
 from tests.item_data import (
+    identity_provider_dict,
     provider_dict,
     region_dict,
     request_dict,
@@ -140,3 +142,13 @@ def db_sla(db_session: Session, db_negotiation: SLANegotiation) -> SLA:
     db_session.commit()
     db_session.refresh(db_sla)
     return db_sla
+
+
+@pytest.fixture(scope="function")
+def db_identity_provider(db_session: Session) -> IdentityProvider:
+    data = identity_provider_dict()
+    db_identity_provider = IdentityProvider(**data)
+    db_session.add(db_identity_provider)
+    db_session.commit()
+    db_session.refresh(db_identity_provider)
+    return db_identity_provider
