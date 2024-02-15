@@ -4,7 +4,7 @@ from typing import Any, Type
 
 import pytest
 from fed_reg.provider.enum import ProviderStatus
-from pytest_cases import parametrize, parametrize_with_cases
+from pytest_cases import case, get_case_tags, parametrize, parametrize_with_cases
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
@@ -144,17 +144,29 @@ class CaseInvalidLocationData:
 
 
 class CaseQuotaDerived:
-    @parametrize(cls=[TotBlockStorageQuota, UserBlockStorageQuota])
-    def case_block_storage(self, cls) -> tuple[Any, dict[str, int]]:
-        return cls, block_storage_dict()
+    @case(tags=["tot", "block_storage"])
+    def case_tot_block_storage(self) -> TotBlockStorageQuota:
+        return TotBlockStorageQuota(**block_storage_dict())
 
-    @parametrize(cls=[TotComputeQuota, UserComputeQuota])
-    def case_compute(self, cls) -> tuple[Any, dict[str, int]]:
-        return cls, compute_dict()
+    @case(tags=["user", "block_storage"])
+    def case_user_block_storage(self) -> UserBlockStorageQuota:
+        return UserBlockStorageQuota(**block_storage_dict())
 
-    @parametrize(cls=[TotNetworkQuota, UserNetworkQuota])
-    def case_network(self, cls) -> tuple[Any, dict[str, int]]:
-        return cls, network_dict()
+    @case(tags=["tot", "compute"])
+    def case_tot_compute(self) -> TotComputeQuota:
+        return TotComputeQuota(**compute_dict())
+
+    @case(tags=["user", "compute"])
+    def case_user_compute(self) -> UserComputeQuota:
+        return UserComputeQuota(**compute_dict())
+
+    @case(tags=["tot", "network"])
+    def case_tot_network(self) -> TotNetworkQuota:
+        return TotNetworkQuota(**network_dict())
+
+    @case(tags=["user", "network"])
+    def case_user_network(self) -> UserNetworkQuota:
+        return UserNetworkQuota(**network_dict())
 
 
 class CaseQuotaScope:
@@ -333,30 +345,22 @@ def test_network_quota(
         assert quota.id == db_resource_usage_request.user_network_quota.id
 
 
-@parametrize_with_cases("cls, data", cases=CaseQuotaDerived)
-def test_quota_without_res_usage_req(
-    db_session: Session, cls: Any, data: dict[str, int]
-) -> None:
-    quota = cls(**data)
+@parametrize_with_cases("quota", cases=CaseQuotaDerived)
+def test_quota_without_res_usage_req(db_session: Session, quota: Any) -> None:
     db_session.add(quota)
     with pytest.raises(IntegrityError):
         db_session.commit()
 
 
-@parametrize_with_cases("cls, data", cases=CaseQuotaDerived)
+@parametrize_with_cases("quota", cases=CaseQuotaDerived)
 def test_quota_wit_multi_res_usage_req(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    cls: Any,
-    data: dict[str, int],
+    db_resource_usage_request: ResourceUsage, quota: Any
 ) -> None:
-    quota = cls(
-        **data,
-        mentioning_requests=[db_resource_usage_request, db_resource_usage_request],
-    )
-    db_session.add(quota)
-    with pytest.raises(IntegrityError):
-        db_session.commit()
+    with pytest.raises(AttributeError):
+        quota.mentioning_request = [
+            db_resource_usage_request,
+            db_resource_usage_request,
+        ]
 
 
 @parametrize_with_cases("data", cases=CaseProviderData)
@@ -584,112 +588,27 @@ def test_sla(
     assert sla.user_network_quota is None
 
 
-def test_sla_with_tot_block_storage_quota(
+@parametrize_with_cases("quota", cases=CaseQuotaDerived)
+def test_sla_with_quota(
     db_session: Session,
     db_resource_usage_request: ResourceUsage,
     db_sla: SLA,
+    quota: Any,
+    current_cases: dict,
 ) -> None:
-    assert db_sla.tot_block_storage_quota is None
+    tags = get_case_tags(current_cases["quota"].func)
+    attr = f"{tags[0]}_{tags[1]}_quota"
 
-    data = block_storage_dict()
-    quota = TotBlockStorageQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.tot_block_storage_quota = quota
+    db_sla.__getattribute__(attr)
+    quota.mentioning_request = db_resource_usage_request
+    db_sla.__setattr__(attr, quota)
+
     db_session.add(db_sla)
     db_session.commit()
     db_session.refresh(db_sla)
 
-    assert db_sla.tot_block_storage_quota is not None
-    assert db_sla.tot_block_storage_quota.id == quota.id
-
-
-def test_sla_with_user_block_storage_quota(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    db_sla: SLA,
-) -> None:
-    assert db_sla.user_block_storage_quota is None
-
-    data = block_storage_dict()
-    quota = UserBlockStorageQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.user_block_storage_quota = quota
-    db_session.add(db_sla)
-    db_session.commit()
-    db_session.refresh(db_sla)
-
-    assert db_sla.user_block_storage_quota is not None
-    assert db_sla.user_block_storage_quota.id == quota.id
-
-
-def test_sla_with_tot_compute_quota(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    db_sla: SLA,
-) -> None:
-    assert db_sla.tot_compute_quota is None
-
-    data = compute_dict()
-    quota = TotComputeQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.tot_compute_quota = quota
-    db_session.add(db_sla)
-    db_session.commit()
-    db_session.refresh(db_sla)
-
-    assert db_sla.tot_compute_quota is not None
-    assert db_sla.tot_compute_quota.id == quota.id
-
-
-def test_sla_with_user_compute_quota(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    db_sla: SLA,
-) -> None:
-    assert db_sla.user_compute_quota is None
-
-    data = compute_dict()
-    quota = UserComputeQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.user_compute_quota = quota
-    db_session.add(db_sla)
-    db_session.commit()
-    db_session.refresh(db_sla)
-
-    assert db_sla.user_compute_quota is not None
-    assert db_sla.user_compute_quota.id == quota.id
-
-
-def test_sla_with_tot_network_quota(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    db_sla: SLA,
-) -> None:
-    assert db_sla.tot_network_quota is None
-
-    data = network_dict()
-    quota = TotNetworkQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.tot_network_quota = quota
-    db_session.add(db_sla)
-    db_session.commit()
-    db_session.refresh(db_sla)
-
-    assert db_sla.tot_network_quota is not None
-    assert db_sla.tot_network_quota.id == quota.id
-
-
-def test_sla_with_user_network_quota(
-    db_session: Session,
-    db_resource_usage_request: ResourceUsage,
-    db_sla: SLA,
-) -> None:
-    assert db_sla.user_network_quota is None
-
-    data = network_dict()
-    quota = UserNetworkQuota(**data, mentioning_request=db_resource_usage_request)
-    db_sla.user_network_quota = quota
-    db_session.add(db_sla)
-    db_session.commit()
-    db_session.refresh(db_sla)
-
-    assert db_sla.user_network_quota is not None
-    assert db_sla.user_network_quota.id == quota.id
+    assert db_sla.__getattribute__(attr) is not None
+    assert db_sla.__getattribute__(attr).id == quota.id
 
 
 def test_sla_without_negotiation(db_session: Session) -> None:
