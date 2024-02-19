@@ -2,15 +2,18 @@ from typing import Any, Generator
 
 import pytest
 from sqlalchemy import Engine, event
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel
 
+from fed_mng.main import engine
 from fed_mng.models import (
     SLA,
+    Admin,
     IdentityProvider,
     Provider,
     Region,
     ResourceUsage,
     SiteAdmin,
+    SiteTester,
     SLAModerator,
     SLANegotiation,
     User,
@@ -36,7 +39,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
 @pytest.fixture(scope="session")
 def db_engine() -> Generator[Engine, Any, None]:
     """Define the database engine and create all tables."""
-    engine = create_engine("sqlite:///:memory:")
+    engine.url = "sqlite://"
+    engine.echo = False
     SQLModel.metadata.create_all(engine)
     yield engine
     SQLModel.metadata.drop_all(engine)
@@ -63,12 +67,30 @@ def db_user(db_session: Session) -> User:
 
 
 @pytest.fixture(scope="function")
+def db_admin(db_session: Session, db_user: User) -> Admin:
+    admin = Admin(id=db_user.id)
+    db_session.add(admin)
+    db_session.commit()
+    db_session.refresh(admin)
+    return admin
+
+
+@pytest.fixture(scope="function")
 def db_site_admin(db_session: Session, db_user: User) -> SiteAdmin:
     site_admin = SiteAdmin(id=db_user.id)
     db_session.add(site_admin)
     db_session.commit()
     db_session.refresh(site_admin)
     return site_admin
+
+
+@pytest.fixture(scope="function")
+def db_site_tester(db_session: Session, db_user: User) -> SiteTester:
+    site_tester = SiteTester(id=db_user.id)
+    db_session.add(site_tester)
+    db_session.commit()
+    db_session.refresh(site_tester)
+    return site_tester
 
 
 @pytest.fixture(scope="function")

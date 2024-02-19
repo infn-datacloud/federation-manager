@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     MAINTAINER_URL: AnyHttpUrl | None = None
     MAINTAINER_EMAIL: EmailStr | None = None
 
+    TRUSTED_IDP_LIST: list[AnyHttpUrl] = []
+
     DOC_V1_URL: AnyHttpUrl | None = None
 
     @validator("DOC_V1_URL", pre=True)
