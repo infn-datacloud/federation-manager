@@ -9,3 +9,5 @@
 # Tests and coverage
 **/.coverage
 **/coverage*.xml
+
+wfdata

@@ -41,6 +41,8 @@ class Settings(BaseSettings):
         link = os.path.join(values.get("DOMAIN"), values.get("API_V1_STR")[1:], "docs")
         return f"{protocol}://{link}"
 
+    WORKFLOW_DIR: str = "wfdata"
+
     class Config:
         """Sub class to set attribute as case sensitive."""
 
