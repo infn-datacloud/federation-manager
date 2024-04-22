@@ -7,7 +7,7 @@ from flaat.user_infos import UserInfos
 from sqlmodel import Session, select
 
 from fed_mng.config import get_settings
-from fed_mng.main import engine
+from fed_mng.db import engine
 from fed_mng.models import (
     Admin,
     SiteAdmin,

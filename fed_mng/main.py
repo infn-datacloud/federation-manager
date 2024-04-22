@@ -1,12 +1,9 @@
 """Entry point for the Federation-Manager web app."""
-from contextlib import asynccontextmanager
-from typing import Any, Generator
-
 import uvicorn
 from fastapi import FastAPI
-from sqlmodel import Session, SQLModel, create_engine
 
 from fed_mng.config import get_settings
+from fed_mng.db import lifespan
 from fed_mng.router import router_v1
 
 summary = "Federation-Manager of the DataCloud project"
@@ -53,20 +50,6 @@ sub_app_v1 = FastAPI(
 )
 sub_app_v1.include_router(router_v1)
 app.mount(settings.API_V1_STR, sub_app_v1)
-
-
-connect_args = {"check_same_thread": False}
-engine = create_engine("sqlite://", echo=True, connect_args=connect_args)
-
-
-@asynccontextmanager
-async def lifespan() -> None:
-    SQLModel.metadata.create_all(engine)
-
-
-def get_session() -> Generator[Session, Any, None]:
-    with Session(engine) as session:
-        yield session
 
 
 if __name__ == "__main__":
