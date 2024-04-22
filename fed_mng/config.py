@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     MAINTAINER_EMAIL: EmailStr | None = None
 
     TRUSTED_IDP_LIST: list[AnyHttpUrl] = []
+    ADMIN_EMAIL_LIST: list[EmailStr] = []
+    ADMIN_NAME_LIST: list[str] = []
 
     DOC_V1_URL: AnyHttpUrl | None = None
 

@@ -47,7 +47,7 @@ class User(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True)
     name: str = Field(nullable=False)
-    email: str = Field(nullable=False)
+    email: str = Field(nullable=False, unique=True)
 
 
 class Admin(SQLModel, table=True):
