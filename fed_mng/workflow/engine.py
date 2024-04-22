@@ -36,6 +36,7 @@ class BpmnEngine:
         process_id: str,
         bpmn_files: list[str] | None,
         dmn_files: list[str] | None = None,
+        force: bool = False,
     ) -> str:
         self.add_files(bpmn_files=bpmn_files, dmn_files=dmn_files)
         try:
@@ -47,7 +48,7 @@ class BpmnEngine:
             # However, our parser makes me mad so not investigating further at this time
             self.parser.process_parsers = {}
             raise exc
-        spec_id = self.serializer.create_workflow_spec(spec, dependencies)
+        spec_id = self.serializer.create_workflow_spec(spec, dependencies, force=force)
         logger.info("Added %s with id %s", process_id, spec_id)
         return spec_id
 
@@ -56,6 +57,7 @@ class BpmnEngine:
         collaboration_id: str,
         bpmn_files: list[str],
         dmn_files: list[str] | None = None,
+        force: bool = False,
     ) -> str:
         self.add_files(bpmn_files=bpmn_files, dmn_files=dmn_files)
         try:
@@ -63,7 +65,7 @@ class BpmnEngine:
         except ValidationException as exc:
             self.parser.process_parsers = {}
             raise exc
-        spec_id = self.serializer.create_workflow_spec(spec, dependencies)
+        spec_id = self.serializer.create_workflow_spec(spec, dependencies, force=force)
         logger.info("Added %s with id %s", collaboration_id, spec_id)
         return spec_id
 

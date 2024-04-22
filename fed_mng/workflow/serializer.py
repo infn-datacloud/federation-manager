@@ -24,7 +24,9 @@ class FileSerializer(BpmnWorkflowSerializer):
         os.makedirs(os.path.join(self.dirname, "spec"), exist_ok=True)
         os.makedirs(os.path.join(self.dirname, "instance"), exist_ok=True)
 
-    def create_workflow_spec(self, spec: BpmnProcessSpec, dependencies: dict) -> str:
+    def create_workflow_spec(
+        self, spec: BpmnProcessSpec, dependencies: dict, force: bool = False
+    ) -> str:
         spec_dir = os.path.join(self.dirname, "spec")
         if spec.file is not None:
             dirname = os.path.join(spec_dir, os.path.dirname(spec.file), spec.name)
@@ -33,7 +35,7 @@ class FileSerializer(BpmnWorkflowSerializer):
         filename = os.path.join(dirname, f"{spec.name}.json")
         try:
             os.makedirs(dirname, exist_ok=True)
-            with open(filename, "x") as fh:
+            with open(filename, "w" if force else "x") as fh:
                 fh.write(json.dumps(self.to_dict(spec), **self.fmt))
             if len(dependencies) > 0:
                 os.mkdir(os.path.join(dirname, "dependencies"))

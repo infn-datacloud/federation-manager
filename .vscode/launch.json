@@ -13,6 +13,14 @@
       "justMyCode": false
     },
     {
+      "name": "Spiffworkflow",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "fed_mng/workflow/spiff.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Uvicorn: FastAPI App",
       "type": "debugpy",
       "request": "launch",
