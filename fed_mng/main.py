@@ -39,6 +39,7 @@ app = FastAPI(
     summary=summary,
     title=settings.PROJECT_NAME,
     version=version,
+    lifespan=lifespan,
 )
 
 sub_app_v1 = FastAPI(
@@ -53,4 +54,4 @@ app.mount(settings.API_V1_STR, sub_app_v1)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", lifespan=lifespan)
+    uvicorn.run(app, host="0.0.0.0")

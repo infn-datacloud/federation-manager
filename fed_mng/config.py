@@ -41,7 +41,9 @@ class Settings(BaseSettings):
         link = os.path.join(values.get("DOMAIN"), values.get("API_V1_STR")[1:], "docs")
         return f"{protocol}://{link}"
 
-    WORKFLOW_DIR: str = "wfdata"
+    WORKFLOW_DIR: str = "data"
+
+    SQLITE_DB: str = ":memory:"
 
     class Config:
         """Sub class to set attribute as case sensitive."""
