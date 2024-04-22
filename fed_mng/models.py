@@ -57,6 +57,11 @@ class UserCreate(UserBase):
     ...
 
 
+class UserUpdate(SQLModel):
+    name: str | None = Field(nullable=True)
+    email: str | None = Field(nullable=True)
+
+
 class Admin(SQLModel, table=True):
     __tablename__ = "admins"
 
