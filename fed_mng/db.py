@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from typing import Any, Generator
 
 from fastapi import FastAPI
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from fed_mng import models
