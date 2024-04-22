@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, Request, Security
+from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPBasicCredentials
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from fed_mng.api.dependencies import user_exists
 from fed_mng.auth import flaat, security
 from fed_mng.db import get_session
 from fed_mng.models import (
     Admin,
-    SLAModerator,
     SiteAdmin,
     SiteTester,
+    SLAModerator,
     User,
+    UserCreate,
     UserGroupManager,
 )
-from fed_mng.workflow.manager import engine
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -24,19 +26,18 @@ router = APIRouter(prefix="/users", tags=["users"])
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_user_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
-    return session.exec(statement=select(Admin)).all()
+    return session.exec(select(User)).all()
 
 
 @router.get(
@@ -46,16 +47,15 @@ def get_user_list(
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_admin_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
     return session.exec(select(User).join(Admin)).all()
@@ -68,16 +68,15 @@ def get_admin_list(
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_site_admin_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
     return session.exec(select(User).join(SiteAdmin)).all()
@@ -90,16 +89,15 @@ def get_site_admin_list(
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_site_tester_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
     return session.exec(select(User).join(SiteTester)).all()
@@ -112,16 +110,15 @@ def get_site_tester_list(
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_sla_moderator_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
     return session.exec(select(User).join(SLAModerator)).all()
@@ -134,16 +131,80 @@ def get_sla_moderator_list(
         contains the specification's ID, the process name and the path to the original \
         BPMN file.",
 )
-# @flaat.access_level("user")
-# @db.read_transaction
+@flaat.access_level("admin")
 def get_user_group_mgr_list(
+    request: Request,
     session: Session = Depends(get_session),
-    # request: Request,
     # comm: DbQueryCommonParams = Depends(),
     # page: Pagination = Depends(),
     # size: SchemaSize = Depends(),
     # item: FlavorQuery = Depends(),
-    # client_credentials: HTTPBasicCredentials = Security(security),
+    client_credentials: HTTPBasicCredentials = Security(security),
 ) -> list[User]:
     """GET operation to retrieve all users."""
     return session.exec(select(User).join(UserGroupManager)).all()
+
+
+@router.get(
+    "/{user_id}",
+    summary="Read specific user",
+    description="Retrieve all loaded process specifications. Each returned tuple \
+        contains the specification's ID, the process name and the path to the original \
+        BPMN file.",
+)
+@flaat.access_level("admin")
+def get_user(
+    request: Request,
+    user: User = Depends(user_exists),
+    client_credentials: HTTPBasicCredentials = Security(security),
+) -> User:
+    """GET operation to retrieve all users."""
+    return user
+
+
+@router.delete(
+    "/{user_id}",
+    summary="Delete specific user",
+    description="Retrieve all loaded process specifications. Each returned tuple \
+        contains the specification's ID, the process name and the path to the original \
+        BPMN file.",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+@flaat.access_level("admin")
+def delete_user(
+    request: Request,
+    user: User = Depends(user_exists),
+    session: Session = Depends(get_session),
+    client_credentials: HTTPBasicCredentials = Security(security),
+) -> None:
+    """GET operation to retrieve all users."""
+    session.delete(user)
+    session.commit()
+
+
+@router.post(
+    "/",
+    summary="Create new user",
+    description="Retrieve all loaded process specifications. Each returned tuple \
+        contains the specification's ID, the process name and the path to the original \
+        BPMN file.",
+    status_code=status.HTTP_201_CREATED,
+)
+@flaat.access_level("admin")
+def create_user(
+    request: Request,
+    user: UserCreate,
+    session: Session = Depends(get_session),
+    client_credentials: HTTPBasicCredentials = Security(security),
+) -> User:
+    """GET operation to retrieve all users."""
+    try:
+        user = User(**user.model_dump())
+        session.add(user)
+        session.commit()
+        return user
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"User with email `{user.email}` already exists.",
+        ) from exc

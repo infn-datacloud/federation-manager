@@ -42,12 +42,19 @@ class Trusts(SQLModel, table=True):
     )
 
 
-class User(SQLModel, table=True):
+class UserBase(SQLModel):
+    name: str = Field(nullable=False)
+    email: str = Field(nullable=False, unique=True)
+
+
+class User(UserBase, table=True):
     __tablename__ = "users"
 
     id: int | None = Field(primary_key=True)
-    name: str = Field(nullable=False)
-    email: str = Field(nullable=False, unique=True)
+
+
+class UserCreate(UserBase):
+    ...
 
 
 class Admin(SQLModel, table=True):

@@ -17,7 +17,7 @@ engine = create_engine(
 
 def initialize() -> None:
     with Session(engine) as session:
-        for name, email in zip(settings.ADMIN_EMAIL_LIST, settings.ADMIN_NAME_LIST):
+        for email, name in zip(settings.ADMIN_EMAIL_LIST, settings.ADMIN_NAME_LIST):
             statement = select(models.User).filter(models.User.email == email)
             user: models.User = session.exec(statement).first()
             if not user:
