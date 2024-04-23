@@ -1,3 +1,4 @@
+"""Users endpoints."""
 from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPBasicCredentials
 from sqlalchemy.exc import IntegrityError
@@ -27,9 +28,12 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     summary="Read all users",
-    description="Retrieve all loaded process specifications. Each returned tuple \
-        contains the specification's ID, the process name and the path to the original \
-        BPMN file.",
+    description="""
+    Retrieve all registered users with their attributes.
+    If specified, results can be filtered by attribute and role. It is possible to
+    paginate results (by default the endpoint returns at most 100 items). Results can
+    be sorted, both ascending and descending order, by any of the user attribute.
+    """,
 )
 @flaat.access_level("admin")
 def get_user_list(
@@ -47,9 +51,10 @@ def get_user_list(
 @router.get(
     "/{user_id}",
     summary="Read specific user",
-    description="Retrieve all loaded process specifications. Each returned tuple \
-        contains the specification's ID, the process name and the path to the original \
-        BPMN file.",
+    description="""
+    Retrieve the user matching the received `user_id`. If the target item does not
+    exist, raise a `404 not found` error.
+    """,
 )
 @flaat.access_level("admin")
 def get_user(
@@ -57,16 +62,17 @@ def get_user(
     user: User = Depends(check_user_exists),
     client_credentials: HTTPBasicCredentials = Security(security),
 ) -> User:
-    """GET operation to retrieve all users."""
+    """GET operation to retrieve a specific user."""
     return user
 
 
 @router.delete(
     "/{user_id}",
     summary="Delete specific user",
-    description="Retrieve all loaded process specifications. Each returned tuple \
-        contains the specification's ID, the process name and the path to the original \
-        BPMN file.",
+    description="""
+    Delete the user matching the received `user_id`. Automatically remove the associated
+    roles. If the target item does not exist, raise a `404 not found` error.
+    """,
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @flaat.access_level("admin")
@@ -76,7 +82,7 @@ def delete_user(
     session: Session = Depends(get_session),
     client_credentials: HTTPBasicCredentials = Security(security),
 ) -> None:
-    """GET operation to retrieve all users."""
+    """DELETE operation to remove a specific user."""
     session.delete(user)
     session.commit()
 
@@ -84,9 +90,10 @@ def delete_user(
 @router.post(
     "/",
     summary="Create new user",
-    description="Retrieve all loaded process specifications. Each returned tuple \
-        contains the specification's ID, the process name and the path to the original \
-        BPMN file.",
+    description="""Create a new user with the given attributes. During creation, it is
+    possible to assign roles to the user. If an item with the same `email` already
+    exists, raise a `422 validation` error.
+    """,
     status_code=status.HTTP_201_CREATED,
 )
 @flaat.access_level("admin")
@@ -97,7 +104,7 @@ def post_user(
     role: RoleQuery = Depends(),
     client_credentials: HTTPBasicCredentials = Security(security),
 ) -> User:
-    """GET operation to retrieve all users."""
+    """POST operation to create a user and, optionally, assign multiple roles."""
     try:
         item = create_user(session, user)
     except IntegrityError as exc:
@@ -115,10 +122,12 @@ def post_user(
 
 @router.put(
     "/{user_id}",
-    summary="Update user",
-    description="Retrieve all loaded process specifications. Each returned tuple \
-        contains the specification's ID, the process name and the path to the original \
-        BPMN file.",
+    summary="Update a specific user",
+    description="""
+    Update the attributes of a specific user. It is possible to assign or revoke roles
+    to the target user. If the target item does not exist, raise a `404 not found`
+    error.
+    """,
 )
 @flaat.access_level("admin")
 def put_user(
@@ -129,7 +138,7 @@ def put_user(
     role: RoleQuery = Depends(),
     client_credentials: HTTPBasicCredentials = Security(security),
 ) -> User:
-    """GET operation to retrieve all users."""
+    """PUT operation to update a specific user."""
     for k, v in new_data.model_dump(exclude_none=True).items():
         user.__setattr__(k, v)
     user = change_role(session, user, Admin, role.is_admin)

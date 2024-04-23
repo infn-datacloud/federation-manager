@@ -1,3 +1,4 @@
+"""Utilities for the users endpoints."""
 from typing import Sequence, Type
 
 from sqlmodel import Session, select
@@ -27,6 +28,15 @@ def change_role(
     | Type[UserGroupManager],
     enable_role: bool | None,
 ) -> User:
+    """Change user role.
+
+    If `enable_role` is None, do nothing. Otherwise if `enable_role` is true and the
+    user does not alreay have this role, give it. On the other hand if `enable_role`
+    is false and the user already has that role, revoke it.
+
+    Return the user updated instance.
+    """
+
     if enable_role is not None:
         user_role = session.exec(select(role).filter(role.id == user.id)).first()
         if enable_role and user_role is None:
@@ -48,6 +58,15 @@ def filter_role(
     | Type[UserGroupManager],
     match_role: bool | None,
 ) -> SelectOfScalar[User]:
+    """Filter user by role.
+
+    If `match_role` is None, do nothing. Otherwise if `match_role` is true, add to the
+    statement a join condition to match users having that role. On the other hand if
+    `match_role` is false, update the statement to exclude users having that role.
+
+    Return the updated statement.
+    """
+
     if match_role is True:
         return statement.join(role)
     elif match_role is False:
@@ -55,6 +74,7 @@ def filter_role(
 
 
 def create_user(session: Session, user: UserCreate) -> User:
+    """Create a user."""
     item = User(**user.model_dump())
     session.add(item)
     session.commit()
@@ -64,6 +84,13 @@ def create_user(session: Session, user: UserCreate) -> User:
 def retrieve_users(
     session: Session, user: UserQuery, query: Query, role: RoleQuery
 ) -> Sequence[User]:
+    """Get list of users.
+
+    If specified, filter by user attributes and roles. Paginate resulting list.
+    Sort the list by the given attribute (both ascending or descending order).
+
+    Return the list of filtered and sorted items.
+    """
     statement = select(User)
     for k, v in user.model_dump(exclude_none=True).items():
         statement = statement.filter(getattr(User, k) == v)
