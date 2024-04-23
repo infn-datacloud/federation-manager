@@ -1,7 +1,8 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fed_reg.provider.enum import ProviderStatus, ProviderType
+from pydantic import validator
 from sqlmodel import Field, Relationship, SQLModel
 
 from fed_mng.enums import (
@@ -57,9 +58,13 @@ class UserCreate(UserBase):
     ...
 
 
-class UserUpdate(SQLModel):
+class UserQuery(SQLModel):
     name: str | None = Field(nullable=True)
     email: str | None = Field(nullable=True)
+
+
+class UserUpdate(UserQuery):
+    ...
 
 
 class Admin(SQLModel, table=True):
@@ -384,3 +389,44 @@ class SLA(SQLModel, table=True):
     user_network_quota: Optional["UserNetworkQuota"] = Relationship(
         back_populates="sla", sa_relationship_kwargs={"uselist": False}
     )
+
+
+class Query(SQLModel):
+    """Model to filter lists in GET operations with multiple items.
+
+    Attributes:
+    ----------
+        size (int): Chunk size.
+        offset (int): Divide the list in chunks.
+        sort (str | None): sorting criteria.
+    """
+
+    size: int = Field(default=100, ge=1, le=100, description="Chunk size.")
+    offset: int = Field(default=0, ge=0, description="Divide the list in chunks")
+    sort: str | None = Field(default=None, description="Sorting criteria")
+
+    @validator("offset", pre=True)
+    @classmethod
+    def set_offset_to_0(cls, v: int, values: dict[str, Any]) -> int:
+        """If chunk size is 0 set page index to 0."""
+        if values.get("offset") is None:
+            return 0
+        return v
+
+    @validator("sort")
+    @classmethod
+    def parse_sort_rule(cls, v: str | None) -> str | None:
+        """Parse and correct sort rule.
+
+        Remove `_asc` or `_desc` suffix. Prepend `-` when `_desc` is received.
+        """
+        if v is None:
+            return v
+
+        if v.endswith("_asc"):
+            return v[: -len("_asc")]
+        elif v.endswith("_desc"):
+            if v.startswith("-"):
+                return v[: -len("_desc")]
+            return f"-{v[: -len('_desc')]}"
+        return v

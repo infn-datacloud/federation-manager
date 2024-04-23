@@ -5,7 +5,7 @@ from fed_mng.db import get_session
 from fed_mng.models import User
 
 
-def user_exists(user_id: int, session: Session = Depends(get_session)):
+def check_user_exists(user_id: int, session: Session = Depends(get_session)) -> User:
     user = session.exec(select(User).filter(User.id == user_id)).first()
     if not user:
         raise HTTPException(
