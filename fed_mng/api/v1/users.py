@@ -5,8 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from fed_mng.api.dependencies import check_user_exists
-from fed_mng.api.utils import change_role, create_user, retrieve_users
 from fed_mng.auth import flaat, security
+from fed_mng.crud.users import change_role, create_user, retrieve_users
 from fed_mng.db import get_session
 from fed_mng.models import (
     Admin,

@@ -71,6 +71,7 @@ def filter_role(
         return statement.join(role)
     elif match_role is False:
         return statement.join(role, isouter=True).filter(role.id == None)  # noqa: E711
+    return statement
 
 
 def create_user(session: Session, user: UserCreate) -> User:
