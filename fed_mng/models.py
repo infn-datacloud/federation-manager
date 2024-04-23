@@ -67,6 +67,14 @@ class UserUpdate(UserQuery):
     ...
 
 
+class RoleQuery(SQLModel):
+    is_admin: bool | None = None
+    is_site_admin: bool | None = None
+    is_site_tester: bool | None = None
+    is_sla_moderator: bool | None = None
+    is_user_group_manager: bool | None = None
+
+
 class Admin(SQLModel, table=True):
     __tablename__ = "admins"
 

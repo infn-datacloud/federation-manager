@@ -1,10 +1,12 @@
 from typing import Sequence, Type
 
 from sqlmodel import Session, select
+from sqlmodel.sql.expression import SelectOfScalar
 
 from fed_mng.models import (
     Admin,
     Query,
+    RoleQuery,
     SiteAdmin,
     SiteTester,
     SLAModerator,
@@ -37,6 +39,21 @@ def change_role(
     return user
 
 
+def filter_role(
+    statement: SelectOfScalar[User],
+    role: Type[Admin]
+    | Type[SiteAdmin]
+    | Type[SiteTester]
+    | Type[SLAModerator]
+    | Type[UserGroupManager],
+    match_role: bool | None,
+) -> SelectOfScalar[User]:
+    if match_role is True:
+        return statement.join(role)
+    elif match_role is False:
+        return statement.join(role, isouter=True).filter(role.id == None)  # noqa: E711
+
+
 def create_user(session: Session, user: UserCreate) -> User:
     item = User(**user.model_dump())
     session.add(item)
@@ -44,10 +61,19 @@ def create_user(session: Session, user: UserCreate) -> User:
     return item
 
 
-def get_users(session: Session, user: UserQuery, query: Query) -> Sequence[User]:
+def retrieve_users(
+    session: Session, user: UserQuery, query: Query, role: RoleQuery
+) -> Sequence[User]:
     statement = select(User)
     for k, v in user.model_dump(exclude_none=True).items():
         statement = statement.filter(getattr(User, k) == v)
+
+    statement = filter_role(statement, Admin, role.is_admin)
+    statement = filter_role(statement, SiteAdmin, role.is_site_admin)
+    statement = filter_role(statement, SiteTester, role.is_site_tester)
+    statement = filter_role(statement, SLAModerator, role.is_sla_moderator)
+    statement = filter_role(statement, UserGroupManager, role.is_user_group_manager)
+
     statement = statement.offset(query.offset).limit(query.size)
 
     if query.sort is not None:
