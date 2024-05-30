@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import validator
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 from fed_mng.enums import (
@@ -438,3 +439,112 @@ class Query(SQLModel):
                 return v[: -len("_desc")]
             return f"-{v[: -len('_desc')]}"
         return v
+
+
+# WORKFLOWS
+
+
+class WorkflowSpec(SQLModel, table=True):
+    __tablename__ = "workflow_specs"
+
+    id: int | None = Field(primary_key=True)
+    serialization: str = Field(nullable=False)
+
+
+class TaskSpec(SQLModel, table=True):
+    __tablename__ = "task_specs"
+
+    name: str = Field(
+        primary_key=True, index=True
+    )  # Should be derived from serialization
+    serialization: str = Field(nullable=False)
+    workflow_spec_id: int = Field(
+        foreign_key="workflow_specs.id", nullable=False, index=True
+    )
+
+    workflow_spec: "WorkflowSpec" = Relationship(
+        back_populates="task_specs", sa_relationship_kwargs={"uselist": False}
+    )
+
+
+class SpecDependency(SQLModel, table=True):
+    __tablename__ = "spec_dependencies"
+
+    parent_id: int = Field(
+        foreign_key="workflow_specs.id", index=True, primary_key=True
+    )
+    child_id: int = Field(foreign_key="workflow_specs.id", index=True, primary_key=True)
+
+    parent: "WorkflowSpec" = Relationship(
+        back_populates="children", sa_relationship_kwargs={"uselist": False}
+    )
+    child: "WorkflowSpec" = Relationship(
+        back_populates="parent", sa_relationship_kwargs={"uselist": False}
+    )
+
+
+class Workflow(SQLModel, table=True):
+    __tablename__ = "workflows"
+
+    id: int | None = Field(primary_key=True)
+    serialization: str = Field(nullable=False)
+    workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
+
+    workflow_spec: "WorkflowSpec" = Relationship(
+        back_populates="workflows", sa_relationship_kwargs={"uselist": False}
+    )
+
+
+class Task(SQLModel, table=True):
+    __tablename__ = "tasks"
+
+    id: int | None = Field(primary_key=True, index=True)
+    serialization: str = Field(nullable=False)
+    workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
+
+    workflow: "Workflow" = Relationship(
+        back_populates="tasks", sa_relationship_kwargs={"uselist": False}
+    )
+
+
+class TaskData(SQLModel, table=True):
+    __tablename__ = "task_data"
+
+    task_id: int = Field(primary_key=True, index=True)
+    name: str = Field(index=True)
+    value: str = Field()
+    last_updated: datetime = Field()
+    workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
+
+    workflow: "Workflow" = Relationship(
+        back_populates="task_data", sa_relationship_kwargs={"uselist": False}
+    )
+
+    __table_args__ = (UniqueConstraint("task_id", "name"),)
+
+
+class WorkflowData(SQLModel, table=True):
+    __tablename__ = "workflow_data"
+
+    workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
+    name: str = Field(primary_key=True, index=True)
+    value: str = Field()
+    last_updated: datetime = Field()
+
+    workflow: "Workflow" = Relationship(
+        back_populates="workflow_data", sa_relationship_kwargs={"uselist": False}
+    )
+
+    __table_args__ = (UniqueConstraint("workflow_id", "name"),)
+
+
+class Instance(SQLModel, table=True):
+    __tablename__ = "instances"
+
+    id: int | None = Field(primary_key=True)
+    bullshit: str = Field()
+    spec_name: str = Field()
+    active_tasks: int = Field()
+    started: datetime = Field()
+    updated: datetime = Field()
+    ended: datetime = Field()
