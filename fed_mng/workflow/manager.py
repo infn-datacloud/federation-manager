@@ -6,12 +6,12 @@ from SpiffWorkflow.spiff.specs.defaults import NoneTask, UserTask
 
 from fed_mng.config import get_settings
 from fed_mng.workflow.engine import BpmnEngine
-from fed_mng.workflow.serializer import FileSerializer
+from fed_mng.workflow.serializer import SqliteSerializer
 from fed_mng.workflow.task_handlers import NoneTaskHandler, UserTaskHandler
 
 # Setup
 settings = get_settings()
-serializer = FileSerializer(dirname=settings.WORKFLOW_DIR)
+serializer = SqliteSerializer(dbname=settings.SQLITE_DB)
 
 parser = SpiffBpmnParser(validator=BpmnValidator())
 
