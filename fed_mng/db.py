@@ -1,8 +1,10 @@
 """Entry point for the Federation-Manager web app."""
 from contextlib import asynccontextmanager
+from sqlite3 import Connection as SQLite3Connection
 from typing import Any, Generator
 
 from fastapi import FastAPI
+from sqlalchemy import Engine, event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from fed_mng import models
@@ -14,6 +16,14 @@ connect_args = {"check_same_thread": False}
 engine = create_engine(
     f"sqlite:///{settings.SQLITE_DB}", echo=True, connect_args=connect_args
 )
+
+
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, SQLite3Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON;")
+        cursor.close()
 
 
 def initialize() -> None:
@@ -30,7 +40,7 @@ def initialize() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> Generator[None, Any, None]:
+async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     initialize()
     yield
