@@ -1,0 +1,12 @@
+{
+    "trusted_issuers": [
+        "https://iam.cloud.infn.it/"
+    ],
+    "user_roles": [
+        "fed-mgr/site_admin",
+        "fed-mgr/site_tester",
+        "fed-mgr/user_group_leader",
+        "fed-mgr/sla_moderator",
+        "fed-mgr/admin"
+    ]
+}
