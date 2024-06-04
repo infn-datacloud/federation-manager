@@ -8,6 +8,7 @@ from flaat.config import AccessLevel
 from flaat.fastapi import Flaat
 from flaat.requirements import AllOf, HasSubIss, IsTrue
 from flaat.user_infos import UserInfos
+from requests.exceptions import ConnectionError, Timeout
 from sqlmodel import Session, select
 
 from fed_mng.config import get_settings
@@ -115,9 +116,17 @@ def get_user_roles(token: str) -> list[str]:
     """
     settings = get_settings()
     data = {"input": {"authorization": f"Bearer {token}"}}
-    resp = requests.post(
-        os.path.join(settings.OPA_URL, settings.ROLES_ENDPOINT), json=data
-    )
-    if resp.status_code == status.HTTP_200_OK:
-        return resp.json().get("result", [])
-    raise resp.raise_for_status()
+    try:
+        resp = requests.post(
+            os.path.join(settings.OPA_URL, settings.ROLES_ENDPOINT), json=data
+        )
+        if resp.status_code == status.HTTP_200_OK:
+            return resp.json().get("result", [])
+        elif resp.status_code == status.HTTP_400_BAD_REQUEST:
+            print("Bad request sent to OPA server.")
+        elif resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+            print("OPA server internal error.")
+        return []
+    except (Timeout, ConnectionError):
+        print("OPA server is not reachable.")
+        return []
