@@ -1,4 +1,8 @@
 """Authentication and authorization rules."""
+import os
+
+import requests
+from fastapi import status
 from fastapi.security import HTTPBearer
 from flaat.config import AccessLevel
 from flaat.fastapi import Flaat
@@ -95,3 +99,25 @@ flaat.set_access_levels(
 )
 flaat.set_trusted_OP_list(get_settings().TRUSTED_IDP_LIST)
 flaat.set_request_timeout(30)
+
+
+def get_user_roles(token: str) -> list[str]:
+    """Contact OPA to get user roles.
+
+    Args:
+        token (str): access token
+
+    Raises:
+        resp.raise_for_status: _description_
+
+    Returns:
+        list[str]: User roles
+    """
+    settings = get_settings()
+    data = {"input": {"authorization": f"Bearer {token}"}}
+    resp = requests.post(
+        os.path.join(settings.OPA_URL, settings.ROLES_ENDPOINT), json=data
+    )
+    if resp.status_code == status.HTTP_200_OK:
+        return resp.json().get("result", [])
+    raise resp.raise_for_status()
