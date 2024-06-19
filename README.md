@@ -51,4 +51,6 @@ Since endpoints requires a valid token, this example expects the access token as
 python examples/client.py -t <TOKEN>
 ```
 
+> For the example client to work you need a running instance of the application.
+
 You can copy and edit that file to make more complexes examples or tests.
