@@ -1,14 +1,16 @@
 """Entry point for the Federation-Manager web app."""
 import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
+# from fastapi.middleware.cors import CORSMiddleware
 from fed_mng.config import get_settings
 
 # from fed_mng.db import lifespan
 from fed_mng.site_admin import SiteAdminNamespace
 from fed_mng.socket_manager import SocketManager
+
 # from fed_mng.router import router_v1
+
 
 summary = "Federation-Manager of the DataCloud project"
 description = """
@@ -25,21 +27,21 @@ contact = {
     "url": settings.MAINTAINER_URL,
     "email": settings.MAINTAINER_EMAIL,
 }
-tags_metadata = [
-    {
-        "name": settings.API_V1_STR,
-        "description": "API version 1, see link on the right",
-        "externalDocs": {
-            "description": "API version 1 documentation",
-            "url": f"{settings.DOC_V1_URL}",
-        },
-    },
-]
+# tags_metadata = [
+#     {
+#         "name": settings.API_V1_STR,
+#         "description": "API version 1, see link on the right",
+#         "externalDocs": {
+#             "description": "API version 1 documentation",
+#             "url": f"{settings.DOC_V1_URL}",
+#         },
+#     },
+# ]
 
 app = FastAPI(
     contact=contact,
     description=description,
-    openapi_tags=tags_metadata,
+    #openapi_tags=tags_metadata,
     summary=summary,
     title=settings.PROJECT_NAME,
     version=version,

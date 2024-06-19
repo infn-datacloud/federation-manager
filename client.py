@@ -29,7 +29,8 @@ sio.connect(
     "http://localhost:8000",
     transports=["websocket", "polling"],
     namespaces="/site_admin",
-    #headers={"Autorization": f"Bearer {token}"}
+    #headers={"Autorization": f"Bearer {token}"},
+    auth={"token": token},
 )
 sio.wait()
 

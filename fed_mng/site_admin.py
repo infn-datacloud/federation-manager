@@ -1,8 +1,12 @@
+from typing import Literal
+from flaat.exceptions import FlaatUnauthenticated
 from socketio import AsyncNamespace
+
+from fed_mng.auth import flaat, get_user_roles, is_site_admin
 
 
 class SiteAdminNamespace(AsyncNamespace):
-    async def on_connect(self, sid, environ, auth):
+    async def on_connect(self, sid, environ, auth: dict[Literal["token"], str]):
         """When connecting evaluate user authentication.
 
         Invoke OPA to check if user is authenticated or not and check it has the
@@ -12,12 +16,18 @@ class SiteAdminNamespace(AsyncNamespace):
             sid (_type_): _description_
             environ (_type_): _description_
         """
-        print("connect to namespace:", self.namespace, sid, environ, auth)
-        # if auth is None:
-        #     raise ConnectionRefusedError(
-        #         "Authentication failed: No authentication data received."
-        #     )
-        # TODO: Call OPA to authenticate user
+        print("Connecting to namespace:", self.namespace, sid, environ, auth)
+        if auth is None or auth.get("token", None) is None:
+            raise ConnectionRefusedError(
+                "Authentication failed: No authentication data nor access token received."
+            )
+        try:
+            assert is_site_admin(auth.get("token", "")), ConnectionRefusedError(
+                "Authentication failed: User does not have needed access rights."
+            )
+        except FlaatUnauthenticated as e:
+            raise ConnectionRefusedError(e) from e
+        print(f"Connected to namespace '{self.namespace}' with sid '{sid}'")
 
     async def on_disconnect(self, sid):
         """Close connection

@@ -1,5 +1,7 @@
 """Authentication and authorization rules."""
+
 import os
+import time
 
 import requests
 from fastapi import status
@@ -44,14 +46,11 @@ def is_admin(user_infos: UserInfos) -> bool:
     return user is not None
 
 
-def is_site_admin(user_infos: UserInfos) -> bool:
+def is_site_admin(token: str) -> bool:
     """Target user has write access on Federation-Registry."""
-    with Session(engine) as session:
-        email = user_infos.user_info.get("email")
-        user = session.exec(
-            select(SiteAdmin).join(User).filter(User.email == email)
-        ).first()
-    return user is not None
+    flaat.get_user_infos_from_access_token(token)
+    user_roles = get_user_roles(token)
+    return len(user_roles) > 0
 
 
 def is_user_group_manager(user_infos: UserInfos) -> bool:
@@ -85,7 +84,8 @@ def is_sla_moderator(user_infos: UserInfos) -> bool:
 
 
 flaat = Flaat()
-user_requirements = [HasSubIss(), IsTrue(is_user)]
+user_requirements = []  # HasSubIss()]#, IsTrue(is_user)]
+flaat.set_verbosity(3)
 flaat.set_access_levels(
     [
         AccessLevel("user", AllOf(*user_requirements)),
@@ -123,10 +123,19 @@ def get_user_roles(token: str) -> list[str]:
         if resp.status_code == status.HTTP_200_OK:
             return resp.json().get("result", [])
         elif resp.status_code == status.HTTP_400_BAD_REQUEST:
-            print("Bad request sent to OPA server.")
+            raise ConnectionRefusedError(
+                "Authentication failed: Bad request sent to OPA server."
+            )
         elif resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
-            print("OPA server internal error.")
-        return []
-    except (Timeout, ConnectionError):
-        print("OPA server is not reachable.")
-        return []
+            raise ConnectionRefusedError(
+                "Authentication failed: OPA server internal error."
+            )
+        else:
+            raise ConnectionRefusedError(
+                f"Authentication failed: OPA unexpected response code \
+                    '{resp.status_code}'."
+            )
+    except (Timeout, ConnectionError) as e:
+        raise ConnectionRefusedError(
+            "Authentication failed: OPA server is not reachable."
+        ) from e
