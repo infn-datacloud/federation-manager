@@ -8,9 +8,9 @@ packages = [{ include = "fed_mng" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-federation-registry = {git = "https://github.com/infn-datacloud/federation-registry.git", branch = "devel"}
+federation-registry = {git = "https://github.com/infn-datacloud/federation-registry.git"}
 sqlmodel = "^0.0.14"
-spiffworkflow = {git = "https://github.com/sartography/SpiffWorkflow", branch = "main"}
+spiffworkflow = "^3.0.0" # {git = "https://github.com/sartography/SpiffWorkflow", branch = "main"}
 python-socketio = "^5.11.2"
 eventlet = "^0.36.1"
 websocket-client = "^1.8.0"

@@ -1,9 +1,14 @@
 """Authentication and authorization rules."""
+import os
+
+import requests
+from fastapi import status
 from fastapi.security import HTTPBearer
 from flaat.config import AccessLevel
 from flaat.fastapi import Flaat
 from flaat.requirements import AllOf, HasSubIss, IsTrue
 from flaat.user_infos import UserInfos
+from requests.exceptions import ConnectionError, Timeout
 from sqlmodel import Session, select
 
 from fed_mng.config import get_settings
@@ -95,3 +100,33 @@ flaat.set_access_levels(
 )
 flaat.set_trusted_OP_list(get_settings().TRUSTED_IDP_LIST)
 flaat.set_request_timeout(30)
+
+
+def get_user_roles(token: str) -> list[str]:
+    """Contact OPA to get user roles.
+
+    Args:
+        token (str): access token
+
+    Raises:
+        resp.raise_for_status: _description_
+
+    Returns:
+        list[str]: User roles
+    """
+    settings = get_settings()
+    data = {"input": {"authorization": f"Bearer {token}"}}
+    try:
+        resp = requests.post(
+            os.path.join(settings.OPA_URL, settings.ROLES_ENDPOINT), json=data
+        )
+        if resp.status_code == status.HTTP_200_OK:
+            return resp.json().get("result", [])
+        elif resp.status_code == status.HTTP_400_BAD_REQUEST:
+            print("Bad request sent to OPA server.")
+        elif resp.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+            print("OPA server internal error.")
+        return []
+    except (Timeout, ConnectionError):
+        print("OPA server is not reachable.")
+        return []
