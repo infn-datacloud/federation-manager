@@ -4,6 +4,8 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from fed_mng.site_admin import SiteAdminNamespace
+
 
 class SocketManager(socketio.AsyncServer):
     """
@@ -20,21 +22,24 @@ class SocketManager(socketio.AsyncServer):
     """
 
     def __init__(
-            self,
-            app: FastAPI,
-            mount_location: str = "/ws",
-            socketio_path: str = "socket.io",
-            cors_allowed_origins: Union[str, list] = '*',
-            async_mode: str = "asgi",
-            **kwargs
+        self,
+        app: FastAPI,
+        mount_location: str = "/ws",
+        socketio_path: str = "socket.io",
+        cors_allowed_origins: Union[str, list] = "*",
+        async_mode: str = "asgi",
+        **kwargs,
     ) -> None:
-        middleware = next((x for x in app.user_middleware if issubclass(x.cls, CORSMiddleware)), None)
-        if middleware:
-            cors_allowed_origins = middleware.options.get("allow_origins", "*")
-        super().__init__(cors_allowed_origins=cors_allowed_origins, async_mode=async_mode, **kwargs)
-        self._app = socketio.ASGIApp(
-            socketio_server=self, socketio_path=socketio_path
+        middleware = next(
+            (x for x in app.user_middleware if issubclass(x.cls, CORSMiddleware)), None
         )
+        if middleware:
+            cors_allowed_origins = middleware.kwargs.get("allow_origins", "*")
+        super().__init__(
+            cors_allowed_origins=cors_allowed_origins, async_mode=async_mode, **kwargs
+        )
+        self.register_namespace(SiteAdminNamespace("/site_admin"))
+        self._app = socketio.ASGIApp(socketio_server=self, socketio_path=socketio_path)
 
         app.mount(mount_location, self._app)
         app.add_route(f"/{socketio_path}/", route=self._app, methods=["GET", "POST"])

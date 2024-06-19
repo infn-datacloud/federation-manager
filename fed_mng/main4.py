@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fed_mng.config import get_settings
 
 # from fed_mng.db import lifespan
+from fed_mng.site_admin import SiteAdminNamespace
 from fed_mng.socket_manager import SocketManager
 # from fed_mng.router import router_v1
 
@@ -57,25 +58,16 @@ app = FastAPI(
 
 # Adding the CORS middleware will overwrite SocketManager's CORS settings
 # Make sure to add the CORS middleware before SocketManager
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-sio = SocketManager(app=app, cors_allowed_origins="*")
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+sio = SocketManager(app=app)
 
 
-@sio.event
-async def connect(sid, *args, **kwargs):
-    print(f"[{sid}] Connected!")
-    await sio.emit("test", "Hello world!")
-
-
-@sio.on("test")
-async def test(sid, data, **kwargs):
-    print(f"[{sid}] Message Received! >> ", data)
 
 
 if __name__ == "__main__":
