@@ -67,7 +67,7 @@ app = FastAPI(
 # )
 sio = SocketManager(app=app)
 
-
+sio.register_namespace(SiteAdminNamespace("/site_admin"))
 
 
 if __name__ == "__main__":

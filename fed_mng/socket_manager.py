@@ -4,8 +4,6 @@ import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from fed_mng.site_admin import SiteAdminNamespace
-
 
 class SocketManager(socketio.AsyncServer):
     """
@@ -38,7 +36,6 @@ class SocketManager(socketio.AsyncServer):
         super().__init__(
             cors_allowed_origins=cors_allowed_origins, async_mode=async_mode, **kwargs
         )
-        self.register_namespace(SiteAdminNamespace("/site_admin"))
         self._app = socketio.ASGIApp(socketio_server=self, socketio_path=socketio_path)
 
         app.mount(mount_location, self._app)
