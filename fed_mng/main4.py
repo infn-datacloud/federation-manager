@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fed_mng.config import get_settings
 
 # from fed_mng.db import lifespan
-from fed_mng.site_admin import SiteAdminNamespace
-from fed_mng.socket_manager import SocketManager
+from fed_mng.socketio.site_admin import SiteAdminNamespace
+from fed_mng.socketio.socket_manager import SocketManager
 
 # from fed_mng.router import router_v1
 
