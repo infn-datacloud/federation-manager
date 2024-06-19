@@ -1,8 +1,9 @@
 from typing import Literal
+
 from flaat.exceptions import FlaatUnauthenticated
 from socketio import AsyncNamespace
 
-from fed_mng.auth import flaat, get_user_roles, is_site_admin
+from fed_mng.auth import has_role
 
 
 class SiteAdminNamespace(AsyncNamespace):
@@ -22,7 +23,9 @@ class SiteAdminNamespace(AsyncNamespace):
                 "Authentication failed: No authentication data nor access token received."
             )
         try:
-            assert is_site_admin(auth.get("token", "")), ConnectionRefusedError(
+            assert has_role(
+                auth.get("token", ""), self.namespace[1:]
+            ), ConnectionRefusedError(
                 "Authentication failed: User does not have needed access rights."
             )
         except FlaatUnauthenticated as e:
