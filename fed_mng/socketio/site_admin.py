@@ -6,7 +6,9 @@ from fed_mng.socketio.utils import validate_auth_on_connect
 
 
 class SiteAdminNamespace(AsyncNamespace):
-    async def on_connect(self, sid: str, environ: dict[str, Any], auth: dict[Literal["token"], str]):
+    async def on_connect(
+        self, sid: str, environ: dict[str, Any], auth: dict[Literal["token"], str]
+    ):
         """When connecting evaluate user authentication."""
         print(f"Connecting to namespace: {self.namespace}")
         print(f"SID: {sid}")

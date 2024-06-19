@@ -1,4 +1,5 @@
 """Entry point for the Federation-Manager web app."""
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -6,8 +7,12 @@ from fastapi import FastAPI
 from fed_mng.config import get_settings
 
 # from fed_mng.db import lifespan
+from fed_mng.socketio.admin import AdminNamespace
 from fed_mng.socketio.site_admin import SiteAdminNamespace
+from fed_mng.socketio.site_tester import SiteTesterNamespace
+from fed_mng.socketio.sla_mod import SLAModeratorNamespace
 from fed_mng.socketio.socket_manager import SocketManager
+from fed_mng.socketio.user_group_mgr import UserGroupManagerNamespace
 
 # from fed_mng.router import router_v1
 
@@ -41,7 +46,7 @@ contact = {
 app = FastAPI(
     contact=contact,
     description=description,
-    #openapi_tags=tags_metadata,
+    # openapi_tags=tags_metadata,
     summary=summary,
     title=settings.PROJECT_NAME,
     version=version,
@@ -70,6 +75,10 @@ app = FastAPI(
 sio = SocketManager(app=app)
 
 sio.register_namespace(SiteAdminNamespace("/site_admin"))
+sio.register_namespace(SiteTesterNamespace("/site_tester"))
+sio.register_namespace(UserGroupManagerNamespace("/user_group_mgr"))
+sio.register_namespace(SLAModeratorNamespace("/sla_mod"))
+sio.register_namespace(AdminNamespace("/admin"))
 
 
 if __name__ == "__main__":
