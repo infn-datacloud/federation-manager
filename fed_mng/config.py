@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     SQLITE_DB: str = ":memory:"
 
+    OPA_URL: AnyHttpUrl = "http://localhost:8181"
+    ROLES_ENDPOINT: str = "v1/data/fedmgr/user_roles"
+
     class Config:
         """Sub class to set attribute as case sensitive."""
 

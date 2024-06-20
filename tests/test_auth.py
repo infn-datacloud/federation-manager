@@ -1,7 +1,12 @@
+from unittest.mock import MagicMock, patch
+
+from fastapi import status
 from flaat import UserInfos
+from pytest_cases import parametrize_with_cases
 from sqlmodel import Session, select
 
 from fed_mng.auth import (
+    get_user_roles,
     is_admin,
     is_site_admin,
     is_site_tester,
@@ -122,3 +127,38 @@ def test_is_not_user_group_manager() -> None:
         introspection_info=None,
     )
     assert not is_user_group_manager(user_info)
+
+
+@patch("fed_mng.auth.requests")
+@parametrize_with_cases("opa_resp", has_tag="valid")
+def test_opa_auth(mock_requests: MagicMock, opa_resp: list[str]) -> None:
+    mock_resp = MagicMock()
+    mock_resp.status_code = status.HTTP_200_OK
+    mock_resp.json.return_value = opa_resp
+    mock_requests.post.return_value = mock_resp
+    user_roles = get_user_roles("fake_token")
+    assert user_roles is not None
+    assert isinstance(user_roles, list)
+    assert len(user_roles) == len(opa_resp.get("result", []))
+
+
+@patch("fed_mng.auth.requests")
+@parametrize_with_cases("status_code", has_tag="http_exc")
+def test_opa_auth_http_exc(mock_requests: MagicMock, status_code: int) -> None:
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+    mock_requests.post.return_value = mock_resp
+    user_roles = get_user_roles("fake_token")
+    assert user_roles is not None
+    assert isinstance(user_roles, list)
+    assert len(user_roles) == 0
+
+
+@patch("fed_mng.auth.requests")
+@parametrize_with_cases("err", has_tag="conn_err")
+def test_opa_auth_conn_err(mock_requests: MagicMock, err) -> None:
+    mock_requests.post.side_effect = err()
+    user_roles = get_user_roles("fake_token")
+    assert user_roles is not None
+    assert isinstance(user_roles, list)
+    assert len(user_roles) == 0
