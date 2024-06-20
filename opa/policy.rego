@@ -18,9 +18,11 @@ package fedmgr
 
 import rego.v1
 
-default is_trusted_issuer := false
-
-is_trusted_issuer if claims.iss in data.trusted_issuers
+default is_site_admin := false
+default is_site_tester := false
+default is_user_group_mgr := false
+default is_sla_mod := false
+default is_admin := false
 
 bearer_token := t if {
 	# Bearer tokens are contained inside of the HTTP Authorization header. This rule
@@ -32,32 +34,6 @@ bearer_token := t if {
 }
 
 claims := payload if {
-	# jwks := `{
-	# 	"keys": [
-	# 		{
-	# 			"kty": "RSA",
-	# 			"e": "AQAB",
-	# 			"kid": "cra1",
-	# 			"x5c": [
-	# 				"MIICnDCCAYSgAwIBAgIGAYlj+gOSMA0GCSqGSIb3DQEBCwUAMA8xDTALBgNVBAMMBGNyYTEwHhcNMjMwNzE3MTMxMTE2WhcNMjgwNzE1MTMxMTE2WjAPMQ0wCwYDVQQDDARjcmExMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn1FfI6gs/ng6QOYPcGYKyliHjWYT46bUDAyR+L+hegsjUZQyIq+1j1r+Eoi8nXvOXGsHnWWvtS9JhX8EaAG3j0cGZDCQz1MvGsPvDYCfF1Uge9MAL+khyWqfdazclK91MEHHqI1bMOyZiZg75d7uhhsEyTFbCxHVJvYGqWIEpo4QcLgyr1oQJxUWQf7c4LHl2bwtm9gRyvN3Fajun9Tnk8MsoBqSsE3Iea3oBJwBgiOQJasZX9l2+V/SErU9K4jAxKJRfKrDrdxZxnIGj02hauQOHd6god1CGs/p75YFLQ8sTetX1zlMs62Ef6XsvMPHjJyJVIEvn/jlSrZ4q1F13wIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAOEaPUp+SboWPAf20gObYr8jKcS4R7kZyMrrAOa0mYOVsfuBRjLHjIB17wrs2TTUBoLJM8k8YkJzP+3YbODlKJuys50eSK3+fd12IrXJYRBtJ8zZShCMIHMgLGXEZgtTl6tG7emOmJp3IqANapioNI/tAR9ntgGHQlqYH/iRsydOhs4bdC4Cbhpa63nhMT1ymOo+BNPuniYROGkNyIs1uf85rMO2D6uv0EGWz2sux9AkHmsr+6xBKbaCk9Pxr5AfL3kg9EYxeWEPZARf3zTDqo8nGqFB8fKMPY+3+wSlPYs1z1aDnC/W7iCqFldoMznmjYJR2ob8KHKSiEISpOZNfr"
-	# 			],
-	# 			"n": "n1FfI6gs_ng6QOYPcGYKyliHjWYT46bUDAyR-L-hegsjUZQyIq-1j1r-Eoi8nXvOXGsHnWWvtS9JhX8EaAG3j0cGZDCQz1MvGsPvDYCfF1Uge9MAL-khyWqfdazclK91MEHHqI1bMOyZiZg75d7uhhsEyTFbCxHVJvYGqWIEpo4QcLgyr1oQJxUWQf7c4LHl2bwtm9gRyvN3Fajun9Tnk8MsoBqSsE3Iea3oBJwBgiOQJasZX9l2-V_SErU9K4jAxKJRfKrDrdxZxnIGj02hauQOHd6god1CGs_p75YFLQ8sTetX1zlMs62Ef6XsvMPHjJyJVIEvn_jlSrZ4q1F13w"
-	# 		},
-	# 		{
-	# 			"kty": "RSA",
-	# 			"e": "AQAB",
-	# 			"kid": "rsa1",
-	# 			"n": "gAjzmGkUC7VEGcYh-9e-MHjcTQ-u4wPq5GEvn3SCdfENsUjnMpm58ILpkP-ddGZLLzSeMEc8zluqa725OTmf52zYx5dKqcZF7ZRRdQ_r4cLhq5MpNNRi0cnoQVX22dZeJZOEyaXvN1nSZqLr8K4QWG1gUGCN2f5sZTxidzqFnd0"
-	# 		}
-	# 	]
-	# }`
-	
-	# Verify the signature on the Bearer token. In this example the secret is
-	# hardcoded into the policy however it could also be loaded via data or
-	# an environment variable. Environment variables can be accessed using
-	# the `opa.runtime()` built-in function.
-	# io.jwt.verify_rs256(bearer_token, jwks)
-
 	# This statement invokes the built-in function `io.jwt.decode` passing the
 	# parsed bearer_token as a parameter. The `io.jwt.decode` function returns an
 	# array:
@@ -69,11 +45,39 @@ claims := payload if {
 	[_, payload, _] := io.jwt.decode(bearer_token)
 }
 
-user_roles contains role if {
-	# The `role` will be contained in the set `user_roles` if the role in the
-	# `groups` key of the `claims` object is in the `user_roles` of the `data`
-	# object.
-	is_trusted_issuer
+# Generic rule:
+# Set the attribute true if one of the user entitlements is within the
+# attribute's accepted entitlements.
+
+is_site_admin if {
 	some role in claims.groups
-	role in data.user_roles
+	role in data.site_admin_entitlements
+}
+
+is_site_tester if {
+	some role in claims.groups
+	role in data.site_tester_entitlements
+}
+
+is_user_group_mgr if {
+	some role in claims.groups
+	role in data.user_group_mgr_entitlements
+}
+
+is_sla_mod if {
+	some role in claims.groups
+	role in data.sla_mod_entitlements
+}
+
+is_admin if  {
+	some role in claims.groups
+	role in data.admin_entitlemnts
+}
+
+user_roles := {
+	"is_site_admin": is_site_admin,
+	"is_site_tester": is_site_tester,
+	"is_user_group_mgr": is_user_group_mgr,
+	"is_sla_mod": is_sla_mod,
+	"is_admin": is_admin
 }

@@ -1,12 +1,17 @@
 {
-    "trusted_issuers": [
-        "https://iam.cloud.infn.it/"
+    "site_admin_entitlements": [
+        "fed-mgr/site_admin"
     ],
-    "user_roles": [
-        "fed-mgr/site_admin",
-        "fed-mgr/site_tester",
-        "fed-mgr/user_group_leader",
-        "fed-mgr/sla_moderator",
+    "site_tester_entitlements": [
+        "fed-mgr/site_tester"
+    ],
+    "user_group_mgr_entitlements": [
+        "fed-mgr/user_group_mgr"
+    ],
+    "sla_mod_entitlements": [
+        "fed-mgr/sla_mod"
+    ],
+    "admin_entitlements": [
         "fed-mgr/admin"
     ]
 }

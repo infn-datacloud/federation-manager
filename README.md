@@ -40,3 +40,17 @@ Once OPA is up and running we can interrogate its endpoints to evaluate the inpu
 ```bash
 curl localhost:8181/v1/data/fedmgr/user_roles -d @v1-data-input.json -H 'Content-Type: application/json'
 ```
+
+### Testing SocketIO with python client
+
+In the `examples` folder we provide a python script with a Socket.IO client. It tries to connect to the `/site_admin` namespace and emit a message.
+
+Since endpoints requires a valid token, this example expects the access token as an input to the `--token` (or `-t`) argument. Alternatively you can set the `$SOCKETIO_CLIENT_TOKEN` env var.
+
+```bash
+python examples/client.py -t <TOKEN>
+```
+
+> For the example client to work you need a running instance of the application.
+
+You can copy and edit that file to make more complexes examples or tests.
