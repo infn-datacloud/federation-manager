@@ -450,6 +450,9 @@ class WorkflowSpec(SQLModel, table=True):
     id: int | None = Field(primary_key=True)
     serialization: str = Field(nullable=False)
 
+    task_specs: "TaskSpec" = Relationship(back_populates="workflow_spec")
+    workflows: "Workflow" = Relationship(back_populates="workflow_spec")
+
 
 class TaskSpec(SQLModel, table=True):
     __tablename__ = "task_specs"
@@ -467,20 +470,20 @@ class TaskSpec(SQLModel, table=True):
     )
 
 
-class SpecDependency(SQLModel, table=True):
-    __tablename__ = "spec_dependencies"
+# class SpecDependency(SQLModel, table=True):
+#     __tablename__ = "spec_dependencies"
 
-    parent_id: int = Field(
-        foreign_key="workflow_specs.id", index=True, primary_key=True
-    )
-    child_id: int = Field(foreign_key="workflow_specs.id", index=True, primary_key=True)
+#     parent_id: int = Field(
+#         foreign_key="workflow_specs.id", index=True, primary_key=True
+#     )
+#     child_id: int = Field(foreign_key="workflow_specs.id", index=True, primary_key=True)
 
-    parent: "WorkflowSpec" = Relationship(
-        back_populates="children", sa_relationship_kwargs={"uselist": False}
-    )
-    child: "WorkflowSpec" = Relationship(
-        back_populates="parent", sa_relationship_kwargs={"uselist": False}
-    )
+#     parent: "WorkflowSpec" = Relationship(
+#         back_populates="children", sa_relationship_kwargs={"uselist": False}
+#     )
+#     child: "WorkflowSpec" = Relationship(
+#         back_populates="parent", sa_relationship_kwargs={"uselist": False}
+#     )
 
 
 class Workflow(SQLModel, table=True):
@@ -493,6 +496,11 @@ class Workflow(SQLModel, table=True):
     workflow_spec: "WorkflowSpec" = Relationship(
         back_populates="workflows", sa_relationship_kwargs={"uselist": False}
     )
+    workflow_data: "WorkflowData" = Relationship(
+        back_populates="workflow", sa_relationship_kwargs={"uselist": False}
+    )
+    tasks: "Task" = Relationship(back_populates="workflow")
+    tasks_data: "TaskData" = Relationship(back_populates="workflow")
 
 
 class Task(SQLModel, table=True):
@@ -517,7 +525,7 @@ class TaskData(SQLModel, table=True):
     workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
 
     workflow: "Workflow" = Relationship(
-        back_populates="task_data", sa_relationship_kwargs={"uselist": False}
+        back_populates="tasks_data", sa_relationship_kwargs={"uselist": False}
     )
 
     __table_args__ = (UniqueConstraint("task_id", "name"),)

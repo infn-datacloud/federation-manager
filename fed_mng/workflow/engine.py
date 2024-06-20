@@ -7,7 +7,7 @@ from SpiffWorkflow.bpmn.workflow import BpmnWorkflow
 from SpiffWorkflow.spiff.parser.process import SpiffBpmnParser
 from SpiffWorkflow.task import TaskState
 
-from fed_mng.workflow.serializer import FileSerializer
+from fed_mng.workflow.serializer import FileSerializer, SqliteSerializer
 
 logger = logging.getLogger("spiff_engine")
 
@@ -17,7 +17,7 @@ class BpmnEngine:
         self,
         *,
         parser: SpiffBpmnParser,
-        serializer: FileSerializer,
+        serializer: FileSerializer | SqliteSerializer,
         handlers=None,
         script_engine: PythonScriptEngine | None = None,
     ) -> None:
@@ -48,7 +48,7 @@ class BpmnEngine:
             # However, our parser makes me mad so not investigating further at this time
             self.parser.process_parsers = {}
             raise exc
-        spec_id = self.serializer.create_workflow_spec(spec, dependencies, force=force)
+        spec_id = self.serializer.create_workflow_spec(spec, dependencies)#, force=force)
         logger.info("Added %s with id %s", process_id, spec_id)
         return spec_id
 

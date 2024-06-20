@@ -1,7 +1,11 @@
 """Entry point for the Federation-Manager web app."""
+import json
+import os
+import sqlite3
 from contextlib import asynccontextmanager
 from sqlite3 import Connection as SQLite3Connection
 from typing import Any, Generator
+from uuid import UUID
 
 from fastapi import FastAPI
 from sqlalchemy import Engine, event
@@ -10,9 +14,17 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from fed_mng import models
 from fed_mng.config import get_settings
 from fed_mng.crud.users import change_role, create_user
+from fed_mng.workflow.manager import engine as wf_engine
 
 settings = get_settings()
-connect_args = {"check_same_thread": False}
+sqlite3.register_adapter(UUID, lambda v: str(v))
+sqlite3.register_converter("uuid", lambda s: UUID(s.decode("utf-8")))
+sqlite3.register_adapter(dict, lambda v: json.dumps(v))
+sqlite3.register_converter("json", lambda s: json.loads(s))
+connect_args = {
+    "check_same_thread": False,
+    "detect_types": sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+}
 engine = create_engine(
     f"sqlite:///{settings.SQLITE_DB}", echo=True, connect_args=connect_args
 )
@@ -37,6 +49,10 @@ def initialize() -> None:
             admin = session.exec(statement).first()
             if not admin:
                 change_role(session, user, models.Admin, True)
+        # Upload processes
+        for f in filter(lambda x: x.endswith(".bpmn"), os.listdir(settings.BPMN_DIR)):
+            [fname, _] = f.split(".")
+            wf_engine.add_spec(fname, [os.path.join(settings.BPMN_DIR, f)])
 
 
 @asynccontextmanager

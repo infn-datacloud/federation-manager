@@ -16,6 +16,9 @@ from SpiffWorkflow.bpmn.specs.bpmn_process_spec import BpmnProcessSpec
 from SpiffWorkflow.bpmn.specs.mixins.subworkflow_task import SubWorkflowTask
 from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
+from sqlmodel import Session, select
+
+from fed_mng.models import WorkflowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -213,17 +216,14 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def delete_workflow(self, wf_id):
         return self.execute(self._delete_workflow, wf_id)
 
-    def _create_workflow_spec(self, cursor, spec):
-        cursor.execute(
-            "select id, false from workflow_spec where serialization->>'file'=? and serialization->>'name'=?",
-            (spec.file, spec.name),
-        )
-        row = cursor.fetchone()
+    def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec):
+        stmt = select(WorkflowSpec.id)
+        row = session.exec(stmt).one_or_none()
         if row is None:
             dct = self.to_dict(spec)
             spec_id = uuid4()
             cursor.execute(
-                "insert into workflow_spec (id, serialization) values (?, ?)",
+                "insert into workflow_specs (id, serialization) values (?, ?)",
                 (spec_id, dct),
             )
             return spec_id, True
@@ -237,7 +237,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
 
     def _get_workflow_spec(self, cursor, spec_id, include_dependencies):
         cursor.execute(
-            "select serialization as 'serialization [json]' from workflow_spec where id=?",
+            "select serialization as 'serialization [json]' from workflow_specs where id=?",
             (spec_id,),
         )
         spec = self.from_dict(cursor.fetchone()[0])
@@ -262,7 +262,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
 
     def _delete_workflow_spec(self, cursor, spec_id):
         try:
-            cursor.execute("delete from workflow_spec where id=?", (spec_id,))
+            cursor.execute("delete from workflow_specs where id=?", (spec_id,))
         except sqlite3.IntegrityError:
             logger.warning(
                 f"Unable to delete spec {spec_id} because it is used by existing workflows"
@@ -341,22 +341,15 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         cursor.execute("delete from workflow where id=?", (wf_id,))
 
     def execute(self, func, *args, **kwargs):
-        conn = sqlite3.connect(
-            self.dbname, detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
-        )
-        sqlite3.register_adapter(UUID, lambda v: str(v))
-        sqlite3.register_converter("uuid", lambda s: UUID(s.decode("utf-8")))
-        sqlite3.register_adapter(dict, lambda v: json.dumps(v))
-        sqlite3.register_converter("json", lambda s: json.loads(s))
-
-        cursor = conn.cursor()
-        try:
-            rv = func(cursor, *args, **kwargs)
-            conn.commit()
-        except Exception as exc:
-            logger.error(str(exc), exc_info=True)
-            conn.rollback()
-        finally:
-            cursor.close()
-            conn.close()
+        from fed_mng.db import engine
+        with Session(engine) as session:
+            #try:
+                rv = func(session, *args, **kwargs)
+                #conn.commit()
+            #except Exception as exc:
+            #    logger.error(str(exc), exc_info=True)
+                #conn.rollback()
+            # finally:
+            #     cursor.close()
+            #     conn.close()
         return rv

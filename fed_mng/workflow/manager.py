@@ -1,8 +1,9 @@
 import datetime
 
 from SpiffWorkflow.bpmn.script_engine import PythonScriptEngine, TaskDataEnvironment
-from SpiffWorkflow.spiff.parser.process import BpmnValidator, SpiffBpmnParser
-from SpiffWorkflow.spiff.specs.defaults import NoneTask, UserTask
+#from SpiffWorkflow.spiff.parser.process import BpmnValidator, SpiffBpmnParser
+from SpiffWorkflow.bpmn.parser import BpmnParser, BpmnValidator
+from SpiffWorkflow.bpmn.specs.defaults import NoneTask, UserTask
 
 from fed_mng.config import get_settings
 from fed_mng.workflow.engine import BpmnEngine
@@ -13,7 +14,7 @@ from fed_mng.workflow.task_handlers import NoneTaskHandler, UserTaskHandler
 settings = get_settings()
 serializer = SqliteSerializer(dbname=settings.SQLITE_DB)
 
-parser = SpiffBpmnParser(validator=BpmnValidator())
+parser = BpmnParser(validator=BpmnValidator())
 
 script_env = TaskDataEnvironment({"datetime": datetime})
 script_engine = PythonScriptEngine(environment=script_env)

@@ -5,8 +5,7 @@ from fastapi import FastAPI
 
 # from fastapi.middleware.cors import CORSMiddleware
 from fed_mng.config import get_settings
-
-# from fed_mng.db import lifespan
+from fed_mng.db import lifespan
 from fed_mng.socketio.admin import AdminNamespace
 from fed_mng.socketio.site_admin import SiteAdminNamespace
 from fed_mng.socketio.site_tester import SiteTesterNamespace
@@ -50,7 +49,7 @@ app = FastAPI(
     summary=summary,
     title=settings.PROJECT_NAME,
     version=version,
-    # lifespan=lifespan,
+    lifespan=lifespan,
 )
 
 # sub_app_v1 = FastAPI(
