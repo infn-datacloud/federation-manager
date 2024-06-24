@@ -447,8 +447,8 @@ class Query(SQLModel):
 class WorkflowSpec(SQLModel, table=True):
     __tablename__ = "workflow_specs"
 
-    id: int | None = Field(primary_key=True)
-    serialization: str = Field(nullable=False)
+    id: int | None = Field(default=None, primary_key=True)
+    #serialization: str = Field(nullable=False)
 
     task_specs: "TaskSpec" = Relationship(back_populates="workflow_spec")
     workflows: "Workflow" = Relationship(back_populates="workflow_spec")

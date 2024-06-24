@@ -221,12 +221,9 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         row = session.exec(stmt).one_or_none()
         if row is None:
             dct = self.to_dict(spec)
-            spec_id = uuid4()
-            cursor.execute(
-                "insert into workflow_specs (id, serialization) values (?, ?)",
-                (spec_id, dct),
-            )
-            return spec_id, True
+            workflow_spec = WorkflowSpec()
+            session.add(workflow_spec)
+            return workflow_spec.id, True
         else:
             return row
 
@@ -345,7 +342,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         with Session(engine) as session:
             #try:
                 rv = func(session, *args, **kwargs)
-                #conn.commit()
+                session.commit()
             #except Exception as exc:
             #    logger.error(str(exc), exc_info=True)
                 #conn.rollback()
