@@ -447,32 +447,32 @@ class Query(SQLModel):
 class WorkflowSpec(SQLModel, table=True):
     __tablename__ = "workflow_specs"
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: int = Field(primary_key=True, index=True)
     description: str = Field(nullable=False)
     file: str = Field(nullable=False)
     name: str = Field(nullable=False)
-    #serialization: str = Field(nullable=False)
+    typename: str = Field(nullable=False)
+    io_specification: str = Field(nullable=True)
+    data_objects: str = Field(nullable=True)
+    correlation_keys: str = Field(nullable=True)
 
-    task_specs: List["TaskSpec"] = Relationship(back_populates="workflow_spec")
+    task_specs: List["TaskSpec"] = Relationship(
+        back_populates="workflow_spec",
+        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
+    )
     workflows: List["Workflow"] = Relationship(back_populates="workflow_spec")
 
 
 class TaskSpec(SQLModel, table=True):
     __tablename__ = "task_specs"
 
-    name: str = Field(
-        primary_key=True, index=True
-    )  # Should be derived from serialization
+    name: str = Field(primary_key=True, index=True)
     description: str = Field(nullable=False)
     manual: bool = Field(nullable=False)
-    # serialization: str = Field(nullable=False)
-    workflow_spec_id: int = Field(
-        foreign_key="workflow_specs.id", nullable=False, index=True
-    )
+    lookahead: int = Field(nullable=False)
+    workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
-    workflow_spec: "WorkflowSpec" = Relationship(
-        back_populates="task_specs"#, sa_relationship_kwargs={"uselist": False}
-    )
+    workflow_spec: "WorkflowSpec" = Relationship(back_populates="task_specs")
 
 
 # class SpecDependency(SQLModel, table=True):

@@ -150,33 +150,28 @@ class SubworkflowConverter(BpmnSubWorkflowConverter):
         return dct
 
 
-class WorkflowSpecConverter(BpmnProcessSpecConverter):
-    def to_dict(self, spec):
-        dct = super().to_dict(spec)
-        dct["task_specs"] = list(dct["task_specs"].values())
-        return dct
-
-
 class SqliteSerializer(BpmnWorkflowSerializer):
     def __init__(self, dbname, **kwargs):
         self.dbname = dbname
         DEFAULT_CONFIG[BpmnWorkflow] = WorkflowConverter
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
-        DEFAULT_CONFIG[BpmnProcessSpec] = WorkflowSpecConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
     def create_workflow_spec(self, spec, dependencies):
-        spec_id, new = self.execute(self._create_workflow_spec, spec)
-        if new and len(dependencies) > 0:
-            pairs = self.get_spec_dependencies(spec_id, spec, dependencies)
-            # This handles the case where the participant requires an event to be kicked off
-            added = list(map(lambda p: p[1], pairs))
-            for name, child in dependencies.items():
-                child_id, new_child = self.execute(self._create_workflow_spec, child)
-                if new_child:
-                    pairs |= self.get_spec_dependencies(child_id, child, dependencies)
-                pairs.add((spec_id, child_id))
-            self.execute(self._set_spec_dependencies, pairs)
+        spec_id = self.execute(self._create_workflow_spec, spec)
+        # TODO: Read and re-write this piece of code.
+        # ---
+        # if new and len(dependencies) > 0:
+        #     pairs = self.get_spec_dependencies(spec_id, spec, dependencies)
+        #     # This handles the case where the participant requires an event to be kicked off
+        #     added = list(map(lambda p: p[1], pairs))
+        #     for name, child in dependencies.items():
+        #         child_id, new_child = self.execute(self._create_workflow_spec, child)
+        #         if new_child:
+        #             pairs |= self.get_spec_dependencies(child_id, child, dependencies)
+        #         pairs.add((spec_id, child_id))
+        #     self.execute(self._set_spec_dependencies, pairs)
+        # ---
         return spec_id
 
     def get_spec_dependencies(self, parent_id, parent, dependencies):
@@ -216,27 +211,20 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def delete_workflow(self, wf_id):
         return self.execute(self._delete_workflow, wf_id)
 
-    def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec):
+    def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec) -> int:
         stmt = select(WorkflowSpec.id).where(
             WorkflowSpec.name == spec.name, WorkflowSpec.file == spec.file
         )
         row = session.exec(stmt).one_or_none()
         if row is None:
             dct = self.to_dict(spec)
-            workflow_spec = WorkflowSpec(
-                name=dct.get("name", None),
-                file=dct.get("file", None),
-                description=dct.get("description", None),
-            )
-            for task_spec in dct.get("task_specs", []):
-                task_spec = TaskSpec(
-                    name=task_spec.get("name", None),
-                    description=task_spec.get("description", None),
-                    manual=task_spec.get("manual", None),
-                )
-                workflow_spec.task_specs.append(task_spec)
+            task_specs: dict[str, dict] = dct.pop("task_specs", {})
+            workflow_spec = WorkflowSpec(**dct)
+            for task_spec in task_specs.values():
+                workflow_spec.task_specs.append(TaskSpec(**task_spec))
             session.add(workflow_spec)
-            return workflow_spec.id, True
+            session.commit()
+            return workflow_spec.id
         else:
             return row
 
@@ -245,15 +233,18 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             "insert into _spec_dependency (parent_id, child_id) values (?, ?)", values
         )
 
-    def _get_workflow_spec(self, cursor, spec_id, include_dependencies):
-        cursor.execute(
-            "select serialization as 'serialization [json]' from workflow_specs where id=?",
-            (spec_id,),
-        )
-        spec = self.from_dict(cursor.fetchone()[0])
+    def _get_workflow_spec(
+        self, session: Session, spec_id: int, include_dependencies: bool
+    ):
+        stmt = select(WorkflowSpec).where(WorkflowSpec.id == spec_id)
+        row = session.exec(stmt).one_or_none()
+        if row is not None:
+            dct = row.model_dump()
+            dct["task_specs"] = {t.name: t.model_dump() for t in row.task_specs}
+        spec = self.from_dict(dct)
         subprocess_specs = {}
-        if include_dependencies:
-            subprocess_specs = self._get_subprocess_specs(cursor, spec_id)
+        # if include_dependencies:
+        #     subprocess_specs = self._get_subprocess_specs(cursor, spec_id)
         return spec, subprocess_specs
 
     def _get_subprocess_specs(self, cursor, spec_id):
@@ -356,7 +347,6 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         with Session(engine) as session:
             try:
                 rv = func(session, *args, **kwargs)
-                session.commit()
             except Exception as exc:
                 logger.exception(str(exc))
                 session.rollback()
