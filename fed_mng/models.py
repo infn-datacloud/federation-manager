@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import validator
@@ -448,10 +448,13 @@ class WorkflowSpec(SQLModel, table=True):
     __tablename__ = "workflow_specs"
 
     id: int | None = Field(default=None, primary_key=True)
+    description: str = Field(nullable=False)
+    file: str = Field(nullable=False)
+    name: str = Field(nullable=False)
     #serialization: str = Field(nullable=False)
 
-    task_specs: "TaskSpec" = Relationship(back_populates="workflow_spec")
-    workflows: "Workflow" = Relationship(back_populates="workflow_spec")
+    task_specs: List["TaskSpec"] = Relationship(back_populates="workflow_spec")
+    workflows: List["Workflow"] = Relationship(back_populates="workflow_spec")
 
 
 class TaskSpec(SQLModel, table=True):
@@ -460,13 +463,15 @@ class TaskSpec(SQLModel, table=True):
     name: str = Field(
         primary_key=True, index=True
     )  # Should be derived from serialization
-    serialization: str = Field(nullable=False)
+    description: str = Field(nullable=False)
+    manual: bool = Field(nullable=False)
+    # serialization: str = Field(nullable=False)
     workflow_spec_id: int = Field(
         foreign_key="workflow_specs.id", nullable=False, index=True
     )
 
     workflow_spec: "WorkflowSpec" = Relationship(
-        back_populates="task_specs", sa_relationship_kwargs={"uselist": False}
+        back_populates="task_specs"#, sa_relationship_kwargs={"uselist": False}
     )
 
 

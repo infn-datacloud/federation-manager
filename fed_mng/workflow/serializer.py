@@ -18,7 +18,7 @@ from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
 from sqlmodel import Session, select
 
-from fed_mng.models import WorkflowSpec
+from fed_mng.models import TaskSpec, WorkflowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -217,11 +217,24 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         return self.execute(self._delete_workflow, wf_id)
 
     def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec):
-        stmt = select(WorkflowSpec.id)
+        stmt = select(WorkflowSpec.id).where(
+            WorkflowSpec.name == spec.name, WorkflowSpec.file == spec.file
+        )
         row = session.exec(stmt).one_or_none()
         if row is None:
             dct = self.to_dict(spec)
-            workflow_spec = WorkflowSpec()
+            workflow_spec = WorkflowSpec(
+                name=dct.get("name", None),
+                file=dct.get("file", None),
+                description=dct.get("description", None),
+            )
+            for task_spec in dct.get("task_specs", []):
+                task_spec = TaskSpec(
+                    name=task_spec.get("name", None),
+                    description=task_spec.get("description", None),
+                    manual=task_spec.get("manual", None),
+                )
+                workflow_spec.task_specs.append(task_spec)
             session.add(workflow_spec)
             return workflow_spec.id, True
         else:
@@ -339,14 +352,12 @@ class SqliteSerializer(BpmnWorkflowSerializer):
 
     def execute(self, func, *args, **kwargs):
         from fed_mng.db import engine
+
         with Session(engine) as session:
-            #try:
+            try:
                 rv = func(session, *args, **kwargs)
                 session.commit()
-            #except Exception as exc:
-            #    logger.error(str(exc), exc_info=True)
-                #conn.rollback()
-            # finally:
-            #     cursor.close()
-            #     conn.close()
+            except Exception as exc:
+                logger.exception(str(exc))
+                session.rollback()
         return rv
