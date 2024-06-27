@@ -144,6 +144,9 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
+    def list_specs(self):
+        return self.execute(self._list_specs)
+
     def create_workflow_spec(
         self, spec: BpmnProcessSpec, dependencies: list[BpmnProcessSpec]
     ) -> int:
@@ -202,9 +205,6 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         """
         return self.execute(self._get_workflow_spec, spec_id, include_dependencies)
 
-    def list_specs(self):
-        return self.execute(self._list_specs)
-
     def delete_workflow_spec(self, spec_id: int) -> None:
         """Delete target workflow specification.
 
@@ -245,7 +245,12 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def list_workflows(self, include_completed=False):
         return self.execute(self._list_workflows, include_completed)
 
-    def delete_workflow(self, wf_id):
+    def delete_workflow(self, wf_id: int) -> None:
+        """Delete a specific workflow instance.
+
+        Args:
+            wf_id (int): ID of the workflow instance
+        """
         return self.execute(self._delete_workflow, wf_id)
 
     def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec) -> int:
@@ -363,6 +368,16 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def _create_workflow(
         self, session: Session, bpmn_workflow: BpmnWorkflow, spec_id: int
     ) -> int:
+        """Create an entry in the DB matching the target workflow.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            wf_id (int): ID of the workflow instance.
+            spec_id (int): ID of the corresponding workflow specification.
+
+        Returns:
+            int: ID of the workflow instance.
+        """
         dct = self.to_dict(bpmn_workflow)
         tasks: dict[str, dict] = dct.pop("tasks", {})
         workflow = Workflow(workflow_spec_id=spec_id, **dct)
@@ -388,6 +403,16 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def _get_workflow(
         self, session: Session, wf_id: int, include_dependencies: bool
     ) -> BpmnWorkflow:
+        """_summary_
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            wf_id (int): ID of the workflow instance.
+            include_dependencies (bool): _description_
+
+        Returns:
+            BpmnWorkflow: the target workflow instance.
+        """
         stmt = select(Workflow).where(Workflow.id == wf_id)
         row = session.exec(stmt).one()
         dct = row.model_dump()
@@ -440,8 +465,20 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         cursor.execute(query)
         return cursor.fetchall()
 
-    def _delete_workflow(self, cursor, wf_id):
-        cursor.execute("delete from workflow where id=?", (wf_id,))
+    def _delete_workflow(self, session: Session, wf_id: int) -> None:
+        """Delete a specific workflow from the DB.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            wf_id (int): ID of the workflow instance.
+        """
+        stmt = select(Workflow).where(Workflow.id == wf_id)
+        item = session.exec(stmt).first()
+        if item is not None:
+            session.delete(item)
+            session.commit()
+        else:
+            logger.warning("Unable to find workflow with id: %d", wf_id)
 
     def execute(self, func, *args, **kwargs):
         from fed_mng.db import engine

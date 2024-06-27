@@ -56,7 +56,8 @@ def initialize() -> None:
             # wf_engine.get_workflow(spec_id=spec_id)
             # wf_engine.delete_workflow(spec_id=spec_id)
             # wf_id = wf_engine.start_workflow(spec_id=spec_id)
-            # wf = wf_engine.get_workflow(wf_id)
+            # wf = wf_engine.get_workflow(wf_id=wf_id)
+            # wf_engine.delete_workflow(wf_id=wf_id)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

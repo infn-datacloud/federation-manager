@@ -532,8 +532,12 @@ class Workflow(SQLModel, table=True):
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
     workflow_data: "WorkflowData" = Relationship(back_populates="workflow")
-    tasks: List["Task"] = Relationship(back_populates="workflow")
+    tasks: List["Task"] = Relationship(
+        back_populates="workflow",
+        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
+    )
     tasks_data: "TaskData" = Relationship(back_populates="workflow")
+
 
 class Task(SQLModel, table=True):
     __tablename__ = "tasks"
