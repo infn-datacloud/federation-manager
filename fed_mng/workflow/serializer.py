@@ -4,12 +4,10 @@ import os
 import re
 import sqlite3
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
-from SpiffWorkflow.bpmn.serializer.default.workflow import (
-    BpmnSubWorkflowConverter,
-    BpmnWorkflowConverter,
-)
+from SpiffWorkflow.bpmn.serializer.default.workflow import BpmnSubWorkflowConverter
 from SpiffWorkflow.bpmn.serializer.workflow import BpmnWorkflowSerializer
 from SpiffWorkflow.bpmn.specs.bpmn_process_spec import BpmnProcessSpec
 from SpiffWorkflow.bpmn.specs.mixins.subworkflow_task import SubWorkflowTask
@@ -17,7 +15,7 @@ from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
 from sqlmodel import Session, select
 
-from fed_mng.models import TaskSpec, Workflow, WorkflowSpec
+from fed_mng.models import Task, TaskSpec, Workflow, WorkflowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -133,15 +131,6 @@ class FileSerializer(BpmnWorkflowSerializer):
         return instances
 
 
-class WorkflowConverter(BpmnWorkflowConverter):
-    def to_dict(self, workflow):
-        dct = super(BpmnWorkflowConverter, self).to_dict(workflow)
-        dct["bpmn_events"] = self.registry.convert(workflow.bpmn_events)
-        dct["subprocesses"] = {}
-        dct["tasks"] = list(dct["tasks"].values())
-        return dct
-
-
 class SubworkflowConverter(BpmnSubWorkflowConverter):
     def to_dict(self, workflow):
         dct = super().to_dict(workflow)
@@ -152,7 +141,6 @@ class SubworkflowConverter(BpmnSubWorkflowConverter):
 class SqliteSerializer(BpmnWorkflowSerializer):
     def __init__(self, dbname, **kwargs):
         self.dbname = dbname
-        DEFAULT_CONFIG[BpmnWorkflow] = WorkflowConverter
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
@@ -237,7 +225,18 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         """
         return self.execute(self._create_workflow, workflow, spec_id)
 
-    def get_workflow(self, wf_id, include_dependencies=True):
+    def get_workflow(
+        self, wf_id: int, include_dependencies: bool = True
+    ) -> BpmnWorkflow:
+        """Retrieve a specific workflow instance and its dependencies from the DB.
+
+        Args:
+            wf_id (int): ID of the workflow instance.
+            include_dependencies (bool, optional): _description_. Defaults to True.
+
+        Returns:
+            BpmnWorkflow: the target workflow instance.
+        """
         return self.execute(self._get_workflow, wf_id, include_dependencies)
 
     def update_workflow(self, workflow, wf_id):
@@ -269,21 +268,23 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             workflow_spec = WorkflowSpec(**dct)
             task_specs_dict: dict[str, TaskSpec] = {}
 
+            # Map the task spec dicts in SQL task specs
+            # (do not map inputs and outputs here)
             for name, task_spec in task_specs.items():
                 inputs = task_spec.pop("inputs", [])
                 outputs = task_spec.pop("outputs", [])
                 event_definition = json.dumps(task_spec.pop("event_definition", None))
                 cond_task_specs = json.dumps(task_spec.pop("cond_task_specs", None))
-                t = TaskSpec(
+                task_specs_dict[name] = TaskSpec(
                     **task_spec,
                     event_definition=event_definition,
                     cond_task_specs=cond_task_specs,
                 )
                 task_spec["inputs"] = inputs
                 task_spec["outputs"] = outputs
-                task_specs_dict[name] = t
-                workflow_spec.task_specs.append(t)
+                workflow_spec.task_specs.append(task_specs_dict[name])
 
+            # Copy inputs and outputs as relationships
             for name, task_spec in task_specs.items():
                 for out_task in task_spec.get("outputs", []):
                     task_specs_dict[name].outputs.append(task_specs_dict[out_task])
@@ -317,18 +318,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         stmt = select(WorkflowSpec).where(WorkflowSpec.id == spec_id)
         row = session.exec(stmt).one_or_none()
         if row is not None:
-            dct = row.model_dump()
-            dct["task_specs"] = {}
-            for t in row.task_specs:
-                dct["task_specs"][t.name] = t.model_dump()
-                dct["task_specs"][t.name]["event_definition"] = json.loads(
-                    t.event_definition
-                )
-                dct["task_specs"][t.name]["cond_task_specs"] = json.loads(
-                    t.cond_task_specs
-                )
-                dct["task_specs"][t.name]["inputs"] = [x.name for x in t.inputs]
-                dct["task_specs"][t.name]["outputs"] = [x.name for x in t.outputs]
+            dct = self._recreate_workflow_spec(row)
         spec = self.from_dict(dct)
         subprocess_specs = {}
         # if include_dependencies:
@@ -373,11 +363,16 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def _create_workflow(
         self, session: Session, bpmn_workflow: BpmnWorkflow, spec_id: int
     ) -> int:
-        workflow = Workflow(workflow_spec_id=spec_id)
+        dct = self.to_dict(bpmn_workflow)
+        tasks: dict[str, dict] = dct.pop("tasks", {})
+        workflow = Workflow(workflow_spec_id=spec_id, **dct)
+        tasks_dict: dict[str, Task] = {}
+
+        for name, task in tasks.items():
+            tasks_dict[name] = Task(task_spec_name=task.pop("task_spec"), **task)
+            workflow.tasks.append(tasks_dict[name])
         session.add(workflow)
         session.commit()
-        dct = super().to_dict(bpmn_workflow)
-
         # if len(workflow.subprocesses) > 0:
         #     cursor.execute(
         #         "select serialization->>'name', descendant from spec_dependency where root=?",
@@ -390,24 +385,27 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         #         )
         return workflow.id
 
-    def _get_workflow(self, cursor, wf_id, include_dependencies):
-        cursor.execute(
-            "select workflow_spec_id, serialization as 'serialization [json]' from workflow where id=?",
-            (wf_id,),
-        )
-        row = cursor.fetchone()
-        spec_id, workflow = row[0], self.from_dict(row[1])
-        if include_dependencies:
-            workflow.subprocess_specs = self._get_subprocess_specs(cursor, spec_id)
-            cursor.execute(
-                "select descendant as 'id [uuid]', serialization as 'serialization [json]' from workflow_dependency where root=? order by depth",
-                (wf_id,),
-            )
-            for sp_id, sp in cursor:
-                task = workflow.get_task_from_id(sp_id)
-                workflow.subprocesses[sp_id] = self.from_dict(
-                    sp, task=task, top_workflow=workflow
-                )
+    def _get_workflow(
+        self, session: Session, wf_id: int, include_dependencies: bool
+    ) -> BpmnWorkflow:
+        stmt = select(Workflow).where(Workflow.id == wf_id)
+        row = session.exec(stmt).one()
+        dct = row.model_dump()
+        dct["spec"] = self._recreate_workflow_spec(row.workflow_spec)
+        dct["tasks"] = {t.id: t for t in row.tasks}
+        workflow = self.from_dict(dct)
+        # spec_id = row.workflow_spec_id
+        # if include_dependencies:
+        #     workflow.subprocess_specs = self._get_subprocess_specs(cursor, spec_id)
+        #     cursor.execute(
+        #         "select descendant as 'id [uuid]', serialization as 'serialization [json]' from workflow_dependency where root=? order by depth",
+        #         (wf_id,),
+        #     )
+        #     for sp_id, sp in cursor:
+        #         task = workflow.get_task_from_id(sp_id)
+        #         workflow.subprocesses[sp_id] = self.from_dict(
+        #             sp, task=task, top_workflow=workflow
+        #         )
         return workflow
 
     def _update_workflow(self, cursor, workflow, wf_id):
@@ -455,3 +453,18 @@ class SqliteSerializer(BpmnWorkflowSerializer):
                 logger.exception(str(exc))
                 session.rollback()
         return rv
+
+    def _recreate_workflow_spec(self, item: WorkflowSpec) -> dict[str, Any]:
+        dct = item.model_dump()
+        dct["task_specs"] = {}
+        for t in item.task_specs:
+            dct["task_specs"][t.name] = self._recreate_task_spec(t)
+        return dct
+
+    def _recreate_task_spec(self, item: TaskSpec) -> dict[str, Any]:
+        dct = item.model_dump()
+        dct["event_definition"] = json.loads(item.event_definition)
+        dct["cond_task_specs"] = json.loads(item.cond_task_specs)
+        dct["inputs"] = [x.name for x in item.inputs]
+        dct["outputs"] = [x.name for x in item.outputs]
+        return dct

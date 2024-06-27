@@ -500,6 +500,7 @@ class TaskSpec(SQLModel, table=True):
         },
         back_populates="inputs",
     )
+    tasks: List["Task"] = Relationship(back_populates="task_spec")
 
 
 # class SpecDependency(SQLModel, table=True):
@@ -522,29 +523,27 @@ class Workflow(SQLModel, table=True):
     __tablename__ = "workflows"
 
     id: int | None = Field(primary_key=True)
-    # serialization: str = Field(nullable=False)
+    typename: str = Field(nullable=False)
+    root: str = Field(nullable=False)
+    last_task: str = Field(nullable=True)
+    success: bool = Field(nullable=False)
+    subprocesses: str = Field(nullable=True)
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
-    workflow_spec: "WorkflowSpec" = Relationship(
-        back_populates="workflows", sa_relationship_kwargs={"uselist": False}
-    )
-    workflow_data: "WorkflowData" = Relationship(
-        back_populates="workflow", sa_relationship_kwargs={"uselist": False}
-    )
-    tasks: "Task" = Relationship(back_populates="workflow")
+    workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
+    workflow_data: "WorkflowData" = Relationship(back_populates="workflow")
+    tasks: List["Task"] = Relationship(back_populates="workflow")
     tasks_data: "TaskData" = Relationship(back_populates="workflow")
-
 
 class Task(SQLModel, table=True):
     __tablename__ = "tasks"
 
-    id: int | None = Field(primary_key=True, index=True)
-    serialization: str = Field(nullable=False)
+    id: str | None = Field(primary_key=True, index=True)
     workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
+    task_spec_name: str = Field(foreign_key="task_specs.name", nullable=False)
 
-    workflow: "Workflow" = Relationship(
-        back_populates="tasks", sa_relationship_kwargs={"uselist": False}
-    )
+    workflow: "Workflow" = Relationship(back_populates="tasks")
+    task_spec: "TaskSpec" = Relationship(back_populates="tasks")
 
 
 class TaskData(SQLModel, table=True):
