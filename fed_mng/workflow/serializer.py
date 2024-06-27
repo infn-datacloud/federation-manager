@@ -4,9 +4,8 @@ import os
 import re
 import sqlite3
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from SpiffWorkflow.bpmn.serializer.default.process_spec import BpmnProcessSpecConverter
 from SpiffWorkflow.bpmn.serializer.default.workflow import (
     BpmnSubWorkflowConverter,
     BpmnWorkflowConverter,
@@ -18,7 +17,7 @@ from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
 from sqlmodel import Session, select
 
-from fed_mng.models import TaskSpec, WorkflowSpec
+from fed_mng.models import TaskSpec, Workflow, WorkflowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +156,18 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
-    def create_workflow_spec(self, spec, dependencies):
+    def create_workflow_spec(
+        self, spec: BpmnProcessSpec, dependencies: list[BpmnProcessSpec]
+    ) -> int:
+        """Add the workflow specification and its dependecies to the DB.
+
+        Args:
+            spec (BpmnProcessSpec): target workflow specification
+            dependencies (list[BpmnProcessSpec]): list of workflows specifications
+
+        Returns:
+            int: Workflow specification ID in the DB.
+        """
         spec_id = self.execute(self._create_workflow_spec, spec)
         # TODO: Read and re-write this piece of code.
         # ---
@@ -174,29 +184,57 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         # ---
         return spec_id
 
-    def get_spec_dependencies(self, parent_id, parent, dependencies):
-        # There ought to be an option in the parser to do this
-        pairs = set()
-        for task_spec in filter(
-            lambda ts: isinstance(ts, SubWorkflowTask), parent.task_specs.values()
-        ):
-            child = dependencies.get(task_spec.spec)
-            child_id, new = self.execute(self._create_workflow_spec, child)
-            pairs.add((parent_id, child_id))
-            if new:
-                pairs |= self.get_spec_dependencies(child_id, child, dependencies)
-        return pairs
+    # def get_spec_dependencies(self, parent_id, parent, dependencies):
+    #     # There ought to be an option in the parser to do this
+    #     pairs = set()
+    #     for task_spec in filter(
+    #         lambda ts: isinstance(ts, SubWorkflowTask), parent.task_specs.values()
+    #     ):
+    #         child = dependencies.get(task_spec.spec)
+    #         child_id, new = self.execute(self._create_workflow_spec, child)
+    #         pairs.add((parent_id, child_id))
+    #         if new:
+    #             pairs |= self.get_spec_dependencies(child_id, child, dependencies)
+    #     return pairs
 
-    def get_workflow_spec(self, spec_id, include_dependencies=True):
+    def get_workflow_spec(
+        self, spec_id: int, include_dependencies: bool = True
+    ) -> tuple[BpmnProcessSpec, list[BpmnProcessSpec]]:
+        """Return the target workflow specification.
+
+        Args:
+            spec_id (int): ID of the target workflow specification
+            include_dependencies (bool, optional): Include dependencies in the returned
+                object. Defaults to True.
+
+        Returns:
+            tuple[BpmnProcessSpec, list[BpmnProcessSpec]]: The first item is the target
+                workflow specification, the second is the list of the sub workflow
+                specifications.
+        """
         return self.execute(self._get_workflow_spec, spec_id, include_dependencies)
 
     def list_specs(self):
         return self.execute(self._list_specs)
 
-    def delete_workflow_spec(self, spec_id):
+    def delete_workflow_spec(self, spec_id: int) -> None:
+        """Delete target workflow specification.
+
+        Args:
+            spec_id (int): ID of the target workflow specification.
+        """
         return self.execute(self._delete_workflow_spec, spec_id)
 
-    def create_workflow(self, workflow, spec_id):
+    def create_workflow(self, workflow: BpmnWorkflow, spec_id: int) -> int:
+        """Add a workflow to the DB and link it to the corresponding spec.
+
+        Args:
+            workflow (BpmnWorkflow): Workflow instance to save.
+            spec_id (int): ID of the target spec.
+
+        Returns:
+            int: Workflow ID in the DB.
+        """
         return self.execute(self._create_workflow, workflow, spec_id)
 
     def get_workflow(self, wf_id, include_dependencies=True):
@@ -212,6 +250,15 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         return self.execute(self._delete_workflow, wf_id)
 
     def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec) -> int:
+        """Add workflow specification to the DB.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            spec (BpmnProcessSpec): Workflows specification to add to the DB.
+
+        Returns:
+            int: ID of the generated DB entity.
+        """
         stmt = select(WorkflowSpec.id).where(
             WorkflowSpec.name == spec.name, WorkflowSpec.file == spec.file
         )
@@ -220,8 +267,27 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             dct = self.to_dict(spec)
             task_specs: dict[str, dict] = dct.pop("task_specs", {})
             workflow_spec = WorkflowSpec(**dct)
-            for task_spec in task_specs.values():
-                workflow_spec.task_specs.append(TaskSpec(**task_spec))
+            task_specs_dict: dict[str, TaskSpec] = {}
+
+            for name, task_spec in task_specs.items():
+                inputs = task_spec.pop("inputs", [])
+                outputs = task_spec.pop("outputs", [])
+                event_definition = json.dumps(task_spec.pop("event_definition", None))
+                cond_task_specs = json.dumps(task_spec.pop("cond_task_specs", None))
+                t = TaskSpec(
+                    **task_spec,
+                    event_definition=event_definition,
+                    cond_task_specs=cond_task_specs,
+                )
+                task_spec["inputs"] = inputs
+                task_spec["outputs"] = outputs
+                task_specs_dict[name] = t
+                workflow_spec.task_specs.append(t)
+
+            for name, task_spec in task_specs.items():
+                for out_task in task_spec.get("outputs", []):
+                    task_specs_dict[name].outputs.append(task_specs_dict[out_task])
+
             session.add(workflow_spec)
             session.commit()
             return workflow_spec.id
@@ -235,56 +301,94 @@ class SqliteSerializer(BpmnWorkflowSerializer):
 
     def _get_workflow_spec(
         self, session: Session, spec_id: int, include_dependencies: bool
-    ):
+    ) -> tuple[BpmnProcessSpec, list[BpmnProcessSpec]]:
+        """Retrieve a specific workflow specification from the DB.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            spec_id (int): Workflows specification to retrieve from the DB.
+            include_dependencies (bool): _description_
+
+        Returns:
+            tuple[BpmnProcessSpec, list[BpmnProcessSpec]]: The first item is the target
+                workflow specification, the second is the list of the sub workflow
+                specifications.
+        """
         stmt = select(WorkflowSpec).where(WorkflowSpec.id == spec_id)
         row = session.exec(stmt).one_or_none()
         if row is not None:
             dct = row.model_dump()
-            dct["task_specs"] = {t.name: t.model_dump() for t in row.task_specs}
+            dct["task_specs"] = {}
+            for t in row.task_specs:
+                dct["task_specs"][t.name] = t.model_dump()
+                dct["task_specs"][t.name]["event_definition"] = json.loads(
+                    t.event_definition
+                )
+                dct["task_specs"][t.name]["cond_task_specs"] = json.loads(
+                    t.cond_task_specs
+                )
+                dct["task_specs"][t.name]["inputs"] = [x.name for x in t.inputs]
+                dct["task_specs"][t.name]["outputs"] = [x.name for x in t.outputs]
         spec = self.from_dict(dct)
         subprocess_specs = {}
         # if include_dependencies:
         #     subprocess_specs = self._get_subprocess_specs(cursor, spec_id)
         return spec, subprocess_specs
 
-    def _get_subprocess_specs(self, cursor, spec_id):
-        subprocess_specs = {}
-        cursor.execute(
-            "select serialization->>'name', serialization as 'serialization [json]' from spec_dependency where root=?",
-            (spec_id,),
-        )
-        for name, serialization in cursor:
-            subprocess_specs[name] = self.from_dict(serialization)
-        return subprocess_specs
+    # def _get_subprocess_specs(self, cursor, spec_id):
+    #     subprocess_specs = {}
+    #     cursor.execute(
+    #         "select serialization->>'name', serialization as 'serialization [json]' from spec_dependency where root=?",
+    #         (spec_id,),
+    #     )
+    #     for name, serialization in cursor:
+    #         subprocess_specs[name] = self.from_dict(serialization)
+    #     return subprocess_specs
 
     def _list_specs(self, cursor):
         cursor.execute("select id, name, filename from spec_library")
         return cursor.fetchall()
 
-    def _delete_workflow_spec(self, cursor, spec_id):
+    def _delete_workflow_spec(self, session: Session, spec_id: int) -> None:
+        """Delete target workflow specification from DB.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            spec_id (int): Workflows specification to delete from the DB.
+        """
         try:
-            cursor.execute("delete from workflow_specs where id=?", (spec_id,))
+            stmt = select(WorkflowSpec).where(WorkflowSpec.id == spec_id)
+            item = session.exec(stmt).first()
+            if item is not None:
+                session.delete(item)
+                session.commit()
+            else:
+                logger.warning("Unable to find process spec with id: %d", spec_id)
         except sqlite3.IntegrityError:
             logger.warning(
-                f"Unable to delete spec {spec_id} because it is used by existing workflows"
+                "Unable to delete process spec %d because used by existing workflows",
+                spec_id,
             )
 
-    def _create_workflow(self, cursor, workflow, spec_id):
-        dct = super().to_dict(workflow)
-        wf_id = uuid4()
-        stmt = "insert into workflow (id, workflow_spec_id, serialization) values (?, ?, ?)"
-        cursor.execute(stmt, (wf_id, spec_id, dct))
-        if len(workflow.subprocesses) > 0:
-            cursor.execute(
-                "select serialization->>'name', descendant from spec_dependency where root=?",
-                (spec_id,),
-            )
-            dependencies = dict((name, id) for name, id in cursor)
-            for sp_id, sp in workflow.subprocesses.items():
-                cursor.execute(
-                    stmt, (sp_id, dependencies[sp.spec.name], self.to_dict(sp))
-                )
-        return wf_id
+    def _create_workflow(
+        self, session: Session, bpmn_workflow: BpmnWorkflow, spec_id: int
+    ) -> int:
+        workflow = Workflow(workflow_spec_id=spec_id)
+        session.add(workflow)
+        session.commit()
+        dct = super().to_dict(bpmn_workflow)
+
+        # if len(workflow.subprocesses) > 0:
+        #     cursor.execute(
+        #         "select serialization->>'name', descendant from spec_dependency where root=?",
+        #         (spec_id,),
+        #     )
+        #     dependencies = dict((name, id) for name, id in cursor)
+        #     for sp_id, sp in workflow.subprocesses.items():
+        #         cursor.execute(
+        #             stmt, (sp_id, dependencies[sp.spec.name], self.to_dict(sp))
+        #         )
+        return workflow.id
 
     def _get_workflow(self, cursor, wf_id, include_dependencies):
         cursor.execute(

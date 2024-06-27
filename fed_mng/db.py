@@ -52,7 +52,10 @@ def initialize() -> None:
         # Upload processes
         for f in filter(lambda x: x.endswith(".bpmn"), os.listdir(settings.BPMN_DIR)):
             [fname, _] = f.split(".")
-            wf_engine.add_spec(fname, [os.path.join(settings.BPMN_DIR, f)])
+            spec_id = wf_engine.add_spec(fname, [os.path.join(settings.BPMN_DIR, f)])
+            # wf_engine.get_workflow(spec_id=spec_id)
+            # wf_engine.delete_workflow(spec_id=spec_id)
+            # wf_engine.start_workflow(spec_id=spec_id)
 
 
 @asynccontextmanager

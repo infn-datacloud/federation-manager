@@ -463,6 +463,12 @@ class WorkflowSpec(SQLModel, table=True):
     workflows: List["Workflow"] = Relationship(back_populates="workflow_spec")
 
 
+class TaskSpecAssociation(SQLModel, table=True):
+    __tablename__ = "task_spec_associations"
+    input_name: str = Field(foreign_key="task_specs.name", primary_key=True)
+    output_name: str = Field(foreign_key="task_specs.name", primary_key=True)
+
+
 class TaskSpec(SQLModel, table=True):
     __tablename__ = "task_specs"
 
@@ -470,9 +476,30 @@ class TaskSpec(SQLModel, table=True):
     description: str = Field(nullable=False)
     manual: bool = Field(nullable=False)
     lookahead: int = Field(nullable=False)
+    typename: str = Field(nullable=False)
+    event_definition: str | None = Field(nullable=True)
+    cancel_activity: bool | None = Field(nullable=True)
+    default_task_spec: str | None = Field(nullable=True)
+    cond_task_specs: str | None = Field(nullable=True)
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="task_specs")
+    inputs: list["TaskSpec"] = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "task_spec_associations",
+            "primaryjoin": "TaskSpec.name == TaskSpecAssociation.output_name",
+            "secondaryjoin": "TaskSpec.name == TaskSpecAssociation.input_name",
+        },
+        back_populates="outputs",
+    )
+    outputs: list["TaskSpec"] = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "task_spec_associations",
+            "primaryjoin": "TaskSpec.name == TaskSpecAssociation.input_name",
+            "secondaryjoin": "TaskSpec.name == TaskSpecAssociation.output_name",
+        },
+        back_populates="inputs",
+    )
 
 
 # class SpecDependency(SQLModel, table=True):
@@ -495,7 +522,7 @@ class Workflow(SQLModel, table=True):
     __tablename__ = "workflows"
 
     id: int | None = Field(primary_key=True)
-    serialization: str = Field(nullable=False)
+    # serialization: str = Field(nullable=False)
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(
