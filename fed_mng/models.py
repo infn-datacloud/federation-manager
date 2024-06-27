@@ -463,12 +463,6 @@ class WorkflowSpec(SQLModel, table=True):
     workflows: List["Workflow"] = Relationship(back_populates="workflow_spec")
 
 
-class TaskSpecAssociation(SQLModel, table=True):
-    __tablename__ = "task_spec_associations"
-    input_name: str = Field(foreign_key="task_specs.name", primary_key=True)
-    output_name: str = Field(foreign_key="task_specs.name", primary_key=True)
-
-
 class TaskSpec(SQLModel, table=True):
     __tablename__ = "task_specs"
 
@@ -501,6 +495,12 @@ class TaskSpec(SQLModel, table=True):
         back_populates="inputs",
     )
     tasks: List["Task"] = Relationship(back_populates="task_spec")
+
+
+class TaskSpecAssociation(SQLModel, table=True):
+    __tablename__ = "task_spec_associations"
+    input_name: str = Field(foreign_key="task_specs.name", primary_key=True)
+    output_name: str = Field(foreign_key="task_specs.name", primary_key=True)
 
 
 # class SpecDependency(SQLModel, table=True):
@@ -536,6 +536,7 @@ class Workflow(SQLModel, table=True):
         back_populates="workflow",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
+    # TODO evaluate to move it in Task
     tasks_data: "TaskData" = Relationship(back_populates="workflow")
 
 
@@ -585,7 +586,7 @@ class Instance(SQLModel, table=True):
     __tablename__ = "instances"
 
     id: int | None = Field(primary_key=True)
-    bullshit: str = Field()
+    # bullshit: str = Field()
     spec_name: str = Field()
     active_tasks: int = Field()
     started: datetime = Field()

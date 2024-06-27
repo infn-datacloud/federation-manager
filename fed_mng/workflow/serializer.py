@@ -15,7 +15,7 @@ from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
 from sqlmodel import Session, select
 
-from fed_mng.models import Task, TaskSpec, Workflow, WorkflowSpec
+from fed_mng.models import Instance, Task, TaskSpec, Workflow, WorkflowSpec
 
 logger = logging.getLogger(__name__)
 
@@ -242,8 +242,23 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     def update_workflow(self, workflow, wf_id):
         return self.execute(self._update_workflow, workflow, wf_id)
 
-    def list_workflows(self, include_completed=False):
-        return self.execute(self._list_workflows, include_completed)
+    def list_workflows(
+        self, include_completed: bool = False
+    ) -> list[tuple[str, str, str, str, str, str]]:
+        """List running, and optionally completed, workflow instances.
+
+        Args:
+            include_completed (bool, optional): Flag to include completed instances.
+                Defaults to False.
+
+        Returns:
+            list[Instance]: List of all instances or just running ones.
+        """
+        items = self.execute(self._list_workflows, include_completed)
+        return [
+            (i.id, i.spec_name, i.active_tasks, i.started, i.updated, i.ended)
+            for i in items
+        ]
 
     def delete_workflow(self, wf_id: int) -> None:
         """Delete a specific workflow instance.
@@ -252,6 +267,21 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             wf_id (int): ID of the workflow instance
         """
         return self.execute(self._delete_workflow, wf_id)
+
+    def execute(self, func, *args, **kwargs):
+        from fed_mng.db import engine
+
+        with Session(engine) as session:
+            try:
+                rv = func(session, *args, **kwargs)
+            except Exception as exc:
+                logger.exception(str(exc))
+                session.rollback()
+        return rv
+
+    def _list_specs(self, cursor):
+        cursor.execute("select id, name, filename from spec_library")
+        return cursor.fetchall()
 
     def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec) -> int:
         """Add workflow specification to the DB.
@@ -300,10 +330,10 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         else:
             return row
 
-    def _set_spec_dependencies(self, cursor, values):
-        cursor.executemany(
-            "insert into _spec_dependency (parent_id, child_id) values (?, ?)", values
-        )
+    # def _set_spec_dependencies(self, cursor, values):
+    #     cursor.executemany(
+    #         "insert into _spec_dependency (parent_id, child_id) values (?, ?)", values
+    #     )
 
     def _get_workflow_spec(
         self, session: Session, spec_id: int, include_dependencies: bool
@@ -339,10 +369,6 @@ class SqliteSerializer(BpmnWorkflowSerializer):
     #     for name, serialization in cursor:
     #         subprocess_specs[name] = self.from_dict(serialization)
     #     return subprocess_specs
-
-    def _list_specs(self, cursor):
-        cursor.execute("select id, name, filename from spec_library")
-        return cursor.fetchall()
 
     def _delete_workflow_spec(self, session: Session, spec_id: int) -> None:
         """Delete target workflow specification from DB.
@@ -457,13 +483,22 @@ class SqliteSerializer(BpmnWorkflowSerializer):
                     (sp_id, spec_dependencies[sp.spec.name], sp_dct),
                 )
 
-    def _list_workflows(self, cursor, include_completed):
-        if include_completed:
-            query = "select id, spec_name, active_tasks, started, updated, ended from instance"
-        else:
-            query = "select id, spec_name, active_tasks, started, updated, ended from instance where ended is null"
-        cursor.execute(query)
-        return cursor.fetchall()
+    def _list_workflows(
+        self, session: Session, include_completed: bool
+    ) -> list[Instance]:
+        """Get the list of workflow instances status.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+            include_completed (bool): filter on completed instances only
+
+        Returns:
+            list[Instance]: list of instances
+        """
+        stmt = select(Instance)
+        if not include_completed:
+            stmt.where(Instance.ended is None)
+        return session.exec(stmt).all()
 
     def _delete_workflow(self, session: Session, wf_id: int) -> None:
         """Delete a specific workflow from the DB.
@@ -479,17 +514,6 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             session.commit()
         else:
             logger.warning("Unable to find workflow with id: %d", wf_id)
-
-    def execute(self, func, *args, **kwargs):
-        from fed_mng.db import engine
-
-        with Session(engine) as session:
-            try:
-                rv = func(session, *args, **kwargs)
-            except Exception as exc:
-                logger.exception(str(exc))
-                session.rollback()
-        return rv
 
     def _recreate_workflow_spec(self, item: WorkflowSpec) -> dict[str, Any]:
         dct = item.model_dump()
