@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import validator
@@ -445,6 +445,8 @@ class Query(SQLModel):
 
 
 class WorkflowSpec(SQLModel, table=True):
+    """DB model representing a Workflow (Process) specification."""
+
     __tablename__ = "workflow_specs"
 
     id: int = Field(primary_key=True, index=True)
@@ -456,14 +458,42 @@ class WorkflowSpec(SQLModel, table=True):
     data_objects: str = Field(nullable=True)
     correlation_keys: str = Field(nullable=True)
 
-    task_specs: List["TaskSpec"] = Relationship(
+    task_specs: list["TaskSpec"] = Relationship(
         back_populates="workflow_spec",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
-    workflows: List["Workflow"] = Relationship(back_populates="workflow_spec")
+    children: list["WorkflowSpec"] = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "workflow_spec_dependencies",
+            "primaryjoin": "WorkflowSpec.id == WorkflowSpecDependency.parent_id",
+            "secondaryjoin": "WorkflowSpec.id == WorkflowSpecDependency.child_id",
+            "cascade": "all,delete",
+        },
+        back_populates="parents",
+    )
+    parents: list["WorkflowSpec"] = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "workflow_spec_dependencies",
+            "primaryjoin": "WorkflowSpec.id == WorkflowSpecDependency.child_id",
+            "secondaryjoin": "WorkflowSpec.id == WorkflowSpecDependency.parent_id",
+        },
+        back_populates="children",
+    )
+    workflows: list["Workflow"] = Relationship(back_populates="workflow_spec")
+
+
+class WorkflowSpecDependency(SQLModel, table=True):
+    __tablename__ = "workflow_spec_dependencies"
+
+    parent_id: int = Field(
+        foreign_key="workflow_specs.id", primary_key=True, index=True
+    )
+    child_id: int = Field(foreign_key="workflow_specs.id", primary_key=True, index=True)
 
 
 class TaskSpec(SQLModel, table=True):
+    """DB model representing a generic Task specification."""
+
     __tablename__ = "task_specs"
 
     name: str = Field(primary_key=True, index=True)
@@ -494,32 +524,20 @@ class TaskSpec(SQLModel, table=True):
         },
         back_populates="inputs",
     )
-    tasks: List["Task"] = Relationship(back_populates="task_spec")
+    tasks: list["Task"] = Relationship(back_populates="task_spec")
 
 
 class TaskSpecAssociation(SQLModel, table=True):
+    """Association table to determine Tasks specification hierarchy."""
+
     __tablename__ = "task_spec_associations"
     input_name: str = Field(foreign_key="task_specs.name", primary_key=True)
     output_name: str = Field(foreign_key="task_specs.name", primary_key=True)
 
 
-# class SpecDependency(SQLModel, table=True):
-#     __tablename__ = "spec_dependencies"
-
-#     parent_id: int = Field(
-#         foreign_key="workflow_specs.id", index=True, primary_key=True
-#     )
-#     child_id: int = Field(foreign_key="workflow_specs.id", index=True, primary_key=True)
-
-#     parent: "WorkflowSpec" = Relationship(
-#         back_populates="children", sa_relationship_kwargs={"uselist": False}
-#     )
-#     child: "WorkflowSpec" = Relationship(
-#         back_populates="parent", sa_relationship_kwargs={"uselist": False}
-#     )
-
-
 class Workflow(SQLModel, table=True):
+    """DB model representing a Workflow instance."""
+
     __tablename__ = "workflows"
 
     id: int | None = Field(primary_key=True)
@@ -531,17 +549,23 @@ class Workflow(SQLModel, table=True):
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
-    workflow_data: List["WorkflowData"] = Relationship(
+    workflow_data: list["WorkflowData"] = Relationship(
         back_populates="workflow",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
-    tasks: List["Task"] = Relationship(
+    tasks: list["Task"] = Relationship(
+        back_populates="workflow",
+        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
+    )
+    instance: "Instance" = Relationship(
         back_populates="workflow",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
 
 
 class WorkflowData(SQLModel, table=True):
+    """DB model representing a subset of the data belonging to a Workflow instance."""
+
     __tablename__ = "workflow_data"
 
     name: str = Field(primary_key=True, index=True)
@@ -553,6 +577,8 @@ class WorkflowData(SQLModel, table=True):
 
 
 class Task(SQLModel, table=True):
+    """DB model representing a Task instance."""
+
     __tablename__ = "tasks"
 
     id: str | None = Field(primary_key=True, index=True)
@@ -561,13 +587,15 @@ class Task(SQLModel, table=True):
 
     workflow: "Workflow" = Relationship(back_populates="tasks")
     task_spec: "TaskSpec" = Relationship(back_populates="tasks")
-    task_data: List["TaskData"] = Relationship(
+    task_data: list["TaskData"] = Relationship(
         back_populates="task",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
 
 
 class TaskData(SQLModel, table=True):
+    """DB model representing a subset of the data belonging to a Task instance."""
+
     __tablename__ = "task_data"
 
     name: str = Field(primary_key=True, index=True)
@@ -580,12 +608,16 @@ class TaskData(SQLModel, table=True):
 
 # TODO evalute if it is really needed or if the matching with the workflow instance is one on one
 class Instance(SQLModel, table=True):
+    """DB model representing a Workflow instance status."""
+
     __tablename__ = "instances"
 
-    id: int | None = Field(primary_key=True)
+    id: int | None = Field(foreign_key="workflows.id", primary_key=True)
     # bullshit: str = Field()
     spec_name: str = Field()
     active_tasks: int = Field()
     started: datetime = Field()
     updated: datetime = Field()
     ended: datetime = Field()
+
+    workflow: "Workflow" = Relationship(back_populates="instance")

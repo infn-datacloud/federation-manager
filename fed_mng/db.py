@@ -53,12 +53,14 @@ def initialize() -> None:
         for f in filter(lambda x: x.endswith(".bpmn"), os.listdir(settings.BPMN_DIR)):
             [fname, _] = f.split(".")
             spec_id = wf_engine.add_spec(fname, [os.path.join(settings.BPMN_DIR, f)])
-            # wf_engine.get_workflow(spec_id=spec_id)
+            # wf_engine.list_specs()
+            # spec = wf_engine.get_workflow_spec(spec_id=spec_id)
             # wf_engine.delete_workflow(spec_id=spec_id)
             # wf_id = wf_engine.start_workflow(spec_id=spec_id)
+            # wf_engine.list_workflows()
             # wf = wf_engine.get_workflow(wf_id=wf_id)
             # wf_engine.delete_workflow(wf_id=wf_id)
-            # wf_engine.list_workflows()
+            # wf_engine.update_workflow(workflow=wf, wf_id=wf_id)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

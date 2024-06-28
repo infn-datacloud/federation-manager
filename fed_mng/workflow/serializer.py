@@ -23,6 +23,7 @@ from fed_mng.models import (
     Workflow,
     WorkflowData,
     WorkflowSpec,
+    WorkflowSpecDependency,
 )
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,12 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
-    def list_specs(self):
+    def list_specs(self) -> list[tuple[str, str, str]]:
+        """List workflow specifications.
+
+        Returns:
+            list[tuple[str, str, str]]: List of ID, spec name and filename.
+        """
         return self.execute(self._list_specs)
 
     def create_workflow_spec(
@@ -293,9 +299,25 @@ class SqliteSerializer(BpmnWorkflowSerializer):
                 session.rollback()
         return rv
 
-    def _list_specs(self, cursor):
-        cursor.execute("select id, name, filename from spec_library")
-        return cursor.fetchall()
+    def _list_specs(self, session: Session) -> list[tuple[str, str, str]]:
+        """Retrieve the list of workflow specifications.
+
+        Args:
+            session (Session): Session to use to execute DB queries.
+
+        Returns:
+            list[str, str, str]: List of ID, spec name and filename.
+        """
+        stmt = (
+            select(WorkflowSpec.id, WorkflowSpec.name, WorkflowSpec.file)
+            .outerjoin(
+                WorkflowSpecDependency,
+                WorkflowSpec.id == WorkflowSpecDependency.child_id,
+            )
+            .filter(WorkflowSpecDependency.child_id == None)  # noqa: E711
+            .distinct()
+        )
+        return session.exec(stmt).all()
 
     def _create_workflow_spec(self, session: Session, spec: BpmnProcessSpec) -> int:
         """Add workflow specification to the DB.
