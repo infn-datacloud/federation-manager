@@ -448,12 +448,21 @@ class SqliteSerializer(BpmnWorkflowSerializer):
                 active_tasks += 1
             t_data = task.pop("data", {})
             task_spec_name = task.pop("task_spec")
+            parent = task.pop("parent", None)
+            children = task.pop("children", [])
             tasks_dict[name] = Task(task_spec_name=task_spec_name, **task)
             for k, v in t_data:
                 td = TaskData(name=k, value=v)
                 tasks_dict[name].task_data.append(td)
+            task["parent"] = parent
+            task["children"] = children
             workflow.tasks.append(tasks_dict[name])
         workflow.active_tasks = active_tasks
+
+        # Copy inputs and outputs as relationships
+        for name, task in tasks.items():
+            for child_task in task.get("children", []):
+                tasks_dict[name].children.append(tasks_dict[child_task])
 
         session.add(workflow)
         session.commit()
@@ -486,7 +495,9 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         row = session.exec(stmt).one()
         dct = row.model_dump()
         dct["spec"] = self._recreate_workflow_spec_dict_from_db_item(row.workflow_spec)
-        dct["tasks"] = {t.id: t for t in row.tasks}
+        dct["tasks"] = {
+            t.id: self._recreate_task_dict_from_db_item(t) for t in row.tasks
+        }
         workflow = self.from_dict(dct)
         # spec_id = row.workflow_spec_id
         # if include_dependencies:
@@ -502,29 +513,101 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         #         )
         return workflow
 
-    def _update_workflow(self, cursor, workflow, wf_id):
+    def _update_workflow(
+        self, session: Session, workflow: BpmnWorkflow, wf_id: int
+    ) -> None:
+        # dct = self.to_dict(workflow)
+        # cursor.execute(
+        #     "select descendant as 'id [uuid]' from workflow_dependency where root=?",
+        #     (wf_id,),
+        # )
+        # dependencies = [row[0] for row in cursor]
+        # cursor.execute(
+        #     "select serialization->>'name', descendant as 'id [uuid]' from spec_dependency where root=(select workflow_spec_id from _workflow where id=?)",
+        #     (wf_id,),
+        # )
+        # spec_dependencies = dict((name, spec_id) for name, spec_id in cursor)
+        # stmt = "update workflow set serialization=? where id=?"
+        # cursor.execute(stmt, (dct, wf_id))
+        # for sp_id, sp in workflow.subprocesses.items():
+        #     sp_dct = self.to_dict(sp)
+        #     if sp_id in dependencies:
+        #         cursor.execute(stmt, (sp_dct, sp_id))
+        #     else:
+        #         cursor.execute(
+        #             "insert into workflow (id, workflow_spec_id, serialization) values (?, ?, ?)",
+        #             (sp_id, spec_dependencies[sp.spec.name], sp_dct),
+        #         )
+
+        stmt = select(Workflow).where(Workflow.id == wf_id)
+        row = session.exec(stmt).one()
+        db_tasks = {t.id: t for t in row.tasks}
+        db_wf_data = {d.name: d for d in row.workflow_data}
+
         dct = self.to_dict(workflow)
-        cursor.execute(
-            "select descendant as 'id [uuid]' from workflow_dependency where root=?",
-            (wf_id,),
-        )
-        dependencies = [row[0] for row in cursor]
-        cursor.execute(
-            "select serialization->>'name', descendant as 'id [uuid]' from spec_dependency where root=(select workflow_spec_id from _workflow where id=?)",
-            (wf_id,),
-        )
-        spec_dependencies = dict((name, spec_id) for name, spec_id in cursor)
-        stmt = "update workflow set serialization=? where id=?"
-        cursor.execute(stmt, (dct, wf_id))
-        for sp_id, sp in workflow.subprocesses.items():
-            sp_dct = self.to_dict(sp)
-            if sp_id in dependencies:
-                cursor.execute(stmt, (sp_dct, sp_id))
+        wf_data: dict[str, dict] = dct.pop("data", {})
+        tasks: dict[str, dict] = dct.pop("tasks", {})
+
+        exclude_task_data = []
+        exclude_tasks = list(set(db_tasks.keys()) - set(tasks.keys()))
+        exclude_data = list(set(db_wf_data.keys()) - set(wf_data.keys()))
+
+        for k, v in wf_data:
+            d = db_wf_data.get(k, None)
+            if d is None:
+                wd = WorkflowData(name=k, value=v)
+                row.workflow_data.append(wd)
             else:
-                cursor.execute(
-                    "insert into workflow (id, workflow_spec_id, serialization) values (?, ?, ?)",
-                    (sp_id, spec_dependencies[sp.spec.name], sp_dct),
-                )
+                d.value = v
+
+        ended = True
+        tasks_dict: dict[str, Task] = {}
+        for name, task in tasks.items():
+            if task.get("state") < 64:
+                ended = False
+
+            tasks_dict[name] = db_tasks.get(name, None)
+            if tasks_dict[name] is None:
+                if task.get("state") >= 8 and task.get("state") <= 32:
+                    row.active_tasks += 1
+                t_data = task.pop("data", {})
+                parent = task.pop("parent", None)
+                children = task.pop("children", [])
+                task_spec_name = task.pop("task_spec")
+                tasks_dict[name] = Task(task_spec_name=task_spec_name, **task)
+                for k, v in t_data:
+                    td = TaskData(name=k, value=v)
+                    tasks_dict[name].task_data.append(td)
+                task["parent"] = parent
+                task["children"] = children
+                row.tasks.append(tasks_dict[name])
+            elif task.get("last_state_change") > tasks_dict[name].last_state_change:
+                # TODO update Task attributes
+                t_data: dict[str, dict] = task.pop("data", {})
+                db_task_data = {d.name: d for d in tasks_dict[name].task_data}
+                exclude_task_data += list(set(db_task_data.keys()) - set(t_data.keys()))
+                for k, v in t_data:
+                    d = db_task_data.get(k, None)
+                    if d is None:
+                        td = TaskData(name=k, value=v)
+                        tasks_dict[name].task_data.append(td)
+                    else:
+                        d.value = v
+
+        # Copy inputs and outputs as relationships
+        for name, task in tasks.items():
+            for child_task in task.get("children", []):
+                tasks_dict[name].children.append(tasks_dict[child_task])
+
+        # TODO update workflow attributes
+
+        for k in exclude_tasks:
+            session.delete(db_tasks.get(k))
+        for k in exclude_task_data:
+            session.delete(db_task_data.get(k))
+        for k in exclude_data:
+            session.delete(db_wf_data.get(k))
+        session.commit()
 
     def _list_workflows(
         self, session: Session, include_completed: bool
@@ -597,4 +680,21 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         dct["cond_task_specs"] = json.loads(item.cond_task_specs)
         dct["inputs"] = [x.name for x in item.inputs]
         dct["outputs"] = [x.name for x in item.outputs]
+        return dct
+
+    def _recreate_task_dict_from_db_item(self, item: Task) -> dict[str, Any]:
+        """From the DB item correctly recreate the dict to be converted.
+
+        Args:
+            item (Task): DB instance
+
+        Returns:
+            dict[str, Any]: Dict with correct keys and values.
+        """
+        dct = item.model_dump()
+        dct["parent"] = item.parent.id if item.parent is not None else None
+        dct["children"] = [i.id for i in item.children]
+        dct["internal_data"] = {}  # TODO fix
+        dct["task_spec"] = item.task_spec_name
+        dct["data"] = item.task_data  # TODO fix
         return dct

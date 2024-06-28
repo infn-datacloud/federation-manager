@@ -535,6 +535,10 @@ class TaskSpecAssociation(SQLModel, table=True):
     output_name: str = Field(foreign_key="task_specs.name", primary_key=True)
 
 
+def set_ended_time(context):
+    return func.now() if context.get_current_parameters()["active_tasks"] == 0 else None
+
+
 class Workflow(SQLModel, table=True):
     """DB model representing a Workflow instance."""
 
@@ -549,8 +553,10 @@ class Workflow(SQLModel, table=True):
     # bullshit: str = Field()
     active_tasks: int = Field(default=0, nullable=False)
     started: datetime = Field(default=func.now(), nullable=False)
-    updated: datetime = Field(nullable=True)
-    ended: datetime = Field(nullable=True)
+    updated: datetime = Field(nullable=True, sa_column_kwargs={"onupdate": func.now()})
+    ended: datetime = Field(
+        nullable=True, sa_column_kwargs={"onupdate": set_ended_time}
+    )
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
@@ -584,6 +590,9 @@ class Task(SQLModel, table=True):
 
     id: str | None = Field(primary_key=True, index=True)
     state: int = Field(nullable=False)
+    typename: str = Field(nullable=False)
+    last_state_change: datetime = Field(nullable=False)
+    triggered: bool = Field(nullable=False)
     workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
     task_spec_name: str = Field(foreign_key="task_specs.name", nullable=False)
 
@@ -593,6 +602,30 @@ class Task(SQLModel, table=True):
         back_populates="task",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
+    parent: "Task" = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "task_associations",
+            "primaryjoin": "Task.id == TaskAssociation.child_id",
+            "secondaryjoin": "Task.id == TaskAssociation.parent_id",
+        },
+        back_populates="children",
+    )
+    children: list["Task"] = Relationship(
+        sa_relationship_kwargs={
+            "secondary": "task_associations",
+            "primaryjoin": "Task.id == TaskAssociation.parent_id",
+            "secondaryjoin": "Task.id == TaskAssociation.child_id",
+        },
+        back_populates="parent",
+    )
+
+
+class TaskAssociation(SQLModel, table=True):
+    """Association table to determine Tasks hierarchy."""
+
+    __tablename__ = "task_associations"
+    parent_id: str = Field(foreign_key="tasks.id", primary_key=True)
+    child_id: str = Field(foreign_key="tasks.id", primary_key=True)
 
 
 class TaskData(SQLModel, table=True):
