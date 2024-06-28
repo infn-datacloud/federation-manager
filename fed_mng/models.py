@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 
 from fed_reg.provider.enum import ProviderStatus, ProviderType
 from pydantic import validator
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import func
 from sqlmodel import Field, Relationship, SQLModel
 
 from fed_mng.enums import (
@@ -531,13 +531,25 @@ class Workflow(SQLModel, table=True):
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
-    workflow_data: "WorkflowData" = Relationship(back_populates="workflow")
+    workflow_data: List["WorkflowData"] = Relationship(
+        back_populates="workflow",
+        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
+    )
     tasks: List["Task"] = Relationship(
         back_populates="workflow",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
-    # TODO evaluate to move it in Task
-    tasks_data: "TaskData" = Relationship(back_populates="workflow")
+
+
+class WorkflowData(SQLModel, table=True):
+    __tablename__ = "workflow_data"
+
+    name: str = Field(primary_key=True, index=True)
+    value: str = Field()
+    last_updated: datetime = Field(default=func.now())
+    workflow_id: int = Field(foreign_key="workflows.id", primary_key=True, index=True)
+
+    workflow: "Workflow" = Relationship(back_populates="workflow_data")
 
 
 class Task(SQLModel, table=True):
@@ -549,39 +561,24 @@ class Task(SQLModel, table=True):
 
     workflow: "Workflow" = Relationship(back_populates="tasks")
     task_spec: "TaskSpec" = Relationship(back_populates="tasks")
+    task_data: List["TaskData"] = Relationship(
+        back_populates="task",
+        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
+    )
 
 
 class TaskData(SQLModel, table=True):
     __tablename__ = "task_data"
 
-    task_id: int = Field(primary_key=True, index=True)
-    name: str = Field(index=True)
-    value: str = Field()
-    last_updated: datetime = Field()
-    workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
-
-    workflow: "Workflow" = Relationship(
-        back_populates="tasks_data", sa_relationship_kwargs={"uselist": False}
-    )
-
-    __table_args__ = (UniqueConstraint("task_id", "name"),)
-
-
-class WorkflowData(SQLModel, table=True):
-    __tablename__ = "workflow_data"
-
-    workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
     name: str = Field(primary_key=True, index=True)
     value: str = Field()
-    last_updated: datetime = Field()
+    last_updated: datetime = Field(default=func.now())
+    task_id: int = Field(foreign_key="tasks.id", primary_key=True, index=True)
 
-    workflow: "Workflow" = Relationship(
-        back_populates="workflow_data", sa_relationship_kwargs={"uselist": False}
-    )
-
-    __table_args__ = (UniqueConstraint("workflow_id", "name"),)
+    task: "Task" = Relationship(back_populates="task_data")
 
 
+# TODO evalute if it is really needed or if the matching with the workflow instance is one on one
 class Instance(SQLModel, table=True):
     __tablename__ = "instances"
 

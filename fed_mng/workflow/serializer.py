@@ -15,7 +15,15 @@ from SpiffWorkflow.bpmn.workflow import BpmnSubWorkflow, BpmnWorkflow
 from SpiffWorkflow.spiff.serializer.config import DEFAULT_CONFIG, SPIFF_CONFIG
 from sqlmodel import Session, select
 
-from fed_mng.models import Instance, Task, TaskSpec, Workflow, WorkflowSpec
+from fed_mng.models import (
+    Instance,
+    Task,
+    TaskData,
+    TaskSpec,
+    Workflow,
+    WorkflowData,
+    WorkflowSpec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -239,7 +247,13 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         """
         return self.execute(self._get_workflow, wf_id, include_dependencies)
 
-    def update_workflow(self, workflow, wf_id):
+    def update_workflow(self, workflow: BpmnWorkflow, wf_id: int) -> None:
+        """Update workflow information.
+
+        Args:
+            workflow (BpmnWorkflow): Updated BPMN workflow
+            wf_id (int): ID of the workflow instance to update.
+        """
         return self.execute(self._update_workflow, workflow, wf_id)
 
     def list_workflows(
@@ -353,7 +367,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         stmt = select(WorkflowSpec).where(WorkflowSpec.id == spec_id)
         row = session.exec(stmt).one_or_none()
         if row is not None:
-            dct = self._recreate_workflow_spec(row)
+            dct = self._recreate_workflow_spec_dict_from_db_item(row)
         spec = self.from_dict(dct)
         subprocess_specs = {}
         # if include_dependencies:
@@ -405,13 +419,23 @@ class SqliteSerializer(BpmnWorkflowSerializer):
             int: ID of the workflow instance.
         """
         dct = self.to_dict(bpmn_workflow)
+        wf_data: dict[str, dict] = dct.pop("data", {})
         tasks: dict[str, dict] = dct.pop("tasks", {})
         workflow = Workflow(workflow_spec_id=spec_id, **dct)
-        tasks_dict: dict[str, Task] = {}
+        for k, v in wf_data:
+            wd = WorkflowData(name=k, value=v)
+            workflow.workflow_data.append(wd)
 
+        tasks_dict: dict[str, Task] = {}
         for name, task in tasks.items():
-            tasks_dict[name] = Task(task_spec_name=task.pop("task_spec"), **task)
+            t_data = task.pop("data", {})
+            task_spec_name = task.pop("task_spec")
+            tasks_dict[name] = Task(task_spec_name=task_spec_name, **task)
+            for k, v in t_data:
+                td = TaskData(name=k, value=v)
+                tasks_dict[name].task_data.append(td)
             workflow.tasks.append(tasks_dict[name])
+
         session.add(workflow)
         session.commit()
         # if len(workflow.subprocesses) > 0:
@@ -442,7 +466,7 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         stmt = select(Workflow).where(Workflow.id == wf_id)
         row = session.exec(stmt).one()
         dct = row.model_dump()
-        dct["spec"] = self._recreate_workflow_spec(row.workflow_spec)
+        dct["spec"] = self._recreate_workflow_spec_dict_from_db_item(row.workflow_spec)
         dct["tasks"] = {t.id: t for t in row.tasks}
         workflow = self.from_dict(dct)
         # spec_id = row.workflow_spec_id
@@ -515,14 +539,32 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         else:
             logger.warning("Unable to find workflow with id: %d", wf_id)
 
-    def _recreate_workflow_spec(self, item: WorkflowSpec) -> dict[str, Any]:
+    def _recreate_workflow_spec_dict_from_db_item(
+        self, item: WorkflowSpec
+    ) -> dict[str, Any]:
+        """From the DB item correctly recreate the dict to be converted.
+
+        Args:
+            item (WorkflowSpec): DB instance.
+
+        Returns:
+            dict[str, Any]: Dict with correct keys and values.
+        """
         dct = item.model_dump()
         dct["task_specs"] = {}
         for t in item.task_specs:
-            dct["task_specs"][t.name] = self._recreate_task_spec(t)
+            dct["task_specs"][t.name] = self._recreate_task_spec_dict_from_db_item(t)
         return dct
 
-    def _recreate_task_spec(self, item: TaskSpec) -> dict[str, Any]:
+    def _recreate_task_spec_dict_from_db_item(self, item: TaskSpec) -> dict[str, Any]:
+        """From the DB item correctly recreate the dict to be converted.
+
+        Args:
+            item (TaskSpec): DB instance
+
+        Returns:
+            dict[str, Any]: Dict with correct keys and values.
+        """
         dct = item.model_dump()
         dct["event_definition"] = json.loads(item.event_definition)
         dct["cond_task_specs"] = json.loads(item.cond_task_specs)
