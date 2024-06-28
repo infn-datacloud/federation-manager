@@ -546,6 +546,11 @@ class Workflow(SQLModel, table=True):
     last_task: str = Field(nullable=True)
     success: bool = Field(nullable=False)
     subprocesses: str = Field(nullable=True)
+    # bullshit: str = Field()
+    active_tasks: int = Field(default=0, nullable=False)
+    started: datetime = Field(default=func.now(), nullable=False)
+    updated: datetime = Field(nullable=True)
+    ended: datetime = Field(nullable=True)
     workflow_spec_id: int = Field(foreign_key="workflow_specs.id", nullable=False)
 
     workflow_spec: "WorkflowSpec" = Relationship(back_populates="workflows")
@@ -554,10 +559,6 @@ class Workflow(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
     tasks: list["Task"] = Relationship(
-        back_populates="workflow",
-        sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
-    )
-    instance: "Instance" = Relationship(
         back_populates="workflow",
         sa_relationship_kwargs={"cascade": "all,delete,delete-orphan"},
     )
@@ -582,6 +583,7 @@ class Task(SQLModel, table=True):
     __tablename__ = "tasks"
 
     id: str | None = Field(primary_key=True, index=True)
+    state: int = Field(nullable=False)
     workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
     task_spec_name: str = Field(foreign_key="task_specs.name", nullable=False)
 
@@ -604,20 +606,3 @@ class TaskData(SQLModel, table=True):
     task_id: int = Field(foreign_key="tasks.id", primary_key=True, index=True)
 
     task: "Task" = Relationship(back_populates="task_data")
-
-
-# TODO evalute if it is really needed or if the matching with the workflow instance is one on one
-class Instance(SQLModel, table=True):
-    """DB model representing a Workflow instance status."""
-
-    __tablename__ = "instances"
-
-    id: int | None = Field(foreign_key="workflows.id", primary_key=True)
-    # bullshit: str = Field()
-    spec_name: str = Field()
-    active_tasks: int = Field()
-    started: datetime = Field()
-    updated: datetime = Field()
-    ended: datetime = Field()
-
-    workflow: "Workflow" = Relationship(back_populates="instance")
