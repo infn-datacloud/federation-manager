@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     OPA_URL: AnyHttpUrl = "http://localhost:8181"
     ROLES_ENDPOINT: str = "v1/data/fedmgr/user_roles"
 
+    NEW_PROV_FORM_JSON_SCHEMA_URL: AnyHttpUrl = ""
+
     class Config:
         """Sub class to set attribute as case sensitive."""
 

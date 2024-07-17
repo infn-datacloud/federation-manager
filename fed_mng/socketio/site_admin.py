@@ -3,6 +3,7 @@ from typing import Any, Literal
 import requests
 from socketio import AsyncNamespace
 
+from fed_mng.config import get_settings
 from fed_mng.socketio.utils import validate_auth_on_connect
 
 
@@ -79,9 +80,8 @@ class SiteAdminNamespace(AsyncNamespace):
 
     async def on_get_form(self, id):
         """Send a dict with the details to use to submit a new provider request."""
-        resp = requests.get(
-            "https://raw.githubusercontent.com/infn-datacloud/federation-registry-feeder/main/json-config-schemas/provider-config-schema.json"
-        )
+        settings = get_settings()
+        resp = requests.get(settings.NEW_PROV_FORM_JSON_SCHEMA_URL)
         idp_data = self._resolve_defs(
             resp.json()["properties"].pop("trusted_idps"), resp.json()["$defs"]
         )
