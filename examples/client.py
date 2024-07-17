@@ -20,13 +20,16 @@ class SiteAdminNameSpace(ClientNamespace):
     def on_connect(self):
         print(f"Connection to namespace {self.namespace} established")
         self.emit("list_provider_federation_requests", {"username": ""})
+        self.emit("get_form")
 
     def on_connect_error(self, data):
         print(f"Failed to connect to namespace {self.namespace}", data)
 
     def on_list_provider_federation_requests(self, data):
         print(f"Message received with {data}")
-        self.disconnect()
+
+    def on_get_form(self, data):
+        print(f"Message received with {data}")
 
     def on_disconnect(self):
         print(f"Disconnected from namespace {self.namespace}")
@@ -41,4 +44,5 @@ sio.connect(
     transports=["websocket", "polling"],
     auth={"token": args.token},
 )
-sio.wait()
+sio.sleep(5)
+sio.disconnect()
