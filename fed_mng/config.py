@@ -1,6 +1,7 @@
 """Module with the configuration parameters."""
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from pydantic import AnyHttpUrl, BaseSettings, EmailStr, validator
@@ -49,6 +50,8 @@ class Settings(BaseSettings):
 
     OPA_URL: AnyHttpUrl = "http://localhost:8181"
     ROLES_ENDPOINT: str = "v1/data/fedmgr/user_roles"
+
+    NEW_PROV_FORM_JSON_SCHEMA: Path = ""
 
     class Config:
         """Sub class to set attribute as case sensitive."""
