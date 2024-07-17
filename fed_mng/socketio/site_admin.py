@@ -1,6 +1,6 @@
+import json
 from typing import Any, Literal
 
-import requests
 from socketio import AsyncNamespace
 
 from fed_mng.config import get_settings
@@ -81,13 +81,15 @@ class SiteAdminNamespace(AsyncNamespace):
     async def on_get_form(self, id):
         """Send a dict with the details to use to submit a new provider request."""
         settings = get_settings()
-        resp = requests.get(settings.NEW_PROV_FORM_JSON_SCHEMA_URL)
+        with open(settings.NEW_PROV_FORM_JSON_SCHEMA) as f:
+            data = json.load(f)
+
         idp_data = self._resolve_defs(
-            resp.json()["properties"].pop("trusted_idps"), resp.json()["$defs"]
+            data["properties"].pop("trusted_idps"), data["$defs"]
         )
         print("Identity provider section: %r" % idp_data)
         provider_data = self._resolve_defs(
-            resp.json()["properties"]["openstack"], resp.json()["$defs"]
+            data["properties"]["openstack"], data["$defs"]
         )
         print("Provider section: %r" % provider_data)
         await self.emit("get_form", {"idp": idp_data, "provider": provider_data})
