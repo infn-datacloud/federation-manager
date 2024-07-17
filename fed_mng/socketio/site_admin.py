@@ -1,5 +1,6 @@
 from typing import Any, Literal
 
+import requests
 from socketio import AsyncNamespace
 
 from fed_mng.socketio.utils import validate_auth_on_connect
@@ -75,3 +76,46 @@ class SiteAdminNamespace(AsyncNamespace):
         """
         print("Received data ", data)
         # TODO: Start a new workflow instance to delete a provider
+
+    async def on_get_form(self, id):
+        """Send a dict with the details to use to submit a new provider request."""
+        resp = requests.get(
+            "https://raw.githubusercontent.com/infn-datacloud/federation-registry-feeder/main/json-config-schemas/provider-config-schema.json"
+        )
+        idp_data = self._resolve_defs(
+            resp.json()["properties"].pop("trusted_idps"), resp.json()["$defs"]
+        )
+        print("Identity provider section: %r" % idp_data)
+        provider_data = self._resolve_defs(
+            resp.json()["properties"]["openstack"], resp.json()["$defs"]
+        )
+        print("Provider section: %r" % provider_data)
+        await self.emit("get_form", {"idp": idp_data, "provider": provider_data})
+
+    def _resolve_defs(
+        self, data: dict[str, Any], definitions: dict[str, dict]
+    ) -> dict[str, dict]:
+        """Convert the json schema in a more suitable dict.
+
+        Expand $ref keys with the corresponding definitions.
+        Move the required key inside the corresponding dict.
+
+        Return the resolved dict.
+        """
+        resolved_data = {}
+
+        # Expand references
+        for key, value in data.items():
+            if isinstance(value, dict):
+                value = definitions.get(key) if value.get("$ref", None) else value
+                resolved_data[key] = self._resolve_defs(value, definitions)
+            else:
+                resolved_data[key] = value
+
+        # Add required flag to target item
+        required_keys = resolved_data.pop("required", None)
+        if required_keys is not None and isinstance(required_keys, list):
+            for k in required_keys:
+                resolved_data["properties"][k]["required"] = True
+
+        return resolved_data
