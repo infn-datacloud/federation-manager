@@ -591,7 +591,7 @@ class Task(SQLModel, table=True):
     id: str | None = Field(primary_key=True, index=True)
     state: int = Field(nullable=False)
     typename: str = Field(nullable=False)
-    last_state_change: datetime = Field(nullable=False)
+    last_state_change: int = Field(nullable=False)
     triggered: bool = Field(nullable=False)
     workflow_id: int = Field(foreign_key="workflows.id", nullable=False, index=True)
     task_spec_name: str = Field(foreign_key="task_specs.name", nullable=False)
