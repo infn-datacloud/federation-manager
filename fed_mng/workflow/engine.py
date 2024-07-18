@@ -78,8 +78,8 @@ class BpmnEngine:
             logger.info("Adding DMN files %s", dmn_files)
             self.parser.add_dmn_files(dmn_files)
 
-    def list_specs(self) -> list[tuple[str, str, str]]:
-        return self.serializer.list_specs()
+    def list_specs(self, *, name: str | None = None) -> list[tuple[str, str, str]]:
+        return self.serializer.list_specs(name=name)
 
     def delete_workflow_spec(self, spec_id) -> None:
         self.serializer.delete_workflow_spec(spec_id)

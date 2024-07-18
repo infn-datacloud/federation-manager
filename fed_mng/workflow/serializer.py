@@ -152,13 +152,13 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         DEFAULT_CONFIG[BpmnSubWorkflow] = SubworkflowConverter
         super().__init__(registry=super().configure(DEFAULT_CONFIG), **kwargs)
 
-    def list_specs(self) -> list[tuple[str, str, str]]:
+    def list_specs(self, *, name: str | None = None) -> list[tuple[str, str, str]]:
         """List workflow specifications.
 
         Returns:
             list[tuple[str, str, str]]: List of ID, spec name and filename.
         """
-        return self.execute(self._list_specs)
+        return self.execute(self._list_specs, name=name)
 
     def create_workflow_spec(
         self, spec: BpmnProcessSpec, dependencies: list[BpmnProcessSpec]
@@ -292,7 +292,9 @@ class SqliteSerializer(BpmnWorkflowSerializer):
                 session.rollback()
         return rv
 
-    def _list_specs(self, session: Session) -> list[tuple[str, str, str]]:
+    def _list_specs(
+        self, session: Session, *, name: str | None = None
+    ) -> list[tuple[str, str, str]]:
         """Retrieve the list of workflow specifications.
 
         Args:
@@ -301,13 +303,16 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         Returns:
             list[str, str, str]: List of ID, spec name and filename.
         """
+        filters = [WorkflowSpecDependency.child_id == None]  # noqa: E711
+        if name is not None:
+            filters.append(WorkflowSpec.name == name)
         stmt = (
             select(WorkflowSpec.id, WorkflowSpec.name, WorkflowSpec.file)
             .outerjoin(
                 WorkflowSpecDependency,
                 WorkflowSpec.id == WorkflowSpecDependency.child_id,
             )
-            .filter(WorkflowSpecDependency.child_id == None)  # noqa: E711
+            .filter(*filters)
             .distinct()
         )
         return session.exec(stmt).all()
