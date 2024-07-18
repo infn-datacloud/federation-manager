@@ -3,6 +3,9 @@ from logging import Logger
 from typing import Any, Literal
 
 from socketio import AsyncNamespace
+from SpiffWorkflow.bpmn.specs.mixins.events.event_types import CatchingEvent
+from SpiffWorkflow.bpmn.workflow import BpmnWorkflow
+from SpiffWorkflow.task import TaskState
 
 from fed_mng.config import get_settings
 from fed_mng.logger import create_logger
@@ -58,6 +61,8 @@ class SiteAdminNamespace(AsyncNamespace):
             data (_type_): _description_
         """
         self.logger.debug("Received data %s", data)
+
+        # Retrieve workflows
         new_prov_req = "test"
         workflow_specs = wf_engine.list_specs(name=new_prov_req)
         assert (
@@ -66,9 +71,17 @@ class SiteAdminNamespace(AsyncNamespace):
         assert (
             len(workflow_specs) == 1
         ), f"Multiple workflow specifications found with name={new_prov_req}"
-        wf_id = wf_engine.start_workflow(spec_id=workflow_specs[0][0])
+
+        # Start workflow
+        wf_id = wf_engine.create_workflow(spec_id=workflow_specs[0][0])
         self.logger.info("Workflow started. ID: %s", wf_id)
-        await self.emit("workflow_started", {"workflow_id": wf_id})
+        workflow = wf_engine.get_workflow(wf_id)
+        await self.emit(
+            "workflow_created", {"workflow": wf_engine.serializer.to_dict(workflow)}
+        )
+
+        # Start workflow
+        await self._run_until_user_input_required(workflow)
 
     async def on_update_federated_provider(self, sid, data):
         """Submit a request to update an already federated provider.
@@ -137,3 +150,29 @@ class SiteAdminNamespace(AsyncNamespace):
                 resolved_data["properties"][k]["required"] = True
 
         return resolved_data
+
+    async def _run_until_user_input_required(self, workflow: BpmnWorkflow):
+        """"""
+        task = workflow.get_next_task(state=TaskState.READY, manual=False)
+        while task is not None:
+            self.logger.info("Executing task %s", task.task_spec.bpmn_name)
+            task.run()
+            await self._run_ready_events(workflow)
+            task = workflow.get_next_task(state=TaskState.READY, manual=False)
+            self.logger.info(
+                "Next task: %s", task.task_spec.bpmn_name if task else None
+            )
+
+    async def _run_ready_events(self, workflow: BpmnWorkflow):
+        """Run all ready events."""
+        workflow.refresh_waiting_tasks()
+        task = workflow.get_next_task(state=TaskState.READY, spec_class=CatchingEvent)
+        while task is not None:
+            task.run()
+            task = workflow.get_next_task(
+                state=TaskState.READY, spec_class=CatchingEvent
+            )
+            await self.emit(
+                "update_workflow_state",
+                {"workflow": wf_engine.serializer.to_dict(workflow)},
+            )

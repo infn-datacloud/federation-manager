@@ -85,7 +85,7 @@ class BpmnEngine:
         self.serializer.delete_workflow_spec(spec_id)
         logger.info("Deleted workflow spec with id %s", spec_id)
 
-    def start_workflow(self, spec_id) -> str:
+    def create_workflow(self, spec_id) -> str:
         spec, sp_specs = self.serializer.get_workflow_spec(spec_id)
         wf = BpmnWorkflow(spec, sp_specs, script_engine=self._script_engine)
         wf_id = self.serializer.create_workflow(wf, spec_id)

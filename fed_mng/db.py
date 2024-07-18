@@ -55,7 +55,7 @@ def initialize() -> None:
             spec_id = wf_engine.add_spec(fname, [os.path.join(settings.BPMN_DIR, f)])
             # spec = wf_engine.serializer.get_workflow_spec(spec_id=spec_id)
             # wf_engine.list_specs()
-            # wf_id = wf_engine.start_workflow(spec_id=spec_id)
+            # wf_id = wf_engine.create_workflow(spec_id=spec_id)
             # wf = wf_engine.get_workflow(wf_id=wf_id)
             # wf_engine.list_workflows()
             # wf_engine.update_workflow(workflow=wf, wf_id=wf_id)
