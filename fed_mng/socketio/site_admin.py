@@ -5,6 +5,7 @@ from socketio import AsyncNamespace
 
 from fed_mng.config import get_settings
 from fed_mng.socketio.utils import validate_auth_on_connect
+from fed_mng.workflow.manager import engine as wf_engine
 
 
 class SiteAdminNamespace(AsyncNamespace):
@@ -52,7 +53,17 @@ class SiteAdminNamespace(AsyncNamespace):
             data (_type_): _description_
         """
         print("Received data ", data)
-        # TODO: Start a new workflow instance to federate a provider
+        new_prov_req = "test"
+        workflow_specs = wf_engine.list_specs(name=new_prov_req)
+        assert (
+            len(workflow_specs) > 0
+        ), f"No workflow specification found with name={new_prov_req}"
+        assert (
+            len(workflow_specs) == 1
+        ), f"Multiple workflow specifications found with name={new_prov_req}"
+        wf_id = wf_engine.start_workflow(spec_id=workflow_specs[0][0])
+        print(f"Workflow started. ID: {wf_id}")
+        await self.emit("workflow_started", {"workflow_id": wf_id})
 
     async def on_update_federated_provider(self, sid, data):
         """Submit a request to update an already federated provider.
