@@ -1,24 +1,29 @@
 import json
+from logging import Logger
 from typing import Any, Literal
 
 from socketio import AsyncNamespace
 
 from fed_mng.config import get_settings
+from fed_mng.logger import create_logger
 from fed_mng.socketio.utils import validate_auth_on_connect
 from fed_mng.workflow.manager import engine as wf_engine
 
 
 class SiteAdminNamespace(AsyncNamespace):
+    def __init__(self, namespace=None):
+        super().__init__(namespace)
+        self.logger: Logger = create_logger(self.namespace)
+
     async def on_connect(
         self, sid: str, environ: dict[str, Any], auth: dict[Literal["token"], str]
     ):
         """When connecting evaluate user authentication."""
-        print(f"Connecting to namespace: {self.namespace}")
-        print(f"SID: {sid}")
-        print(f"Environment variables: {environ}")
-        print(f"Auth data: {auth}")
+        self.logger.debug("Connecting to namespace")
+        self.logger.debug("SID: %s", sid)
+        self.logger.debug("Environment variables: %s", environ)
         validate_auth_on_connect(auth=auth, target_role=self.namespace[1:])
-        print(f"Connected to namespace '{self.namespace}' with sid '{sid}'")
+        self.logger.info("Connected to namespace with SID '%s'", sid)
 
     async def on_disconnect(self, sid):
         """Close connection
@@ -26,7 +31,7 @@ class SiteAdminNamespace(AsyncNamespace):
         Args:
             sid (_type_): _description_
         """
-        print("disconnect from namespace:", self.namespace, sid)
+        self.logger.info("SID %s disconnected from namespace", sid)
 
     async def on_list_provider_federation_requests(self, sid, data):
         """List submitted requirest.
@@ -38,11 +43,11 @@ class SiteAdminNamespace(AsyncNamespace):
             sid (_type_): _description_
             data (_type_): _description_
         """
-        print("Received data ", data)
+        self.logger.debug("Received data %s", data)
         await self.emit("list_provider_federation_requests", {"requests": [1]})
         # TODO: Retrieve list of federated providers
 
-    async def on_submit_new_provider_federation_request(self, sid, data):
+    async def on_submit_new_provider_federation_request(self, sid, data) -> None:
         """Submit a new provider federation request.
 
         Data contains the username or the user email of the issuer and the provider
@@ -52,7 +57,7 @@ class SiteAdminNamespace(AsyncNamespace):
             sid (_type_): _description_
             data (_type_): _description_
         """
-        print("Received data ", data)
+        self.logger.debug("Received data %s", data)
         new_prov_req = "test"
         workflow_specs = wf_engine.list_specs(name=new_prov_req)
         assert (
@@ -62,7 +67,7 @@ class SiteAdminNamespace(AsyncNamespace):
             len(workflow_specs) == 1
         ), f"Multiple workflow specifications found with name={new_prov_req}"
         wf_id = wf_engine.start_workflow(spec_id=workflow_specs[0][0])
-        print(f"Workflow started. ID: {wf_id}")
+        self.logger.info("Workflow started. ID: %s", wf_id)
         await self.emit("workflow_started", {"workflow_id": wf_id})
 
     async def on_update_federated_provider(self, sid, data):
@@ -74,7 +79,7 @@ class SiteAdminNamespace(AsyncNamespace):
             sid (_type_): _description_
             data (_type_): _description_
         """
-        print("Received data ", data)
+        self.logger.debug("Received data %s", data)
         # TODO: Start a new workflow instance to update a provider
 
     async def on_delete_federated_provider(self, sid, data):
@@ -86,10 +91,10 @@ class SiteAdminNamespace(AsyncNamespace):
             sid (_type_): _description_
             data (_type_): _description_
         """
-        print("Received data ", data)
+        self.logger.debug("Received data %s", data)
         # TODO: Start a new workflow instance to delete a provider
 
-    async def on_get_form(self, id):
+    async def on_get_form(self, id) -> None:
         """Send a dict with the details to use to submit a new provider request."""
         settings = get_settings()
         with open(settings.NEW_PROV_FORM_JSON_SCHEMA) as f:
@@ -98,11 +103,11 @@ class SiteAdminNamespace(AsyncNamespace):
         idp_data = self._resolve_defs(
             data["properties"].pop("trusted_idps"), data["$defs"]
         )
-        print("Identity provider section: %r" % idp_data)
+        self.logger.debug("Identity provider section: %r", idp_data)
         provider_data = self._resolve_defs(
             data["properties"]["openstack"], data["$defs"]
         )
-        print("Provider section: %r" % provider_data)
+        self.logger.debug("Provider section: %r", provider_data)
         await self.emit("get_form", {"idp": idp_data, "provider": provider_data})
 
     def _resolve_defs(
