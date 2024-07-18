@@ -3,10 +3,13 @@ import os
 
 import requests
 from fastapi import status
+from fastapi.security import HTTPBearer
 from flaat.fastapi import Flaat
 from requests.exceptions import ConnectionError, Timeout
 
 from fed_mng.config import get_settings
+
+security = HTTPBearer()
 
 flaat = Flaat()
 flaat.set_trusted_OP_list(get_settings().TRUSTED_IDP_LIST)
