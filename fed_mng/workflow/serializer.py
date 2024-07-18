@@ -59,10 +59,10 @@ class FileSerializer(BpmnWorkflowSerializer):
         with open(filename) as fh:
             spec = self.from_dict(json.loads(fh.read()))
         subprocess_specs = {}
-        depdir = os.path.join(os.path.dirname(filename), "dependencies")
+        depdir = os.path.join(dirname, "dependencies")
         if os.path.exists(depdir):
             for f in os.listdir(depdir):
-                name = re.sub("\.json$", "", os.path.basename(f))
+                name = re.sub(r"\.json$", "", os.path.basename(f))
                 with open(os.path.join(depdir, f)) as fh:
                     subprocess_specs[name] = self.from_dict(json.loads(fh.read()))
         return spec, subprocess_specs
@@ -107,7 +107,7 @@ class FileSerializer(BpmnWorkflowSerializer):
         self, include_completed
     ) -> list[tuple[str, str, str, str, str, str]]:
         instances = []
-        for root, dirs, files in os.walk(os.path.join(self.dirname, "instance")):
+        for root, _, files in os.walk(os.path.join(self.dirname, "instance")):
             for f in files:
                 filename = os.path.join(root, f)
                 name = os.path.split(os.path.dirname(filename))[-1]
@@ -118,7 +118,8 @@ class FileSerializer(BpmnWorkflowSerializer):
                 updated = datetime.fromtimestamp(stat.st_mtime).strftime(
                     "%Y-%^m-%d %H:%M:%S"
                 )
-                # '?' is active tasks -- we can't know this unless we reydrate the workflow
-                # We also have to lose the ability to filter out completed workflows
+                # '?' is active tasks -- we can't know this unless we reydrate the
+                # workflow. We also have to lose the ability to filter out completed
+                # workflows
                 instances.append((filename, name, "-", created, updated, "-"))
         return instances

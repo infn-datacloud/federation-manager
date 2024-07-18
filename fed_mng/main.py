@@ -1,9 +1,11 @@
 """Entry point for the Federation-Manager web app."""
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Security
+from fastapi.security import HTTPBasicCredentials
 
 # from fastapi.middleware.cors import CORSMiddleware
+from fed_mng.auth import flaat, get_user_roles, security
 from fed_mng.config import get_settings
 
 # from fed_mng.db import lifespan
@@ -52,6 +54,14 @@ app = FastAPI(
     version=version,
     # lifespan=lifespan,
 )
+
+
+@app.get("/roles")
+@flaat.is_authenticated()
+def get_roles(request: Request, credentials: HTTPBasicCredentials = Security(security)):
+    """Get user roles. User must be authenticated"""
+    return get_user_roles(credentials)
+
 
 # sub_app_v1 = FastAPI(
 #     contact=contact,
