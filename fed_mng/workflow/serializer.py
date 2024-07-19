@@ -701,5 +701,5 @@ class SqliteSerializer(BpmnWorkflowSerializer):
         dct["children"] = [i.id for i in item.children]
         dct["internal_data"] = {}  # TODO fix
         dct["task_spec"] = item.task_spec_name
-        dct["data"] = item.task_data  # TODO fix
+        dct["data"] = { i.name: i.value for i in item.task_data }
         return dct
