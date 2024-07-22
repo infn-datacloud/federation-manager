@@ -2,7 +2,7 @@
 
 import uvicorn
 from fastapi import FastAPI, Request, Security
-from fastapi.security import HTTPBasicCredentials
+from fastapi.security import HTTPAuthorizationCredentials
 
 # from fastapi.middleware.cors import CORSMiddleware
 from fed_mng.auth import flaat, get_user_roles, security
@@ -58,9 +58,11 @@ app = FastAPI(
 
 @app.get("/roles")
 @flaat.is_authenticated()
-def get_roles(request: Request, credentials: HTTPBasicCredentials = Security(security)):
+def get_roles(
+    request: Request, credentials: HTTPAuthorizationCredentials = Security(security)
+):
     """Get user roles. User must be authenticated"""
-    return get_user_roles(credentials)
+    return get_user_roles(credentials.credentials)
 
 
 # sub_app_v1 = FastAPI(
