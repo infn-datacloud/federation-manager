@@ -149,6 +149,11 @@ class SiteAdminNamespace(AsyncNamespace):
             for k in required_keys:
                 resolved_data["properties"][k]["required"] = True
 
+        if (
+            resolved_data.get("type", None) == "string"
+            and resolved_data.get("enum", None) is not None
+        ):
+            resolved_data["type"] = "select"
         return resolved_data
 
     async def _run_until_user_input_required(self, workflow: BpmnWorkflow):
