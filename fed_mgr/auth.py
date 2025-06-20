@@ -39,8 +39,14 @@ def configure_flaat(settings: Settings, logger: Logger) -> None:
         "Trusted IDPs have been configured. Total count: %d",
         len(settings.TRUSTED_IDP_LIST),
     )
-    logger.info("Authentication mode is %s", settings.AUTHN_MODE.value)
-    logger.info("Authorization mode is %s", settings.AUTHZ_MODE.value)
+    if settings.AUTHN_MODE is None:
+        logger.warning("No authentication")
+    else:
+        logger.info("Authentication mode is %s", settings.AUTHN_MODE.value)
+    if settings.AUTHZ_MODE is None:
+        logger.warning("No authorization")
+    else:
+        logger.info("Authorization mode is %s", settings.AUTHZ_MODE.value)
     flaat.set_request_timeout(IDP_TIMEOUT)
     flaat.set_trusted_OP_list([str(i) for i in settings.TRUSTED_IDP_LIST])
 

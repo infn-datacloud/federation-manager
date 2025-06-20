@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "fed-mgr"
 version = "0.1.0"
-description = "INFN-DataCloud federation-manager backend"
+description = "INFN-DataCloud federation-manager python library and backend REST API"
 authors = ["Giovanni Savarese <giovanni.savarese@ba.infn.it>"]
 license = "Apache License 2.0"
 readme = "README.md"

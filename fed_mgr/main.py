@@ -15,7 +15,10 @@ from fed_mgr.v1.router import router as router_v1
 settings = get_settings()
 
 summary = "Federation-Manager REST API of the DataCloud project"
-description = "The Federation-Manager component stores users' deployments details."
+description = """
+The Federation-Manager component stores providers federation requests and user groups
+resource usage requests.
+"""
 version = "0.1.0"
 contact = {
     "name": settings.MAINTAINER_NAME,
