@@ -30,6 +30,6 @@ RUN pip install --upgrade pip \
     && pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
 # Copy the application code
-COPY ./orchestrator /app/orchestrator
+COPY ./fed_mgr /app/fed_mgr
 
-CMD ["fastapi", "run", "/app/orchestrator/main.py", "--port", "80"]
+CMD ["fastapi", "run", "/app/fed_mgr/main.py", "--port", "80"]

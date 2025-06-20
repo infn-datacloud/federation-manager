@@ -1,1 +1,1 @@
-"""Package for user-related functionality in orchestrator.v1.users."""
+"""Package for user-related functionality in fed_mgr.v1.users."""

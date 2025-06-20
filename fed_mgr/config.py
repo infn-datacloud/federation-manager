@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: Annotated[
         str,
         Field(
-            default="Orchestrator",
+            default="Federation-Manager",
             description="Project name to show in the Swagger documentation",
         ),
     ]

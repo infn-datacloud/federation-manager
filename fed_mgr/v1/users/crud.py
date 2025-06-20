@@ -1,4 +1,4 @@
-"""User CRUD utility functions for orchestrator service.
+"""User CRUD utility functions for fed-mgr service.
 
 This module provides functions to retrieve, list, add, and delete users in the database.
 It wraps generic CRUD operations with user-specific logic and exception handling.
