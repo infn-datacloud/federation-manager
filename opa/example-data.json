@@ -1,0 +1,15 @@
+{
+    "admin_entitlement": "admin_role",
+    "trusted_issuers": [
+        {
+            "endpoint":"https://iam.cloud.infn.it/",
+            "claim": "groups"
+        }
+    ],
+    "user_endpoints": [
+        {
+            "path": "/api/v1/users/",
+            "method": "GET"
+        }
+    ]
+}
