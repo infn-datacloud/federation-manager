@@ -1,8 +1,0 @@
-services:
-  opa:
-    image: openpolicyagent/opa
-    ports:
-      - 8181:8181
-    volumes:
-      - ./opa:/fedmgr:ro
-    command: run --server --log-level debug /fedmgr
