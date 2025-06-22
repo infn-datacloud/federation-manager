@@ -1,15 +1,15 @@
 """Users schemas returned by the endpoints."""
 
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import Query
 from pydantic import AnyHttpUrl, EmailStr
-from sqlmodel import AutoString, Field, SQLModel, UniqueConstraint, func
+from sqlmodel import AutoString, Field, SQLModel, UniqueConstraint
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
-    CreationQuery,
+    CreationTime,
+    CreationTimeQuery,
     ItemID,
     PaginatedList,
     PaginationQuery,
@@ -28,27 +28,27 @@ class UserBase(SQLModel):
     issuer: Annotated[AnyHttpUrl, Field(description="Issuer URL", sa_type=HttpUrlType)]
 
 
-class User(ItemID, UserBase, table=True):
+class User(ItemID, CreationTime, UserBase, table=True):
     """Schema used to return User's data to clients."""
-
-    created_at: Annotated[
-        datetime,
-        Field(
-            description="Date time of when the entity has been created",
-            default=func.now(),
-        ),
-    ]
 
     __table_args__ = (
         UniqueConstraint("sub", "issuer", name="unique_sub_issuer_couple"),
     )
 
 
+class UserList(PaginatedList):
+    """Schema used to return paginated list of Users' data to clients."""
+
+    data: Annotated[
+        list[User], Field(default_factory=list, description="List of users")
+    ]
+
+
 class UserCreate(UserBase):
     """Schema used to define request's body parameters of a POST on 'users' endpoint."""
 
 
-class UserQuery(CreationQuery, PaginationQuery, SortQuery):
+class UserQuery(CreationTimeQuery, PaginationQuery, SortQuery):
     """Schema used to define request's body parameters."""
 
     sub: Annotated[
@@ -68,14 +68,6 @@ class UserQuery(CreationQuery, PaginationQuery, SortQuery):
     issuer: Annotated[
         str | None,
         Field(default=None, description="User's issuer URL must contain this string"),
-    ]
-
-
-class UserList(PaginatedList):
-    """Schema used to return paginated list of Users' data to clients."""
-
-    data: Annotated[
-        list[User], Field(default_factory=list, description="List of users")
     ]
 
 

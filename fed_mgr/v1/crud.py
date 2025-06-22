@@ -1,12 +1,16 @@
 """Create Read Update and Delete generic functions."""
 
+import re
 import uuid
 from typing import TypeVar
 
 import sqlalchemy
 from sqlmodel import Session, SQLModel, asc, delete, desc, func, select
 
+from fed_mgr.exceptions import ConflictError, NotNullError
+from fed_mgr.utils import split_camel_case
 from fed_mgr.v1.schemas import ItemID
+from fed_mgr.v1.users.schemas import User
 
 Entity = TypeVar("Entity", bound=ItemID)
 CreateModel = TypeVar("CreateModel", bound=SQLModel)
@@ -118,22 +122,53 @@ def get_items(
     return items, tot_items
 
 
-def add_item(*, entity: type[Entity], session: Session, item: CreateModel) -> Entity:
+def add_item(
+    *,
+    entity: type[Entity],
+    session: Session,
+    item: CreateModel,
+    created_by: User | None,
+) -> Entity:
     """Add a new item to the database.
 
     Args:
         entity: The SQLModel entity class to add.
         session: The SQLModel session for database access.
         item: The Pydantic/SQLModel model instance to add.
+        created_by: The user who is creating the item, or None if not applicable.
 
     Returns:
         The newly created entity instance.
 
+    Raises:
+        NotNullError: If a NOT NULL constraint is violated.
+        ConflictError: If a UNIQUE constraint is violated.
+
     """
-    db_item = entity(**item.model_dump())
-    session.add(db_item)
-    session.commit()
-    return db_item
+    kwargs = {}
+    if created_by is not None:
+        kwargs = {"created_by": created_by.id}
+    try:
+        db_item = entity(**item.model_dump(), **kwargs)
+        session.add(db_item)
+        session.commit()
+        return db_item
+    except sqlalchemy.exc.IntegrityError as e:
+        session.rollback()
+        element_str = split_camel_case(entity.__class__.__name__)
+        match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).*", e.args[0])
+        if match is not None:
+            attr = match.group(0).split(".")[1]
+            raise NotNullError(
+                f"Attribute '{attr}' of {element_str} can't be NULL"
+            ) from e
+        match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).*", e.args[0])
+        if match is not None:
+            attr = match.group(0).split(".")[1]
+            raise ConflictError(
+                f"{element_str} with {attr} '{item.model_dump().get(attr)}' already "
+                "exists"
+            ) from e
 
 
 def delete_item(*, entity: type[Entity], session: Session, item_id: uuid.UUID) -> None:

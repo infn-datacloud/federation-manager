@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi.datastructures import URL
 from pydantic import AnyHttpUrl, computed_field
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, func
 
 
 class ItemID(SQLModel):
@@ -26,53 +26,10 @@ class ItemID(SQLModel):
     ]
 
 
-class ErrorMessage(SQLModel):
-    """Schema returned when raising an HTTP exception such as 404."""
+class ItemDescription(SQLModel):
+    """Schema for an item description."""
 
-    # title: Annotated[str, Field(description="Error title")]
-    detail: Annotated[str, Field(description="Error detailed description")]
-
-
-class CreationQuery(SQLModel):
-    """Schema used to define request's body parameters."""
-
-    created_before: Annotated[
-        datetime | None,
-        Field(
-            default=None,
-            description="Item's creation time must be lower than or equal to this "
-            "value",
-        ),
-    ]
-    created_after: Annotated[
-        datetime | None,
-        Field(
-            default=None,
-            description="Item's creation time must be greater than or equal to this "
-            "value",
-        ),
-    ]
-
-
-class UpdateQuery(SQLModel):
-    """Schema used to define request's body parameters."""
-
-    updated_before: Annotated[
-        datetime | None,
-        Field(
-            default=None,
-            description="Item's creation time must be lower than or equal to this "
-            "value",
-        ),
-    ]
-    updated_after: Annotated[
-        datetime | None,
-        Field(
-            default=None,
-            description="Item's creation time must be greater than or equal to this "
-            "value",
-        ),
-    ]
+    description: Annotated[str, Field(default="", description="Item decription")]
 
 
 class SortQuery(SQLModel):
@@ -194,3 +151,128 @@ class PaginatedList(SQLModel):
         return PageNavigation(
             first=first_page, prev=prev_page, next=next_page, last=last_page
         )
+
+
+class CreationTime(SQLModel):
+    """Schema for tracking the creation time of an entity."""
+
+    created_at: Annotated[
+        datetime,
+        Field(
+            description="Date time of when the entity has been created",
+            default=func.now(),
+        ),
+    ]
+
+
+class CreationTimeQuery(SQLModel):
+    """Schema used to define request's body parameters."""
+
+    created_before: Annotated[
+        datetime | None,
+        Field(
+            default=None,
+            description="Item's creation time must be lower than or equal to this "
+            "value",
+        ),
+    ]
+    created_after: Annotated[
+        datetime | None,
+        Field(
+            default=None,
+            description="Item's creation time must be greater than or equal to this "
+            "value",
+        ),
+    ]
+
+
+class Creator(SQLModel):
+    """Schema for tracking the user who created an entity."""
+
+    created_by: Annotated[
+        uuid.UUID,
+        Field(description="User who created this item.", foreign_key="user.id"),
+    ]
+
+
+class CreatorQuery(SQLModel):
+    """Schema for querying by the creator's user ID."""
+
+    created_by: Annotated[
+        str | None,
+        Field(default=None, description="The creator's ID must contain this string"),
+    ]
+
+
+class Creation(CreationTime, Creator):
+    """Schema for reading creation time and creator's user ID."""
+
+
+class CreationQuery(CreationTimeQuery, CreatorQuery):
+    """Schema for querying by creation time and creator's user ID."""
+
+
+class UpdateTime(SQLModel):
+    """Schema for tracking the last update time of an entity."""
+
+    updated_at: Annotated[
+        datetime,
+        Field(
+            description="Datetime of when the entity has been updated",
+            default=func.now(),
+        ),
+    ]
+
+
+class UpdateQuery(SQLModel):
+    """Schema used to define request's body parameters."""
+
+    updated_before: Annotated[
+        datetime | None,
+        Field(
+            default=None,
+            description="Item's last update time must be lower than or equal to this "
+            "value",
+        ),
+    ]
+    updated_after: Annotated[
+        datetime | None,
+        Field(
+            default=None,
+            description="Item's last update time must be greater than or equal to this "
+            "value",
+        ),
+    ]
+
+
+class Editor(SQLModel):
+    """Schema for tracking the user who last edit an entity."""
+
+    updated_by: Annotated[
+        uuid.UUID,
+        Field(description="User who last updated this item.", foreign_key="user.id"),
+    ]
+
+
+class EditorQuery(SQLModel):
+    """Schema for querying by the editor's user ID."""
+
+    updated_by: Annotated[
+        str | None,
+        Field(default=None, description="The editor's ID must contain this string"),
+    ]
+
+
+class Editable(UpdateTime, Editor):
+    """Schema for reading update time and editor's user ID."""
+
+
+class EditableQuery(UpdateQuery, EditorQuery):
+    """Schema for querying by update time and editor's user ID."""
+
+
+class ErrorMessage(SQLModel):
+    """Schema returned when raising an HTTP exception such as 404."""
+
+    # title: Annotated[str, Field(description="Error title")]
+    detail: Annotated[str, Field(description="Error detailed description")]

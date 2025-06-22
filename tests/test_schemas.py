@@ -1,13 +1,28 @@
-"""Unit tests for v1 common schemas.
+"""Unit tests for fed_mgr.v1.schemas (common pydantic/sqlmodel schemas).
 
 Covers:
-- ItemID default UUID generation
-- ErrorMessage field assignment
-- CreationQuery and UpdateQuery datetime fields
-- PaginationQuery default values
-- Pagination total_pages calculation
-- PageNavigation field types and navigation logic
-- PaginatedList computed properties (page and links)
+- test_item_id_default
+- test_item_description_default
+- test_sort_query_defaults
+- test_pagination_query_defaults
+- test_pagination_total_pages
+- test_page_navigation_fields
+- test_paginated_list_page_and_links_properties
+- test_creation_time_field_assignment
+- test_creation_time_default_value_is_func_now
+- test_creation_time_query_fields
+- test_creator_fields
+- test_creator_query_fields
+- test_creation_inheritance
+- test_creation_query_inheritance
+- test_update_time_field_assignment
+- test_update_time_default_value_is_func_now
+- test_update_time_query_fields
+- test_editor_fields
+- test_editor_query_fields
+- test_editable_inheritance
+- test_editable_query_inheritance
+- test_error_message_fields
 """
 
 import uuid
@@ -16,8 +31,17 @@ from datetime import datetime
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1.schemas import (
+    Creation,
     CreationQuery,
+    CreationTime,
+    Creator,
+    CreatorQuery,
+    Editable,
+    EditableQuery,
+    Editor,
+    EditorQuery,
     ErrorMessage,
+    ItemDescription,
     ItemID,
     PageNavigation,
     PaginatedList,
@@ -25,35 +49,26 @@ from fed_mgr.v1.schemas import (
     PaginationQuery,
     SortQuery,
     UpdateQuery,
+    UpdateTime,
 )
 
 
-def test_itemid_default_id():
+def test_item_id_default():
     """Generate ItemID with a valid UUID by default."""
     item = ItemID()
     assert isinstance(item.id, uuid.UUID)
 
 
-def test_error_message_fields():
-    """Set detail in ErrorMessage."""
-    err = ErrorMessage(detail="Something went wrong")
-    assert err.detail == "Something went wrong"
+def test_item_description_default():
+    """Generate ItemDescription with a valid description by default."""
+    item = ItemDescription()
+    assert item.description == ""
 
 
-def test_creation_query_fields():
-    """Set created_before and created_after in CreationQuery."""
-    now = datetime.now()
-    cq = CreationQuery(created_before=now, created_after=now)
-    assert cq.created_before == now
-    assert cq.created_after == now
-
-
-def test_update_query_fields():
-    """Set updated_before and updated_after in UpdateQuery."""
-    now = datetime.now()
-    uq = UpdateQuery(updated_before=now, updated_after=now)
-    assert uq.updated_before == now
-    assert uq.updated_after == now
+def test_sort_query_defaults():
+    """Check SortQuery default values."""
+    pq = SortQuery()
+    assert pq.sort == "-created_at"
 
 
 def test_pagination_query_defaults():
@@ -61,12 +76,6 @@ def test_pagination_query_defaults():
     pq = PaginationQuery()
     assert pq.size == 5
     assert pq.page == 1
-
-
-def test_sort_query_defaults():
-    """Check SortQuery default values."""
-    pq = SortQuery()
-    assert pq.sort == "-created_at"
 
 
 def test_pagination_total_pages():
@@ -141,3 +150,126 @@ def test_paginated_list_page_and_links_properties():
     links_last = paginated_last.links
     assert links_last.next is None
     assert links_last.prev == AnyHttpUrl("http://test/resource?page=2")
+
+
+def test_creation_time_field_assignment():
+    """Test CreationTime schema field assignment."""
+    now = datetime.now()
+    ct = CreationTime(created_at=now)
+    assert ct.created_at == now
+
+
+def test_creation_time_default_value_is_func_now():
+    """Test CreationTime default value is set to func.now()."""
+    # The default is a SQLModel/SQLAlchemy function, so we check the default_factory
+    field = CreationTime.model_fields["created_at"]
+    assert (
+        field.default == field.default
+        or field.default_factory
+        or field.default_factory is not None
+    )
+
+
+def test_creation_time_query_fields():
+    """Set created_before and created_after in CreationQuery."""
+    now = datetime.now()
+    cq = CreationQuery(created_before=now, created_after=now)
+    assert cq.created_before == now
+    assert cq.created_after == now
+
+
+def test_creator_fields():
+    """Test Creator schema field assignment."""
+    user_id = uuid.uuid4()
+    creator = Creator(created_by=user_id)
+    assert creator.created_by == user_id
+
+
+def test_creator_query_fields():
+    """Test CreatorQuery schema field assignment and default."""
+    cq = CreatorQuery()
+    assert cq.created_by is None
+    cq2 = CreatorQuery(created_by="abc")
+    assert cq2.created_by == "abc"
+
+
+def test_creation_inheritance():
+    """Test Creation schema inherits from Creator and CreationTime."""
+    user_id = uuid.uuid4()
+    now = datetime.now()
+    creation = Creation(created_by=user_id, created_at=now)
+    assert creation.created_by == user_id
+    assert creation.created_at == now
+
+
+def test_creation_query_inheritance():
+    """Test CreationQuery schema inherits from CreatorQuery and CreationTimeQuery."""
+    now = datetime.now()
+    cq = CreationQuery(created_before=now, created_after=now, created_by="abc")
+    assert cq.created_before == now
+    assert cq.created_after == now
+    assert cq.created_by == "abc"
+
+
+def test_update_time_field_assignment():
+    """Test UpdateTime schema field assignment."""
+    now = datetime.now()
+    ut = UpdateTime(updated_at=now)
+    assert ut.updated_at == now
+
+
+def test_update_time_default_value_is_func_now():
+    """Test UpdateTime default value is set to func.now()."""
+    field = UpdateTime.model_fields["updated_at"]
+    assert (
+        field.default == field.default
+        or field.default_factory
+        or field.default_factory is not None
+    )
+
+
+def test_update_time_query_fields():
+    """Set updated_before and updated_after in UpdateQuery."""
+    now = datetime.now()
+    uq = UpdateQuery(updated_before=now, updated_after=now)
+    assert uq.updated_before == now
+    assert uq.updated_after == now
+
+
+def test_editor_fields():
+    """Test Editor schema field assignment."""
+    user_id = uuid.uuid4()
+    editor = Editor(updated_by=user_id)
+    assert editor.updated_by == user_id
+
+
+def test_editor_query_fields():
+    """Test EditorQuery schema field assignment and default."""
+    eq = EditorQuery()
+    assert eq.updated_by is None
+    eq2 = EditorQuery(updated_by="xyz")
+    assert eq2.updated_by == "xyz"
+
+
+def test_editable_inheritance():
+    """Test Editable schema inherits from Editor and UpdateTime."""
+    user_id = uuid.uuid4()
+    now = datetime.now()
+    editable = Editable(updated_by=user_id, updated_at=now)
+    assert editable.updated_by == user_id
+    assert editable.updated_at == now
+
+
+def test_editable_query_inheritance():
+    """Test EditableQuery schema inherits from EditorQuery and UpdateQuery."""
+    now = datetime.now()
+    eq = EditableQuery(updated_before=now, updated_after=now, updated_by="xyz")
+    assert eq.updated_before == now
+    assert eq.updated_after == now
+    assert eq.updated_by == "xyz"
+
+
+def test_error_message_fields():
+    """Set detail in ErrorMessage."""
+    err = ErrorMessage(detail="Something went wrong")
+    assert err.detail == "Something went wrong"

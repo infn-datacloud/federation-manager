@@ -9,8 +9,10 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
+import sqlalchemy
 from sqlmodel import Field, SQLModel
 
+from fed_mgr.exceptions import ConflictError, NotNullError
 from fed_mgr.v1.crud import (
     add_item,
     delete_item,
@@ -129,7 +131,23 @@ def test_add_item_adds_and_commits(session, item_id):
     item = MagicMock()
     item.model_dump.return_value = {"id": item_id}
     DummyEntity.__init__ = lambda self, **kwargs: None
-    result = add_item(entity=DummyEntity, session=session, item=item)
+    # Pass created_by=None as required by new signature
+    result = add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+    session.add.assert_called()
+    session.commit.assert_called()
+    assert isinstance(result, DummyEntity)
+
+
+def test_add_item_with_created_by(session, item_id):
+    """Test add_item adds the entity with a non-None created_by user and commits."""
+    item = MagicMock()
+    item.model_dump.return_value = {"id": item_id}
+    DummyEntity.__init__ = lambda self, **kwargs: None
+    mock_user = MagicMock()
+    mock_user.id = uuid.uuid4()
+    result = add_item(
+        entity=DummyEntity, session=session, item=item, created_by=mock_user
+    )
     session.add.assert_called()
     session.commit.assert_called()
     assert isinstance(result, DummyEntity)
@@ -140,3 +158,43 @@ def test_delete_item_executes_and_commits(session, item_id):
     delete_item(entity=DummyEntity, session=session, item_id=item_id)
     session.exec.assert_called()
     session.commit.assert_called()
+
+
+def test_add_item_raises_not_null_error(session, item_id):
+    """Test add_item raises NotNullError on NOT NULL constraint violation."""
+    item = MagicMock()
+    item.model_dump.return_value = {"id": item_id}
+    DummyEntity.__init__ = lambda self, **kwargs: None
+
+    # Simulate IntegrityError for NOT NULL constraint
+    exc = sqlalchemy.exc.IntegrityError(
+        statement=None,
+        params=None,
+        orig=Exception("NOT NULL constraint failed: dummyentity.name"),
+    )
+    exc.args = ("NOT NULL constraint failed: dummyentity.name",)
+    session.add.side_effect = exc
+
+    with pytest.raises(NotNullError) as e:
+        add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+    assert "can't be NULL" in str(e.value)
+
+
+def test_add_item_raises_conflict_error(session, item_id):
+    """Test add_item raises ConflictError on UNIQUE constraint violation."""
+    item = MagicMock()
+    item.model_dump.return_value = {"id": item_id, "name": "foo"}
+    DummyEntity.__init__ = lambda self, **kwargs: None
+
+    # Simulate IntegrityError for UNIQUE constraint
+    exc = sqlalchemy.exc.IntegrityError(
+        statement=None,
+        params=None,
+        orig=Exception("UNIQUE constraint failed: dummyentity.name"),
+    )
+    exc.args = ("UNIQUE constraint failed: dummyentity.name",)
+    session.add.side_effect = exc
+
+    with pytest.raises(ConflictError) as e:
+        add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+    assert "already exists" in str(e.value)

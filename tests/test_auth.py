@@ -152,7 +152,7 @@ def test_check_flaat_authentication_failure(mock_get_user_infos, authz_creds, lo
     assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
-@patch("app.auth.check_flaat_authentication")
+@patch("fed_mgr.auth.check_flaat_authentication")
 def test_check_authentication_local(
     mock_check, authz_creds, settings, user_infos, logger
 ):
@@ -311,7 +311,7 @@ async def test_check_opa_authorization_timeout(mock_post, user_infos, settings, 
 
 
 @pytest.mark.asyncio
-@patch("app.auth.check_opa_authorization")
+@patch("fed_mgr.auth.check_opa_authorization")
 async def test_check_authorization_opa(mock_check_opa, user_infos, settings, logger):
     """Test that check_authorization calls OPA authorization when mode is set to OPA."""
     settings.AUTHZ_MODE = auth.AuthorizationMethodsEnum.opa
