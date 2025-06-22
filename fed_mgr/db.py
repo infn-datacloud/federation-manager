@@ -10,10 +10,9 @@ from fed_mgr.config import get_settings
 
 settings = get_settings()
 
+connect_args = {}
 if settings.DB_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
-else:
-    connect_args = {}
 engine = create_engine(settings.DB_URL, connect_args=connect_args, echo=settings.DB_ECO)
 
 

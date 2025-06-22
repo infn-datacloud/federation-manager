@@ -203,3 +203,4 @@ async def check_authorization(
             settings=settings,
             logger=request.state.logger,
         )
+    return None

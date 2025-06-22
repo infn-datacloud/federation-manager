@@ -150,7 +150,7 @@ def test_delete_user_success(client, monkeypatch):
     """Test DELETE /users/{user_id} returns 204 on success."""
     fake_id = str(uuid.uuid4())
     monkeypatch.setattr(
-        "fed_mgr.v1.users.crud.delete_user", lambda session, user_id: None
+        "fed_mgr.v1.users.endpoints.delete_user", lambda session, user_id: None
     )
     resp = client.delete(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 204

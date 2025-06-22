@@ -9,6 +9,7 @@ These tests cover:
 
 import logging
 
+import pytest
 from pydantic import AnyHttpUrl
 
 from fed_mgr.config import (
@@ -82,3 +83,10 @@ def test_get_settings_caching():
     s1 = get_settings()
     s2 = get_settings()
     assert s1 is s2
+
+
+def test_settings_authz_without_authn_raises():
+    """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
+    with pytest.raises(ValueError) as exc:
+        Settings(AUTHN_MODE=None, AUTHZ_MODE=AuthorizationMethodsEnum.opa)
+    assert "authorization mode is defined" in str(exc.value)
