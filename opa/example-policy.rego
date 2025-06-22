@@ -14,9 +14,16 @@
 #	* Rego JWT decoding and verification functions:
 #     https://www.openpolicyagent.org/docs/latest/policy-reference/#token-verification
 #
-package fed-mgr
+package fed_mgr
 
 import rego.v1
+
+default claim := ""
+
+claim := issuer.claim if {
+	some issuer in data.trusted_issuers
+	issuer.endpoint == input.user_info.iss
+}
 
 default is_user := false
 
@@ -29,7 +36,7 @@ default is_admin := false
 
 is_admin if {
 	is_user
-	some role in input.user_info.groups
+	some role in input.user_info[claim]
 	role == data.admin_entitlement
 }
 

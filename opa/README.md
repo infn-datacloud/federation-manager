@@ -18,7 +18,7 @@ curl -X POST http://localhost:8181/v1/data/fed-mgr/allow \
   "input": {
     "user_info": {
       "iss": "https://iam.cloud.infn.it/",
-      "groups": ["test_admin"]
+      "groups": ["admin_role"]
     },   
     "path": "/api/v1/users",
     "method": "GET",

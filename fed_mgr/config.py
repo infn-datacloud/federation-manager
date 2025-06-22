@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     OPA_AUTHZ_URL: Annotated[
         AnyHttpUrl,
         Field(
-            default="http://localhost:8181/v1/data/fed-mgr",
+            default="http://localhost:8181/v1/data/fed_mgr",
             description="Open Policy Agent service roles authorization URL",
         ),
     ]

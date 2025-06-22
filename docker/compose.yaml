@@ -42,8 +42,8 @@ services:
     ports:
       - 8181:8181
     volumes:
-      - ../opa7data:/fed-mgr:ro
-    command: run --server --log-level debug --addr 0.0.0.0:8181 /fed-mgr
+      - ../opa/data:/fed_mgr:ro
+    command: run --server --log-level debug --addr 0.0.0.0:8181 /fed_mgr
 
 networks:
   fed-mgr-net:
