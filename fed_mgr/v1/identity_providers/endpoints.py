@@ -66,8 +66,6 @@ def available_methods(response: Response) -> None:
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
     },
 )
@@ -125,10 +123,6 @@ def create_idp(
     summary="Retrieve identity providers",
     description="Retrieve a paginated list of identity providers.",
     dependencies=[Security(check_authorization)],
-    responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
-    },
 )
 def retrieve_idps(
     request: Request, params: IdentityProviderQueryDep, session: SessionDep
@@ -186,8 +180,6 @@ def retrieve_idps(
     "raises a 404 error.",
     dependencies=[Security(check_authorization)],
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
     },
 )
@@ -235,8 +227,6 @@ def retrieve_idp(
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
@@ -294,10 +284,6 @@ def edit_idp(
     "from the DB.",
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
-    },
 )
 def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None:
     """Remove a identity provider from the system by their unique identifier.

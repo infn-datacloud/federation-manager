@@ -162,11 +162,7 @@ def get_items(
 
 
 def add_item(
-    *,
-    entity: type[Entity],
-    session: Session,
-    item: CreateModel,
-    created_by: User | None = None,
+    *, entity: type[Entity], session: Session, item: CreateModel, **kwargs
 ) -> Entity:
     """Add a new item to the database.
 
@@ -174,7 +170,7 @@ def add_item(
         entity: The SQLModel entity class to add.
         session: The SQLModel session for database access.
         item: The Pydantic/SQLModel model instance to add.
-        created_by: The user who is creating the item, or None if not applicable.
+        **kwargs: Additional keyword arguments to pass to the entity constructor.
 
     Returns:
         The newly created entity instance.
@@ -184,9 +180,6 @@ def add_item(
         ConflictError: If a UNIQUE constraint is violated.
 
     """
-    kwargs = {}
-    if created_by is not None:
-        kwargs = {"created_by": created_by.id}
     try:
         db_item = entity(**item.model_dump(), **kwargs)
         session.add(db_item)
@@ -202,7 +195,7 @@ def update_item(
     session: Session,
     item_id: uuid.UUID,
     new_data: UpdateModel,
-    updated_by: User | None = None,
+    updated_by: uuid.UUID | None = None,
 ) -> None:
     """Update an existing item in the database with new data.
 
@@ -222,7 +215,7 @@ def update_item(
     try:
         kwargs = {}
         if updated_by is not None:
-            kwargs = {"updated_by": updated_by.id, "updated_at": func.now}
+            kwargs = {"updated_by": updated_by, "updated_at": func.now()}
         statement = (
             update(entity)
             .where(entity.id == item_id)

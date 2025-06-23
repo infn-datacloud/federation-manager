@@ -147,10 +147,8 @@ def test_add_item_with_created_by(session, item_id):
     item = MagicMock()
     item.model_dump.return_value = {"id": item_id}
     DummyEntity.__init__ = lambda self, **kwargs: None
-    mock_user = MagicMock()
-    mock_user.id = uuid.uuid4()
     result = add_item(
-        entity=DummyEntity, session=session, item=item, created_by=mock_user
+        entity=DummyEntity, session=session, item=item, created_by=uuid.uuid4()
     )
     session.add.assert_called()
     session.commit.assert_called()

@@ -59,8 +59,6 @@ def available_methods(response: Response) -> None:
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -128,10 +126,6 @@ def create_user(
     summary="Retrieve users",
     description="Retrieve a paginated list of users.",
     dependencies=[Security(check_authorization)],
-    responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
-    },
 )
 def retrieve_users(
     request: Request, params: UserQueryDep, session: SessionDep
@@ -183,8 +177,6 @@ def retrieve_users(
     "If the user does not exist in the DB, the endpoint raises a 404 error.",
     dependencies=[Security(check_authorization)],
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
     },
 )
@@ -234,8 +226,6 @@ def retrieve_user(
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
@@ -286,10 +276,6 @@ def edit_user(
     description="Delete a user with the given id from the DB.",
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={
-        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
-        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
-    },
 )
 def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> None:
     """Remove a user from the system by their unique identifier.

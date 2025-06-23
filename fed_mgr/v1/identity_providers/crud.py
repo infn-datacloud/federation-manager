@@ -6,7 +6,9 @@ and exception handling.
 """
 
 import uuid
+from typing import Annotated
 
+from fastapi import Depends
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
@@ -78,7 +80,11 @@ def add_idp(
 
     """
     return add_item(
-        session=session, entity=IdentityProvider, item=idp, created_by=created_by
+        session=session,
+        entity=IdentityProvider,
+        item=idp,
+        created_by=created_by.id,
+        updated_by=created_by.id,
     )
 
 
@@ -105,7 +111,7 @@ def update_idp(
         entity=IdentityProvider,
         item_id=idp_id,
         new_data=new_idp,
-        updated_by=updated_by,
+        updated_by=updated_by.id,
     )
 
 
@@ -118,3 +124,6 @@ def delete_idp(*, session: Session, idp_id: uuid.UUID) -> None:
 
     """
     delete_item(session=session, entity=IdentityProvider, item_id=idp_id)
+
+
+ParentIdPDep = Annotated[IdentityProvider, Depends(get_idp)]

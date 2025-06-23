@@ -54,7 +54,8 @@ def test_add_idp_calls_add_item(session):
             session=session,
             entity=IdentityProvider,
             item=fake_idp,
-            created_by=fake_user,
+            created_by=fake_user.id,
+            updated_by=fake_user.id,
         )
 
 
@@ -74,7 +75,7 @@ def test_update_idp_calls_update_item(session):
             entity=IdentityProvider,
             item_id=idp_id,
             new_data=fake_idp,
-            updated_by=fake_user,
+            updated_by=fake_user.id,
         )
 
 
