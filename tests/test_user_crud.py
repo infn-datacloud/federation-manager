@@ -43,6 +43,7 @@ from fed_mgr.v1.users.crud import (
     get_current_user,
     get_user,
     get_users,
+    update_user,
 )
 from fed_mgr.v1.users.schemas import User, UserCreate
 
@@ -229,3 +230,25 @@ def test_get_current_user_not_found(session):
             issuer=user_infos.user_info["iss"],
         )
         assert result is None
+
+
+def test_update_user_success(session, user_id):
+    """Test that update_user calls update_item with correct arguments."""
+    fake_user_create = mock.Mock(spec=UserCreate)
+    with mock.patch("fed_mgr.v1.users.crud.update_item") as mock_update_item:
+        update_user(session=session, user_id=user_id, new_user=fake_user_create)
+        mock_update_item.assert_called_once_with(
+            session=session, entity=User, item_id=user_id, new_data=fake_user_create
+        )
+
+
+def test_update_user_raises_no_item_to_update(session, user_id):
+    """Test that update_user propagates NoItemToUpdateError from update_item."""
+    fake_user_create = mock.Mock(spec=UserCreate)
+    with mock.patch(
+        "fed_mgr.v1.users.crud.update_item",
+        side_effect=Exception("NoItemToUpdateError"),
+    ):
+        with pytest.raises(Exception) as exc_info:
+            update_user(session=session, user_id=user_id, new_user=fake_user_create)
+        assert "NoItemToUpdateError" in str(exc_info.value)

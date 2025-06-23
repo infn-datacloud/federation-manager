@@ -12,18 +12,22 @@ import pytest
 import sqlalchemy
 from sqlmodel import Field, SQLModel
 
-from fed_mgr.exceptions import ConflictError, NotNullError
+from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.v1.crud import (
     add_item,
     delete_item,
     get_conditions,
     get_item,
     get_items,
+    raise_from_integrity_error,
+    update_item,
 )
 
 
 class DummyEntity(SQLModel, table=True):
     """Dummy SQLModel entity for testing CRUD utility functions."""
+
+    __name__ = "DummyEntity"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: int = Field(default=0)
@@ -178,6 +182,8 @@ def test_add_item_raises_not_null_error(session, item_id):
     with pytest.raises(NotNullError) as e:
         add_item(entity=DummyEntity, session=session, item=item, created_by=None)
     assert "can't be NULL" in str(e.value)
+    session.rollback.assert_called_once()
+    session.commit.assert_not_called()
 
 
 def test_add_item_raises_conflict_error(session, item_id):
@@ -198,3 +204,135 @@ def test_add_item_raises_conflict_error(session, item_id):
     with pytest.raises(ConflictError) as e:
         add_item(entity=DummyEntity, session=session, item=item, created_by=None)
     assert "already exists" in str(e.value)
+    session.rollback.assert_called_once()
+    session.commit.assert_not_called()
+
+
+def test_raise_from_integrity_error_not_null(session, monkeypatch):
+    """Test raise_from_integrity_error raises NotNullError on NOT NULL constraint."""
+    # Patch split_camel_case to return a known value
+    item = MagicMock()
+    item.model_dump.return_value = {"name": "foo"}
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+    error = Exception("NOT NULL constraint failed: dummyentity.name")
+    error.args = ("NOT NULL constraint failed: dummyentity.name",)
+    with pytest.raises(NotNullError) as exc:
+        raise_from_integrity_error(
+            entity=DummyEntity,
+            session=session,
+            item=item,
+            error=error,
+        )
+    assert "Attribute 'name' of Dummy Entity can't be NULL" in str(exc.value)
+    session.rollback.assert_called_once()
+
+
+def test_raise_from_integrity_error_unique(session, monkeypatch):
+    """Test raise_from_integrity_error raises ConflictError on NOT UNIQUE constraint."""
+    item = MagicMock()
+    item.model_dump.return_value = {"name": "foo"}
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+    error = Exception("UNIQUE constraint failed: dummyentity.name")
+    error.args = ("UNIQUE constraint failed: dummyentity.name",)
+    with pytest.raises(ConflictError) as exc:
+        raise_from_integrity_error(
+            entity=DummyEntity,
+            session=session,
+            item=item,
+            error=error,
+        )
+    assert "Dummy Entity with name 'foo' already exists" in str(exc.value)
+    session.rollback.assert_called_once()
+
+
+def test_raise_from_integrity_error_other_error(session, monkeypatch):
+    """Test raise_from_integrity_error raises a generic error."""
+    item = MagicMock()
+    item.model_dump.return_value = {"name": "foo"}
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+    error = Exception("Some other error")
+    error.args = ("Some other error",)
+    # Should not raise NotNullError or ConflictError
+    raise_from_integrity_error(
+        entity=DummyEntity,
+        session=session,
+        item=item,
+        error=error,
+    )
+    session.rollback.assert_called_once()
+
+
+def test_update_item_success(session, item_id):
+    """Test update_item successfully updates and commits when rowcount > 0."""
+    new_data = MagicMock()
+    new_data.model_dump.return_value = {"name": "newname"}
+    # Mock session.exec to return an object with rowcount > 0
+    exec_result = MagicMock()
+    exec_result.rowcount = 1
+    session.exec.return_value = exec_result
+
+    update_item(entity=DummyEntity, session=session, item_id=item_id, new_data=new_data)
+    session.exec.assert_called()
+    session.commit.assert_called_once()
+
+
+def test_update_item_no_item_to_update(session, item_id):
+    """Test update_item raises NoItemToUpdateError when rowcount == 0."""
+    new_data = MagicMock()
+    new_data.model_dump.return_value = {"name": "newname"}
+    exec_result = MagicMock()
+    exec_result.rowcount = 0
+    session.exec.return_value = exec_result
+
+    with pytest.raises(NoItemToUpdateError) as exc:
+        update_item(
+            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+        )
+    assert "Dummy Entity" in str(exc.value) or "DummyEntity" in str(exc.value)
+    session.exec.assert_called()
+    session.commit.assert_not_called()
+
+
+def test_update_item_integrity_error_not_null(monkeypatch, session, item_id):
+    """Test update_item raises NotNullError on NOT NULL constraint violation."""
+    new_data = MagicMock()
+    new_data.model_dump.return_value = {"name": None}
+    # Simulate IntegrityError for NOT NULL constraint
+    exc = sqlalchemy.exc.IntegrityError(
+        statement=None,
+        params=None,
+        orig=Exception("NOT NULL constraint failed: dummyentity.name"),
+    )
+    exc.args = ("NOT NULL constraint failed: dummyentity.name",)
+    session.exec.side_effect = exc
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+
+    with pytest.raises(NotNullError) as e:
+        update_item(
+            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+        )
+    assert "can't be NULL" in str(e.value)
+    session.rollback.assert_called_once()
+    session.commit.assert_not_called()
+
+
+def test_update_item_integrity_error_unique(monkeypatch, session, item_id):
+    """Test update_item raises ConflictError on UNIQUE constraint violation."""
+    new_data = MagicMock()
+    new_data.model_dump.return_value = {"name": "foo"}
+    exc = sqlalchemy.exc.IntegrityError(
+        statement=None,
+        params=None,
+        orig=Exception("UNIQUE constraint failed: dummyentity.name"),
+    )
+    exc.args = ("UNIQUE constraint failed: dummyentity.name",)
+    session.exec.side_effect = exc
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+
+    with pytest.raises(ConflictError) as e:
+        update_item(
+            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+        )
+    assert "already exists" in str(e.value)
+    session.rollback.assert_called_once()
+    session.commit.assert_not_called()

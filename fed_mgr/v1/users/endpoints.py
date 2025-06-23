@@ -15,10 +15,16 @@ from fastapi import (
 
 from fed_mgr.auth import AuthenticationDep, check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError
+from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.crud import add_user, delete_user, get_user, get_users
+from fed_mgr.v1.users.crud import (
+    add_user,
+    delete_user,
+    get_user,
+    get_users,
+    update_user,
+)
 from fed_mgr.v1.users.schemas import User, UserCreate, UserList, UserQueryDep
 
 user_router = APIRouter(prefix="/users", tags=["users"])
@@ -56,6 +62,7 @@ def available_methods(response: Response) -> None:
         status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
         status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_user(
@@ -109,6 +116,11 @@ def create_user(
         #     status_code=status.HTTP_409_CONFLICT,
         #     content={"title": "User already exists", "detail": e.message},
         # )
+    except NotNullError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+        ) from e
 
 
 @user_router.get(
@@ -215,10 +227,63 @@ def retrieve_user(
     return user
 
 
+@user_router.put(
+    "/{user_id}",
+    summary="Update user with the given id",
+    description="Update a user with the given id in the DB",
+    dependencies=[Security(check_authorization)],
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"model": ErrorMessage},
+        status.HTTP_403_FORBIDDEN: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+        status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+    },
+)
+def edit_user(
+    request: Request,
+    user_id: uuid.UUID,
+    new_user: UserCreate,
+    session: SessionDep,
+) -> None:
+    """Update an existing user in the database with the given user ID.
+
+    Args:
+        request (Request): The current request object.
+        user_id (uuid.UUID): The unique identifier of the user to update.
+        new_user (UserCreate): The new user data to update.
+        session (SessionDep): The database session dependency.
+
+    Raises:
+        HTTPException: If the user is not found or another update error occurs.
+
+    """
+    request.state.logger.info("Update user with ID '%s'", str(user_id))
+    try:
+        update_user(session=session, user_id=user_id, new_user=new_user)
+    except NoItemToUpdateError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
+    except ConflictError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=e.message
+        ) from e
+    except NotNullError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+        ) from e
+    request.state.logger.info("User with ID '%s' updated", str(user_id))
+
+
 @user_router.delete(
     "/{user_id}",
-    summary="Delete user with given sub",
-    description="Delete a user with the given subject, for this issuer, from the DB.",
+    summary="Delete user with given id",
+    description="Delete a user with the given id from the DB.",
     dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={

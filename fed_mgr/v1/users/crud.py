@@ -12,7 +12,7 @@ from sqlmodel import Session
 
 from fed_mgr.auth import AuthenticationDep
 from fed_mgr.db import SessionDep
-from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items
+from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import User, UserCreate
 
@@ -69,6 +69,20 @@ def add_user(*, session: Session, user: UserCreate) -> ItemID:
     return add_item(session=session, entity=User, item=user)
 
 
+def update_user(*, session: Session, user_id: uuid.UUID, new_user: UserCreate) -> None:
+    """Update a user by their unique user_id from the database.
+
+    Completely override a user entity.
+
+    Args:
+        session: The database session.
+        user_id: The UUID of the user to delete.
+        new_user: The new data to update the user with.
+
+    """
+    return update_item(session=session, entity=User, item_id=user_id, new_data=new_user)
+
+
 def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
     """Delete a user by their unique user_id from the database.
 
@@ -77,7 +91,7 @@ def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
         user_id: The UUID of the user to delete.
 
     """
-    delete_item(session=session, entity=User, item_id=user_id)
+    return delete_item(session=session, entity=User, item_id=user_id)
 
 
 def get_current_user(user_infos: AuthenticationDep, session: SessionDep) -> User | None:

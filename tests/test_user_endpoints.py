@@ -5,6 +5,7 @@ import uuid
 import pytest
 
 from fed_mgr.auth import check_authentication
+from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.users.crud import get_user
 
@@ -78,8 +79,6 @@ def test_create_user_no_body(client, monkeypatch):
 
 def test_create_user_conflict(client, monkeypatch):
     """Test POST /users/ returns 409 if user already exists."""
-    from fed_mgr.exceptions import ConflictError
-
     user_data = {
         "sub": "testsub",
         "name": "Test User",
@@ -95,6 +94,23 @@ def test_create_user_conflict(client, monkeypatch):
     assert resp.status_code == 409
     assert resp.json()["detail"] == "User already exists"
 
+
+def test_create_user_not_null(client, monkeypatch):
+    """Test POST /users/ returns 422 if user if creation triggers a not null error."""
+    user_data = {
+        "sub": "testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "issuer": "https://issuer.example.com",
+    }
+
+    def fake_add_user(session, user):
+        raise NotNullError("Field 'email' cannot be null")
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.add_user", fake_add_user)
+    resp = client.post("/api/v1/users/", json=user_data)
+    assert resp.status_code == 422
+    assert "cannot be null" in resp.json()["detail"]
 
 def test_get_users_success(client, monkeypatch):
     """Test GET /users/ returns paginated user list."""
@@ -154,3 +170,78 @@ def test_delete_user_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_edit_user_success(client, monkeypatch):
+    """Test PUT /users/{user_id} returns 204 on successful update."""
+    fake_id = str(uuid.uuid4())
+    user_data = {
+        "sub": "testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "issuer": "https://issuer.example.com",
+    }
+
+    def fake_update_user(session, user_id, new_user):
+        return None
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
+    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
+    assert resp.status_code == 204
+
+
+def test_edit_user_not_found(client, monkeypatch):
+    """Test PUT /users/{user_id} returns 404 if user does not exist."""
+    fake_id = str(uuid.uuid4())
+    user_data = {
+        "sub": "testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "issuer": "https://issuer.example.com",
+    }
+
+    def fake_update_user(session, user_id, new_user):
+        raise NoItemToUpdateError("User not found")
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
+    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "User not found"
+
+
+def test_edit_user_conflict_error(client, monkeypatch):
+    """Test PUT /users/{user_id} returns 409 if update triggers a conflict error."""
+    fake_id = str(uuid.uuid4())
+    user_data = {
+        "sub": "testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "issuer": "https://issuer.example.com",
+    }
+
+    def fake_update_user(session, user_id, new_user):
+        raise ConflictError("User already exists")
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
+    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "User already exists"
+
+
+def test_edit_user_not_null_error(client, monkeypatch):
+    """Test PUT /users/{user_id} returns 422 if update triggers a not null error."""
+    fake_id = str(uuid.uuid4())
+    user_data = {
+        "sub": "testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "issuer": "https://issuer.example.com",
+    }
+
+    def fake_update_user(session, user_id, new_user):
+        raise NotNullError("Field 'email' cannot be null")
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
+    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
+    assert resp.status_code == 422
+    assert "cannot be null" in resp.json()["detail"]
