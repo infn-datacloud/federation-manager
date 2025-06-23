@@ -37,7 +37,7 @@ default is_admin := false
 is_admin if {
 	is_user
 	some role in input.user_info[claim]
-	role == data.admin_entitlement
+	role in data.admin_entitlements
 }
 
 default allow := false

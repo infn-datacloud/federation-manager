@@ -1,8 +1,10 @@
 {
-    "admin_entitlement": "admin_role",
+    "admin_entitlements": [
+        "admin_role"
+    ],
     "trusted_issuers": [
         {
-            "endpoint":"https://iam.cloud.infn.it/",
+            "endpoint": "https://iam.cloud.infn.it/",
             "claim": "groups"
         }
     ],
