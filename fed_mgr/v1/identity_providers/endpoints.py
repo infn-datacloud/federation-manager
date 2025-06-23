@@ -1,5 +1,6 @@
 """Endpoints to manage identity provider details."""
 
+import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -17,6 +18,7 @@ from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
+from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import (
     add_idp,
     delete_idp,
@@ -29,11 +31,12 @@ from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderCreate,
     IdentityProviderList,
     IdentityProviderQueryDep,
+    IdentityProviderRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.crud import CurrenUserDep
 
-idp_router = APIRouter(prefix="/idps", tags=["idps"])
+idp_router = APIRouter(prefix=IDPS_PREFIX, tags=["identity providers"])
 
 
 @idp_router.options(
@@ -163,8 +166,19 @@ def retrieve_idps(
     request.state.logger.info(
         "%d retrieved identity providers: %s", tot_items, repr(idps)
     )
+    new_idps = []
+    for idp in idps:
+        new_idp = IdentityProviderRead(
+            **idp.model_dump(),
+            links={
+                "user_groups": urllib.parse.urljoin(
+                    str(request.url), f"{idp.id}{USER_GROUPS_PREFIX}"
+                )
+            },
+        )
+        new_idps.append(new_idp)
     return IdentityProviderList(
-        data=idps,
+        data=new_idps,
         resource_url=str(request.url),
         page_number=params.page,
         page_size=params.size,
@@ -187,7 +201,7 @@ def retrieve_idp(
     request: Request,
     idp_id: uuid.UUID,
     idp: Annotated[IdentityProvider | None, Depends(get_idp)],
-) -> IdentityProvider:
+) -> IdentityProviderRead:
     """Retrieve a identity provider by their unique identifier.
 
     Logs the retrieval attempt, checks if the identity provider exists, and returns the
@@ -216,6 +230,14 @@ def retrieve_idp(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
     request.state.logger.info(
         "Identity Provider with ID '%s' found: %s", str(idp_id), repr(idp)
+    )
+    idp = IdentityProviderRead(
+        **idp.model_dump(),
+        links={
+            "user_groups": urllib.parse.urljoin(
+                str(request.url), f"{idp_id}{USER_GROUPS_PREFIX}"
+            )
+        },
     )
     return idp
 

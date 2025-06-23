@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Query
 from pydantic import AnyHttpUrl
-from sqlmodel import Field
+from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
@@ -64,16 +64,41 @@ class IdentityProvider(ItemID, Creation, Editable, IdentityProviderBase, table=T
     """Schema used to return Identity Provider's data to clients."""
 
 
+class IdentityProviderCreate(IdentityProviderBase):
+    """Schema used to create an Identity Provider."""
+
+
+class IdentityProviderLinks(SQLModel):
+    """Schema containing links related to the Identity Provider."""
+
+    user_groups: Annotated[
+        AnyHttpUrl,
+        Field(
+            description="Link to retrieve the list of user groups belonging to this "
+            "identity provider."
+        ),
+    ]
+
+
+class IdentityProviderRead(IdentityProvider, table=False):
+    """Schema used to read an Identity Provider."""
+
+    links: Annotated[
+        IdentityProviderLinks,
+        Field(
+            description="Dict with the links of the identity provider related entities",
+            sa_type=AutoString,
+        ),
+    ]
+
+
 class IdentityProviderList(PaginatedList):
     """Schema used to return paginated list of Identity Providers' data to clients."""
 
     data: Annotated[
-        list[IdentityProvider], Field(default_factory=list, description="List of users")
+        list[IdentityProviderRead],
+        Field(default_factory=list, description="List of identity providers"),
     ]
-
-
-class IdentityProviderCreate(IdentityProviderBase):
-    """Schema used to create an Identity Provider."""
 
 
 class IdentityProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):

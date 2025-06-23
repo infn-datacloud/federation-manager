@@ -17,6 +17,7 @@ from fed_mgr.auth import AuthenticationDep, check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
+from fed_mgr.v1 import USERS_PREFIX
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.crud import (
     add_user,
@@ -27,7 +28,7 @@ from fed_mgr.v1.users.crud import (
 )
 from fed_mgr.v1.users.schemas import User, UserCreate, UserList, UserQueryDep
 
-user_router = APIRouter(prefix="/users", tags=["users"])
+user_router = APIRouter(prefix=USERS_PREFIX, tags=["users"])
 
 
 @user_router.options(
