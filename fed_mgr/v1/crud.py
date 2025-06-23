@@ -166,7 +166,7 @@ def add_item(
     entity: type[Entity],
     session: Session,
     item: CreateModel,
-    created_by: User | None,
+    created_by: User | None = None,
 ) -> Entity:
     """Add a new item to the database.
 
@@ -197,7 +197,12 @@ def add_item(
 
 
 def update_item(
-    *, entity: type[Entity], session: Session, item_id: uuid.UUID, new_data: UpdateModel
+    *,
+    entity: type[Entity],
+    session: Session,
+    item_id: uuid.UUID,
+    new_data: UpdateModel,
+    updated_by: User | None = None,
 ) -> None:
     """Update an existing item in the database with new data.
 
@@ -206,6 +211,7 @@ def update_item(
         session: The SQLModel session for database access.
         item_id: The UUID of the item to update.
         new_data: The Pydantic/SQLModel model instance containing updated fields.
+        updated_by: The user who is editing the item, or None if not applicable.
 
     Raises:
         NoItemToUpdateError: If no item with the given ID exists in the database.
@@ -214,8 +220,13 @@ def update_item(
 
     """
     try:
+        kwargs = {}
+        if updated_by is not None:
+            kwargs = {"updated_by": updated_by.id, "updated_at": func.now}
         statement = (
-            update(entity).where(entity.id == item_id).values(**new_data.model_dump())
+            update(entity)
+            .where(entity.id == item_id)
+            .values(**new_data.model_dump(), **kwargs)
         )
         result = session.exec(statement)
         if result.rowcount == 0:
