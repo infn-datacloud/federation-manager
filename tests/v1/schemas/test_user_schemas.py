@@ -62,12 +62,7 @@ def test_user_base_valid():
 def test_user_base_invalid_email(email):
     """Test that UserBase raises ValidationError for invalid email values."""
     with pytest.raises(ValidationError):
-        UserBase(
-            sub=DUMMY_SUB,
-            name=DUMMY_NAME,
-            email=email,
-            issuer=DUMMY_ISSUER,
-        )
+        UserBase(sub=DUMMY_SUB, name=DUMMY_NAME, email=email, issuer=DUMMY_ISSUER)
 
 
 @pytest.mark.parametrize(
@@ -77,12 +72,7 @@ def test_user_base_invalid_email(email):
 def test_user_base_invalid_issuer(issuer):
     """Test that UserBase raises ValidationError for invalid issuer values."""
     with pytest.raises(ValidationError):
-        UserBase(
-            sub=DUMMY_SUB,
-            name=DUMMY_NAME,
-            email=DUMMY_EMAIL,
-            issuer=issuer,
-        )
+        UserBase(sub=DUMMY_SUB, name=DUMMY_NAME, email=DUMMY_EMAIL, issuer=issuer)
 
 
 def test_user_model_inherits_and_has_created_at():
@@ -90,15 +80,17 @@ def test_user_model_inherits_and_has_created_at():
 
     It also has  create_at field.
     """
+    fake_id = str(uuid.uuid4())
+    created_at = datetime.now()
     user = User(
-        id=1,
+        id=fake_id,
         sub=DUMMY_SUB,
         name=DUMMY_NAME,
         email=DUMMY_EMAIL,
         issuer=DUMMY_ISSUER,
-        created_at=datetime.now(),
+        created_at=created_at,
     )
-    assert user.id == 1
+    assert user.id == fake_id
     assert user.sub == DUMMY_SUB
     assert isinstance(user.created_at, datetime)
 

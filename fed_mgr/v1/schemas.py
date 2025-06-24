@@ -2,12 +2,12 @@
 
 import math
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi.datastructures import URL
 from pydantic import AnyHttpUrl, computed_field
-from sqlmodel import Field, SQLModel, func
+from sqlmodel import TIMESTAMP, Field, SQLModel
 
 
 class ItemID(SQLModel):
@@ -160,7 +160,8 @@ class CreationTime(SQLModel):
         datetime,
         Field(
             description="Date time of when the entity has been created",
-            default=func.now(),
+            default_factory=lambda: datetime.now(timezone.utc),
+            sa_type=TIMESTAMP(timezone=True),
         ),
     ]
 
@@ -219,7 +220,11 @@ class UpdateTime(SQLModel):
         datetime,
         Field(
             description="Datetime of when the entity has been updated",
-            default=func.now(),
+            default_factory=lambda: datetime.now(timezone.utc),
+            sa_column_kwargs={
+                "onupdate": lambda: datetime.now(timezone.utc),
+            },
+            sa_type=TIMESTAMP(timezone=True),
         ),
     ]
 

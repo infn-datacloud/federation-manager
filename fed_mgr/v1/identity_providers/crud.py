@@ -6,9 +6,7 @@ and exception handling.
 """
 
 import uuid
-from typing import Annotated
 
-from fastapi import Depends
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
@@ -124,6 +122,3 @@ def delete_idp(*, session: Session, idp_id: uuid.UUID) -> None:
 
     """
     delete_item(session=session, entity=IdentityProvider, item_id=idp_id)
-
-
-ParentIdPDep = Annotated[IdentityProvider, Depends(get_idp)]

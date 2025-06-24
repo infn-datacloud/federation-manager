@@ -43,7 +43,7 @@ class IdentityProviderBase(ItemDescription):
         Field(description="Name of the claim from which retrieve user groups or roles"),
     ]
     protocol: Annotated[
-        str,
+        str | None,
         Field(
             default=None,
             description="Name of the protocol used by the resource provider to connect "
@@ -80,7 +80,7 @@ class IdentityProviderLinks(SQLModel):
     ]
 
 
-class IdentityProviderRead(IdentityProvider, table=False):
+class IdentityProviderRead(ItemID, Creation, Editable, IdentityProviderBase):
     """Schema used to read an Identity Provider."""
 
     links: Annotated[

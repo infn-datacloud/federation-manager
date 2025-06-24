@@ -2,7 +2,6 @@
 
 import urllib.parse
 import uuid
-from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -19,26 +18,30 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
-from fed_mgr.v1.identity_providers.crud import ParentIdPDep
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
 from fed_mgr.v1.identity_providers.user_groups.crud import (
     add_user_group,
     delete_user_group,
-    get_user_group,
     get_user_groups,
     update_user_group,
 )
+from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupDep
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
-    UserGroup,
     UserGroupCreate,
     UserGroupList,
     UserGroupQueryDep,
     UserGroupRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.crud import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrenUserDep
 
 user_group_router = APIRouter(
-    prefix=IDPS_PREFIX + "/{idp_id}" + USER_GROUPS_PREFIX, tags=["user groups"]
+    prefix=IDPS_PREFIX + "/{idp_id}" + USER_GROUPS_PREFIX,
+    tags=["user groups"],
+    dependencies=[Security(check_authorization), Depends(idp_required)],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
 )
 
 
@@ -52,11 +55,18 @@ def available_methods(response: Response) -> None:
     """Add the HTTP 'Allow' header to the response.
 
     Args:
+        request (Request): The incoming HTTP request object, used for logging.
         response (Response): The HTTP response object to which the 'Allow' header will
             be added.
+        idp_id (uuid): The parent identity provider's ID.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Returns:
         None
+
+    Raises:
+        404 Not Found: If the parent identity provider does not exists.
 
     """
     add_allow_header_to_resp(user_group_router, response)
@@ -68,11 +78,9 @@ def available_methods(response: Response) -> None:
     description="Add a new user group to the DB. Check if a user group's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
     "the endpoint raises a 409 error.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
     },
 )
@@ -81,8 +89,7 @@ def create_user_group(
     session: SessionDep,
     user_group: UserGroupCreate,
     current_user: CurrenUserDep,
-    idp_id: uuid.UUID,
-    parent_idp: ParentIdPDep,
+    parent_idp: IdentityProviderDep,
 ) -> ItemID:
     """Create a new user group in the system.
 
@@ -97,8 +104,8 @@ def create_user_group(
             from the access token.
         session (SessionDep): The database session dependency.
         idp_id (uuid): The parent identity provider's ID.
-        parent_idp (ParentIdPDep): The parent identity provider associated with the user
-            group.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Returns:
         ItemID: A dictionary containing the ID of the created user group on
@@ -111,15 +118,11 @@ def create_user_group(
         409 Conflict: If the user already exists (handled below).
 
     """
+    request.state.logger.info(
+        "Creating user group with params: %s",
+        user_group.model_dump(exclude_none=True),
+    )
     try:
-        request.state.logger.info(
-            "Creating user group with params: %s",
-            user_group.model_dump(exclude_none=True),
-        )
-        if parent_idp is None:
-            message = f"Identity Provider with ID '{idp_id!s}' does not exist"
-            request.state.logger.error(message)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
         db_user_group = add_user_group(
             session=session,
             user_group=user_group,
@@ -144,7 +147,6 @@ def create_user_group(
     "/",
     summary="Retrieve user groups",
     description="Retrieve a paginated list of user groups.",
-    dependencies=[Security(check_authorization)],
 )
 def retrieve_user_groups(
     request: Request, params: UserGroupQueryDep, session: SessionDep
@@ -161,6 +163,9 @@ def retrieve_user_groups(
         params (UserGroupQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
+        idp_id (uuid): The parent identity provider's ID.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Returns:
         UserGroupList: A paginated list of user groups matching the query
@@ -169,6 +174,7 @@ def retrieve_user_groups(
     Raises:
         401 Unauthorized: If the user is not authenticated (handled by dependencies).
         403 Forbidden: If the user does not have permission (handled by dependencies).
+        404 Not Found: If the parent identity provider does not exists.
 
     """
     request.state.logger.info(
@@ -211,15 +217,9 @@ def retrieve_user_groups(
     description="Check if the given user group's ID already exists in the DB "
     "and return it. If the user group does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    dependencies=[Security(check_authorization)],
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
 )
 def retrieve_user_group(
-    request: Request,
-    user_group_id: uuid.UUID,
-    user_group: Annotated[UserGroup | None, Depends(get_user_group)],
+    request: Request, user_group_id: uuid.UUID, user_group: UserGroupDep
 ) -> UserGroupRead:
     """Retrieve a user group by their unique identifier.
 
@@ -231,6 +231,9 @@ def retrieve_user_group(
         request (Request): The incoming HTTP request object.
         user_group_id (uuid.UUID): The unique identifier of the user group to retrieve.
         user_group (UserGroup | None): The user group object, if found.
+        idp_id (uuid): The parent identity provider's ID.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Returns:
         UserGroup: The user group object if found.
@@ -265,10 +268,8 @@ def retrieve_user_group(
     "/{user_group_id}",
     summary="Update user group with the given id",
     description="Update a user group with the given id in the DB",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -289,10 +290,13 @@ def edit_user_group(
         session (SessionDep): The database session dependency.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
+        idp_id (uuid): The parent identity provider's ID.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Raises:
-        HTTPException: If the user group is not found or another update error
-        occurs.
+        404 Not Found: If the parent identity provider does not exists, if the user
+            group is not found
 
     """
     request.state.logger.info("Update user group with ID '%s'", str(user_group_id))
@@ -326,7 +330,6 @@ def edit_user_group(
     summary="Delete user group with given sub",
     description="Delete a user group with the given subject, for this issuer, "
     "from the DB.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_user_group(
@@ -342,6 +345,9 @@ def remove_user_group(
         user_group_id (uuid.UUID): The unique identifier of the user group to be removed
         session (SessionDep): The database session dependency used to perform the
             deletion.
+        idp_id (uuid): The parent identity provider's ID.
+        parent_idp (IdentityProviderDep): The parent identity provider associated with
+            the user group.
 
     Returns:
         None
@@ -349,6 +355,7 @@ def remove_user_group(
     Raises:
         401 Unauthorized: If the user is not authenticated (handled by dependencies).
         403 Forbidden: If the user does not have permission (handled by dependencies).
+        404 Not Found: If the parent identity provider does not exists.
 
     """
     request.state.logger.info("Delete user group with ID '%s'", str(user_group_id))

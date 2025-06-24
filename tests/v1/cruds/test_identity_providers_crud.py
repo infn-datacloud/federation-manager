@@ -64,6 +64,7 @@ def test_update_idp_calls_update_item(session):
     idp_id = uuid.uuid4()
     fake_idp = mock.Mock(spec=IdentityProviderCreate)
     fake_user = mock.Mock(spec=User)
+    fake_user.id = uuid.uuid4()
     with mock.patch(
         "fed_mgr.v1.identity_providers.crud.update_item"
     ) as mock_update_item:

@@ -1,7 +1,7 @@
 """Authentication and authorization rules."""
 
 from logging import Logger
-from typing import Annotated
+from typing import Annotated, Any
 
 import requests
 from fastapi import HTTPException, Request, Security, status
@@ -111,7 +111,7 @@ def check_authentication(
     return None
 
 
-AuthenticationDep = Annotated[UserInfos, Security(check_authentication)]
+AuthenticationDep = Annotated[Any | None, Security(check_authentication)]
 
 
 async def check_opa_authorization(

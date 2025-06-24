@@ -10,7 +10,6 @@ from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import split_camel_case
 from fed_mgr.v1.schemas import ItemID
-from fed_mgr.v1.users.schemas import User
 
 Entity = TypeVar("Entity", bound=ItemID)
 CreateModel = TypeVar("CreateModel", bound=SQLModel)
@@ -151,11 +150,11 @@ def get_items(
         .offset(skip)
         .limit(limit)
         .order_by(key)
-        .filter(sqlalchemy.and_(*conditions))
+        .filter(sqlalchemy.and_(True, *conditions))
     )
     items = session.exec(statement).all()
 
-    statement = select(func.count(entity.id)).filter(sqlalchemy.and_(*conditions))
+    statement = select(func.count(entity.id)).filter(sqlalchemy.and_(True, *conditions))
     tot_items = session.exec(statement).first()
 
     return items, tot_items

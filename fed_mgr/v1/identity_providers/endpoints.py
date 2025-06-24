@@ -2,41 +2,30 @@
 
 import urllib.parse
 import uuid
-from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    Security,
-    status,
-)
+from fastapi import APIRouter, HTTPException, Request, Response, Security, status
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
-from fed_mgr.v1.identity_providers.crud import (
-    add_idp,
-    delete_idp,
-    get_idp,
-    get_idps,
-    update_idp,
-)
+from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep
 from fed_mgr.v1.identity_providers.schemas import (
-    IdentityProvider,
     IdentityProviderCreate,
     IdentityProviderList,
     IdentityProviderQueryDep,
     IdentityProviderRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.crud import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrenUserDep
 
-idp_router = APIRouter(prefix=IDPS_PREFIX, tags=["identity providers"])
+idp_router = APIRouter(
+    prefix=IDPS_PREFIX,
+    tags=["identity providers"],
+    dependencies=[Security(check_authorization)],
+)
 
 
 @idp_router.options(
@@ -65,7 +54,6 @@ def available_methods(response: Response) -> None:
     description="Add a new identity provider to the DB. Check if a identity provider's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
     "the endpoint raises a 409 error.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
@@ -125,7 +113,6 @@ def create_idp(
     "/",
     summary="Retrieve identity providers",
     description="Retrieve a paginated list of identity providers.",
-    dependencies=[Security(check_authorization)],
 )
 def retrieve_idps(
     request: Request, params: IdentityProviderQueryDep, session: SessionDep
@@ -192,15 +179,10 @@ def retrieve_idps(
     description="Check if the given identity provider's ID already exists in the DB "
     "and return it. If the identity provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    dependencies=[Security(check_authorization)],
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_idp(
-    request: Request,
-    idp_id: uuid.UUID,
-    idp: Annotated[IdentityProvider | None, Depends(get_idp)],
+    request: Request, idp_id: uuid.UUID, idp: IdentityProviderDep
 ) -> IdentityProviderRead:
     """Retrieve a identity provider by their unique identifier.
 
@@ -246,7 +228,6 @@ def retrieve_idp(
     "/{idp_id}",
     summary="Update identity provider with the given id",
     description="Update a identity provider with the given id in the DB",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
@@ -304,7 +285,6 @@ def edit_idp(
     summary="Delete identity provider with given sub",
     description="Delete a identity provider with the given subject, for this issuer, "
     "from the DB.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None:

@@ -18,8 +18,10 @@ from fed_mgr.v1.identity_providers.schemas import (
     IdentityProvider,
     IdentityProviderBase,
     IdentityProviderCreate,
+    IdentityProviderLinks,
     IdentityProviderList,
     IdentityProviderQuery,
+    IdentityProviderRead,
 )
 
 DUMMY_ENDPOINT = "https://idp.example.com"
@@ -77,34 +79,6 @@ def test_identity_provider_inheritance():
     assert provider.audience == DUMMY_AUDIENCE
 
 
-def test_identity_provider_list():
-    """Test IdentityProviderList data field contains list of IdentityProvider."""
-    id_ = uuid.uuid4()
-    now = datetime.now()
-    provider = IdentityProvider(
-        id=id_,
-        created_at=now,
-        created_by=id_,
-        updated_at=now,
-        updated_by=id_,
-        description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
-        name=DUMMY_NAME,
-        groups_claim=DUMMY_GROUPS_CLAIM,
-        protocol=DUMMY_PROTOCOL,
-        audience=DUMMY_AUDIENCE,
-    )
-    idp_list = IdentityProviderList(
-        data=[provider],
-        page_number=1,
-        page_size=1,
-        tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/idps"),
-    )
-    assert isinstance(idp_list.data, list)
-    assert AnyHttpUrl(idp_list.data[0].endpoint) == AnyHttpUrl(DUMMY_ENDPOINT)
-
-
 def test_identity_provider_create_is_base():
     """Test that IdentityProviderCreate is an instance of IdentityProviderBase."""
     idp_create = IdentityProviderCreate(
@@ -116,6 +90,68 @@ def test_identity_provider_create_is_base():
         audience=DUMMY_AUDIENCE,
     )
     assert isinstance(idp_create, IdentityProviderBase)
+
+
+def test_identity_provider_links_fields():
+    """Test IdentityProviderLinks field assignment."""
+    url = AnyHttpUrl(DUMMY_ENDPOINT)
+    links = IdentityProviderLinks(user_groups=url)
+    assert links.user_groups == url
+
+
+def test_identity_provider_read_inheritance():
+    """Test IdentityProviderRead inherits from IdentityProvider and adds links."""
+    id_ = uuid.uuid4()
+    now = datetime.now()
+    url = AnyHttpUrl(DUMMY_ENDPOINT)
+    links = IdentityProviderLinks(user_groups=url)
+    idp_read = IdentityProviderRead(
+        id=id_,
+        created_at=now,
+        created_by=id_,
+        updated_at=now,
+        updated_by=id_,
+        description=DUMMY_DESC,
+        endpoint=DUMMY_ENDPOINT,
+        name=DUMMY_NAME,
+        groups_claim=DUMMY_GROUPS_CLAIM,
+        protocol=DUMMY_PROTOCOL,
+        audience=DUMMY_AUDIENCE,
+        links=links,
+    )
+    assert idp_read.id == id_
+    assert idp_read.links == links
+
+
+def test_identity_provider_list():
+    """Test IdentityProviderList data field contains list of IdentityProvider."""
+    id_ = uuid.uuid4()
+    now = datetime.now()
+    url = AnyHttpUrl(DUMMY_ENDPOINT)
+    links = IdentityProviderLinks(user_groups=url)
+    provider = IdentityProviderRead(
+        id=id_,
+        created_at=now,
+        created_by=id_,
+        updated_at=now,
+        updated_by=id_,
+        description=DUMMY_DESC,
+        endpoint=DUMMY_ENDPOINT,
+        name=DUMMY_NAME,
+        groups_claim=DUMMY_GROUPS_CLAIM,
+        protocol=DUMMY_PROTOCOL,
+        audience=DUMMY_AUDIENCE,
+        links=links,
+    )
+    idp_list = IdentityProviderList(
+        data=[provider],
+        page_number=1,
+        page_size=1,
+        tot_items=1,
+        resource_url=AnyHttpUrl("https://api.com/idps"),
+    )
+    assert isinstance(idp_list.data, list)
+    assert AnyHttpUrl(idp_list.data[0].endpoint) == AnyHttpUrl(DUMMY_ENDPOINT)
 
 
 def test_identity_provider_query_defaults():

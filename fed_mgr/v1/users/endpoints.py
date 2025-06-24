@@ -1,17 +1,8 @@
 """Endpoints to manage User details."""
 
 import uuid
-from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    Security,
-    status,
-)
+from fastapi import APIRouter, HTTPException, Request, Response, Security, status
 
 from fed_mgr.auth import AuthenticationDep, check_authorization
 from fed_mgr.db import SessionDep
@@ -19,16 +10,15 @@ from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import USERS_PREFIX
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.crud import (
-    add_user,
-    delete_user,
-    get_user,
-    get_users,
-    update_user,
-)
+from fed_mgr.v1.users.crud import add_user, delete_user, get_users, update_user
+from fed_mgr.v1.users.dependencies import UserDep
 from fed_mgr.v1.users.schemas import User, UserCreate, UserList, UserQueryDep
 
-user_router = APIRouter(prefix=USERS_PREFIX, tags=["users"])
+user_router = APIRouter(
+    prefix=USERS_PREFIX,
+    tags=["users"],
+    dependencies=[Security(check_authorization)],
+)
 
 
 @user_router.options(
@@ -57,7 +47,6 @@ def available_methods(response: Response) -> None:
     description="Add a new user to the DB. Check if a user's subject, for this issuer, "
     "already exists in the DB. If the sub already exists, the endpoint raises a 409 "
     "error.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
@@ -126,7 +115,6 @@ def create_user(
     "/",
     summary="Retrieve users",
     description="Retrieve a paginated list of users.",
-    dependencies=[Security(check_authorization)],
 )
 def retrieve_users(
     request: Request, params: UserQueryDep, session: SessionDep
@@ -176,16 +164,9 @@ def retrieve_users(
     summary="Retrieve user with given ID",
     description="Check if the given user's ID already exists in the DB and return it. "
     "If the user does not exist in the DB, the endpoint raises a 404 error.",
-    dependencies=[Security(check_authorization)],
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
-def retrieve_user(
-    request: Request,
-    user_id: uuid.UUID,
-    user: Annotated[User | None, Depends(get_user)],
-) -> User:
+def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> User:
     """Retrieve a user by their unique identifier.
 
     Logs the retrieval attempt, checks if the user exists, and returns the user object
@@ -224,7 +205,6 @@ def retrieve_user(
     "/{user_id}",
     summary="Update user with the given id",
     description="Update a user with the given id in the DB",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
@@ -275,7 +255,6 @@ def edit_user(
     "/{user_id}",
     summary="Delete user with given id",
     description="Delete a user with the given id from the DB.",
-    dependencies=[Security(check_authorization)],
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> None:

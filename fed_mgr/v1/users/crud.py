@@ -5,12 +5,9 @@ It wraps generic CRUD operations with user-specific logic and exception handling
 """
 
 import uuid
-from typing import Annotated
 
-from fastapi import Depends
 from sqlmodel import Session
 
-from fed_mgr.auth import AuthenticationDep
 from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.schemas import ItemID
@@ -94,26 +91,3 @@ def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
     return delete_item(session=session, entity=User, item_id=user_id)
 
 
-def get_current_user(user_infos: AuthenticationDep, session: SessionDep) -> User | None:
-    """Retrieve from the DB the user matching the user submitting the request.
-
-    Args:
-        user_infos: The authentication dependency containing user information.
-        session: The database session dependency.
-
-    Returns:
-        User instance if found, otherwise None.
-
-    """
-    users, count = get_users(
-        session=session,
-        skip=0,
-        limit=1,
-        sort="-created_at",
-        sub=user_infos.user_info["sub"],
-        issuer=user_infos.user_info["iss"],
-    )
-    return None if count == 0 else users[0]
-
-
-CurrenUserDep = Annotated[User, Depends(get_current_user)]

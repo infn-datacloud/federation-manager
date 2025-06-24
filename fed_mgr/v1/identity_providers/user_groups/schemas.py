@@ -50,7 +50,7 @@ class UserGroupLinks(SQLModel):
     ]
 
 
-class UserGroupRead(UserGroup, table=False):
+class UserGroupRead(ItemID, Creation, Editable, UserGroupBase):
     """Schema used to read an Identity Provider."""
 
     links: Annotated[
