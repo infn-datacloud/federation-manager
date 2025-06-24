@@ -12,7 +12,7 @@ from fed_mgr.v1.users.schemas import User
 UserDep = Annotated[User | None, Depends(get_user)]
 
 
-def get_current_user(user_infos: AuthenticationDep | None, session: SessionDep) -> User:
+def get_current_user(user_infos: AuthenticationDep, session: SessionDep) -> User:
     """Retrieve from the DB the user matching the user submitting the request.
 
     Args:
@@ -23,11 +23,6 @@ def get_current_user(user_infos: AuthenticationDep | None, session: SessionDep) 
         User instance if found, otherwise None.
 
     """
-    if user_infos is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token credientals are missing or authentication method is None.",
-        )
     users, count = get_users(
         session=session,
         skip=0,

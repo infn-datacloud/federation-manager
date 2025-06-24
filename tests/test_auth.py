@@ -166,12 +166,12 @@ def test_check_authentication_local(
 
 
 def test_check_authentication_none(authz_creds, settings, logger):
-    """Test that check_authentication returns None when authentication mode is None."""
+    """Test check_authentication returns fake user creds when authn mode is None."""
     settings.AUTHN_MODE = None
     request = MagicMock()
     request.state.logger = logger
     result = auth.check_authentication(request, authz_creds, settings)
-    assert result is None
+    assert result.user_info == {"sub": "fake_sub", "iss": "http://fake.iss.it"}
 
 
 @pytest.mark.asyncio

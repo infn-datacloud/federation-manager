@@ -1,7 +1,7 @@
 """Authentication and authorization rules."""
 
 from logging import Logger
-from typing import Annotated, Any
+from typing import Annotated
 
 import requests
 from fastapi import HTTPException, Request, Security, status
@@ -83,7 +83,7 @@ def check_flaat_authentication(
 
 def check_authentication(
     request: Request, authz_creds: HttpAuthzCredsDep, settings: SettingsDep
-) -> UserInfos | None:
+) -> UserInfos:
     """Check user authentication.
 
     Depending on the authentication mode specified in the settings, this function
@@ -108,10 +108,17 @@ def check_authentication(
         return check_flaat_authentication(
             authz_creds=authz_creds, logger=request.state.logger
         )
-    return None
+    request.state.logger.debug(
+        "No authentication mode. Providing fake user credentials"
+    )
+    return UserInfos(
+        access_token_info=None,
+        user_info={"sub": "fake_sub", "iss": "http://fake.iss.it"},
+        introspection_info=None,
+    )
 
 
-AuthenticationDep = Annotated[Any | None, Security(check_authentication)]
+AuthenticationDep = Annotated[UserInfos, Security(check_authentication)]
 
 
 async def check_opa_authorization(

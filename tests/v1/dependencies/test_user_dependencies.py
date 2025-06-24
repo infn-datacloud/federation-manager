@@ -59,13 +59,3 @@ def test_get_current_user_not_found(session):
         )
         assert exc.value.status_code == 400
         assert "No user with the given credentials was found" in str(exc.value.detail)
-
-
-def test_get_current_user_missing_user_infos(session):
-    """Test get_current_user raises HTTPException 400 when user_infos is None."""
-    with pytest.raises(HTTPException) as exc:
-        get_current_user(None, session)
-    assert exc.value.status_code == 400
-    assert "Token credientals are missing or authentication method is None." in str(
-        exc.value.detail
-    )

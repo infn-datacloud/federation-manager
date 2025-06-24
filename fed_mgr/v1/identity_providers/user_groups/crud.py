@@ -17,7 +17,9 @@ from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import User
 
 
-def get_user_group(user_group_id: uuid.UUID, session: SessionDep) -> UserGroup | None:
+def get_user_group(
+    *, session: SessionDep, user_group_id: uuid.UUID
+) -> UserGroup | None:
     """Retrieve an user group by their unique user_group_id from the database.
 
     Args:

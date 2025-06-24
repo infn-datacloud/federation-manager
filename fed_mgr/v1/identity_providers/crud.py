@@ -19,7 +19,7 @@ from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import User
 
 
-def get_idp(idp_id: uuid.UUID, session: SessionDep) -> IdentityProvider | None:
+def get_idp(*, session: SessionDep, idp_id: uuid.UUID) -> IdentityProvider | None:
     """Retrieve an identity provider by their unique idp_id from the database.
 
     Args:

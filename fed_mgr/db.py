@@ -4,6 +4,7 @@ from logging import Logger
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
 from fed_mgr.config import get_settings
@@ -16,7 +17,7 @@ if settings.DB_URL.startswith("sqlite"):
 engine = create_engine(settings.DB_URL, connect_args=connect_args, echo=settings.DB_ECO)
 
 
-def create_db_and_tables(logger: Logger) -> None:
+def create_db_and_tables(logger: Logger) -> Engine:
     """Connect to the database and create all tables defined in SQLModel metadata.
 
     Args:

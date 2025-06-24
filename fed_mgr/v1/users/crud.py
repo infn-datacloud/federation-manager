@@ -14,7 +14,7 @@ from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import User, UserCreate
 
 
-def get_user(user_id: uuid.UUID, session: SessionDep) -> User | None:
+def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:
     """Retrieve a user by their unique user_id from the database.
 
     Args:
@@ -91,3 +91,43 @@ def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
     return delete_item(session=session, entity=User, item_id=user_id)
 
 
+def create_fake_user(session: Session):
+    """Create a fake user in the database for testing or development purposes.
+
+    If the fake user already exists return the ID of the existing user.
+
+    Args:
+        session: An active SQLModel session for database operations.
+
+    Returns:
+        the id of the fake user.
+
+    """
+    users, count = get_users(
+        session=session, skip=0, limit=1, sort="-created_at", name="fake_name"
+    )
+    if count == 0:
+        add_user(
+            session=session,
+            user=UserCreate(
+                name="fake_name",
+                email="fake@email.com",
+                sub="fake_sub",
+                issuer="http://fake.iss.it",
+            ),
+        )
+
+
+def delete_fake_user(session: Session) -> None:
+    """Delete the fake user in the database used for testing or development purposes.
+
+    Args:
+        session: An active SQLModel session for database operations.
+        user_id: ID of the user to delete.
+
+    """
+    users, count = get_users(
+        session=session, skip=0, limit=1, sort="-created_at", name="fake_name"
+    )
+    if count > 0:
+        delete_user(session=session, user_id=users[0].id)
