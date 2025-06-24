@@ -101,7 +101,9 @@ class SLAQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
         str | None,
         Field(default=None, description="SLA name must contain this string"),
     ]
-    url: Annotated[str | None, Field(description="SLA url must contain this string")]
+    url: Annotated[
+        str | None, Field(default=None, description="SLA url must contain this string")
+    ]
     start_before: Annotated[
         datetime | None,
         Field(
