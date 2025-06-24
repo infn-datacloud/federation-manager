@@ -1,4 +1,4 @@
-"""Endpoints to manage user group details."""
+"""Endpoints to manage sla details."""
 
 import urllib.parse
 import uuid
@@ -18,34 +18,44 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
-from fed_mgr.v1.identity_providers.user_groups.crud import (
-    add_user_group,
-    delete_user_group,
-    get_user_groups,
-    update_user_group,
+from fed_mgr.v1.identity_providers.dependencies import idp_required
+from fed_mgr.v1.identity_providers.user_groups.dependencies import (
+    UserGroupDep,
+    user_group_required,
 )
-from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupDep
-from fed_mgr.v1.identity_providers.user_groups.schemas import (
-    UserGroupCreate,
-    UserGroupList,
-    UserGroupQueryDep,
-    UserGroupRead,
+from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
+    add_sla,
+    delete_sla,
+    get_slas,
+    update_sla,
+)
+from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLADep
+from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
+    SLACreate,
+    SLAList,
+    SLAQueryDep,
+    SLARead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
-user_group_router = APIRouter(
-    prefix=IDPS_PREFIX + "/{idp_id}" + USER_GROUPS_PREFIX,
-    tags=["user groups"],
-    dependencies=[Security(check_authorization), Depends(idp_required)],
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
+sla_router = APIRouter(
+    prefix=IDPS_PREFIX
+    + "/{idp_id}"
+    + USER_GROUPS_PREFIX
+    + "/{user_group_id}"
+    + SLAS_PREFIX,
+    tags=["slas"],
+    dependencies=[
+        Security(check_authorization),
+        Depends(idp_required),
+        Depends(user_group_required),
+    ],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
-@user_group_router.options(
+@sla_router.options(
     "/",
     summary="List available endpoints for this resource",
     description="List available endpoints for this resource in the 'Allow' header.",
@@ -62,16 +72,16 @@ def available_methods(response: Response) -> None:
         None
 
     Raises:
-        404 Not Found: If the parent identity provider does not exists.
+        404 Not Found: If the parent user group does not exists.
 
     """
-    add_allow_header_to_resp(user_group_router, response)
+    add_allow_header_to_resp(sla_router, response)
 
 
-@user_group_router.post(
+@sla_router.post(
     "/",
-    summary="Create a new user group",
-    description="Add a new user group to the DB. Check if a user group's "
+    summary="Create a new sla",
+    description="Add a new sla to the DB. Check if a sla's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
     "the endpoint raises a 409 error.",
     status_code=status.HTTP_201_CREATED,
@@ -80,31 +90,31 @@ def available_methods(response: Response) -> None:
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
     },
 )
-def create_user_group(
+def create_sla(
     request: Request,
     session: SessionDep,
-    user_group: UserGroupCreate,
+    sla: SLACreate,
     current_user: CurrenUserDep,
-    parent_idp: IdentityProviderDep,
+    parent_user_group: UserGroupDep,
 ) -> ItemID:
-    """Create a new user group in the system.
+    """Create a new sla in the system.
 
-    Logs the creation attempt and result. If the user group already exists,
+    Logs the creation attempt and result. If the sla already exists,
     returns a 409 Conflict response. If no body is given, it retrieves from the access
-    token the user group data.
+    token the sla data.
 
     Args:
         request (Request): The incoming HTTP request object, used for logging.
-        user_group (UserGroupCreate | None): The user group data to create.
+        sla (SLACreate | None): The sla data to create.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
         session (SessionDep): The database session dependency.
         idp_id (uuid): The parent identity provider's ID.
-        parent_idp (IdentityProviderDep): The parent identity provider associated with
-            the user group.
+        parent_user_group (UserGroupDep): The parent identity provider associated with
+            the sla.
 
     Returns:
-        ItemID: A dictionary containing the ID of the created user group on
+        ItemID: A dictionary containing the ID of the created sla on
         success.
 
     Raises:
@@ -115,18 +125,18 @@ def create_user_group(
 
     """
     request.state.logger.info(
-        "Creating user group with params: %s",
-        user_group.model_dump(exclude_none=True),
+        "Creating sla with params: %s",
+        sla.model_dump(exclude_none=True),
     )
     try:
-        db_user_group = add_user_group(
+        db_sla = add_sla(
             session=session,
-            user_group=user_group,
+            sla=sla,
             created_by=current_user,
-            parent_idp=parent_idp,
+            parent_user_group=parent_user_group,
         )
-        request.state.logger.info("User Group created: %s", repr(db_user_group))
-        return {"id": db_user_group.id}
+        request.state.logger.info("SLA created: %s", repr(db_sla))
+        return {"id": db_sla.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -139,29 +149,29 @@ def create_user_group(
         ) from e
 
 
-@user_group_router.get(
+@sla_router.get(
     "/",
-    summary="Retrieve user groups",
-    description="Retrieve a paginated list of user groups.",
+    summary="Retrieve slas",
+    description="Retrieve a paginated list of slas.",
 )
-def retrieve_user_groups(
-    request: Request, params: UserGroupQueryDep, session: SessionDep
-) -> UserGroupList:
-    """Retrieve a paginated list of user groups based on query parameters.
+def retrieve_slas(
+    request: Request, params: SLAQueryDep, session: SessionDep
+) -> SLAList:
+    """Retrieve a paginated list of slas based on query parameters.
 
-    Logs the query parameters and the number of user groups retrieved. Fetches
-    user groups from the database using pagination, sorting, and additional
-    filters provided in the query parameters. Returns the user groups in a
+    Logs the query parameters and the number of slas retrieved. Fetches
+    slas from the database using pagination, sorting, and additional
+    filters provided in the query parameters. Returns the slas in a
     paginated response format.
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (UserGroupQueryDep): Dependency containing query parameters for
+        params (SLAQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
 
     Returns:
-        UserGroupList: A paginated list of user groups matching the query
+        SLAList: A paginated list of slas matching the query
             parameters.
 
     Raises:
@@ -171,32 +181,28 @@ def retrieve_user_groups(
 
     """
     request.state.logger.info(
-        "Retrieve user groups. Query params: %s",
+        "Retrieve slas. Query params: %s",
         params.model_dump(exclude_none=True),
     )
-    user_groups, tot_items = get_user_groups(
+    slas, tot_items = get_slas(
         session=session,
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info(
-        "%d retrieved user groups: %s", tot_items, repr(user_groups)
-    )
-    new_user_groups = []
-    for user_group in user_groups:
-        new_user_group = UserGroupRead(
-            **user_group.model_dump(),
+    request.state.logger.info("%d retrieved slas: %s", tot_items, repr(slas))
+    new_slas = []
+    for sla in slas:
+        new_sla = SLARead(
+            **sla.model_dump(),
             links={
-                "slas": urllib.parse.urljoin(
-                    str(request.url), f"{user_group.id}{SLAS_PREFIX}"
-                )
+                "slas": urllib.parse.urljoin(str(request.url), f"{sla.id}{SLAS_PREFIX}")
             },
         )
-        new_user_groups.append(new_user_group)
-    return UserGroupList(
-        data=new_user_groups,
+        new_slas.append(new_sla)
+    return SLAList(
+        data=new_slas,
         resource_url=str(request.url),
         page_number=params.page,
         page_size=params.size,
@@ -204,30 +210,28 @@ def retrieve_user_groups(
     )
 
 
-@user_group_router.get(
-    "/{user_group_id}",
-    summary="Retrieve user group with given ID",
-    description="Check if the given user group's ID already exists in the DB "
-    "and return it. If the user group does not exist in the DB, the endpoint "
+@sla_router.get(
+    "/{sla_id}",
+    summary="Retrieve sla with given ID",
+    description="Check if the given sla's ID already exists in the DB "
+    "and return it. If the sla does not exist in the DB, the endpoint "
     "raises a 404 error.",
 )
-def retrieve_user_group(
-    request: Request, user_group_id: uuid.UUID, user_group: UserGroupDep
-) -> UserGroupRead:
-    """Retrieve a user group by their unique identifier.
+def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
+    """Retrieve a sla by their unique identifier.
 
-    Logs the retrieval attempt, checks if the user group exists, and returns the
-    user group object if found. If the user group does not exist, logs an
+    Logs the retrieval attempt, checks if the sla exists, and returns the
+    sla object if found. If the sla does not exist, logs an
     error and returns a JSON response with a 404 status.
 
     Args:
         request (Request): The incoming HTTP request object.
-        user_group_id (uuid.UUID): The unique identifier of the user group to retrieve.
-        user_group (UserGroup | None): The user group object, if found.
+        sla_id (uuid.UUID): The unique identifier of the sla to retrieve.
+        sla (SLA | None): The sla object, if found.
 
     Returns:
-        UserGroup: The user group object if found.
-        JSONResponse: A 404 response if the user group does not exist.
+        SLA: The sla object if found.
+        JSONResponse: A 404 response if the sla does not exist.
 
     Raises:
         401 Unauthorized: If the user is not authenticated (handled by dependencies).
@@ -235,48 +239,44 @@ def retrieve_user_group(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve user group with ID '%s'", str(user_group_id))
-    if user_group is None:
-        message = f"User Group with ID '{user_group_id!s}' does not exist"
+    request.state.logger.info("Retrieve sla with ID '%s'", str(sla_id))
+    if sla is None:
+        message = f"sla with ID '{sla_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "User Group with ID '%s' found: %s", str(user_group_id), repr(user_group)
-    )
-    user_group = UserGroupRead(
-        **user_group.model_dump(),
+    request.state.logger.info("sla with ID '%s' found: %s", str(sla_id), repr(sla))
+    sla = SLARead(
+        **sla.model_dump(),
         links={
-            "slas": urllib.parse.urljoin(
-                str(request.url), f"{user_group_id}{SLAS_PREFIX}"
-            )
+            "slas": urllib.parse.urljoin(str(request.url), f"{sla_id}{SLAS_PREFIX}")
         },
     )
-    return user_group
+    return sla
 
 
-@user_group_router.put(
-    "/{user_group_id}",
-    summary="Update user group with the given id",
-    description="Update a user group with the given id in the DB",
+@sla_router.put(
+    "/{sla_id}",
+    summary="Update sla with the given id",
+    description="Update a sla with the given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
-def edit_user_group(
+def edit_sla(
     request: Request,
-    user_group_id: uuid.UUID,
-    new_user_group: UserGroupCreate,
+    sla_id: uuid.UUID,
+    new_sla: SLACreate,
     session: SessionDep,
     current_user: CurrenUserDep,
 ) -> None:
-    """Update an existing user group in the database with the given user_group ID.
+    """Update an existing sla in the database with the given sla ID.
 
     Args:
         request (Request): The current request object.
-        user_group_id (uuid.UUID): The unique identifier of the user group to update.
-        new_user_group (UserCreate): The new user group data to update.
+        sla_id (uuid.UUID): The unique identifier of the sla to update.
+        new_sla (UserCreate): The new sla data to update.
         session (SessionDep): The database session dependency.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
@@ -286,12 +286,12 @@ def edit_user_group(
             group is not found
 
     """
-    request.state.logger.info("Update user group with ID '%s'", str(user_group_id))
+    request.state.logger.info("Update sla with ID '%s'", str(sla_id))
     try:
-        update_user_group(
+        update_sla(
             session=session,
-            user_group_id=user_group_id,
-            new_user_group=new_user_group,
+            sla_id=sla_id,
+            new_sla=new_sla,
             updated_by=current_user,
         )
     except NoItemToUpdateError as e:
@@ -309,27 +309,24 @@ def edit_user_group(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("User Group with ID '%s' updated", str(user_group_id))
+    request.state.logger.info("sla with ID '%s' updated", str(sla_id))
 
 
-@user_group_router.delete(
-    "/{user_group_id}",
-    summary="Delete user group with given sub",
-    description="Delete a user group with the given subject, for this issuer, "
-    "from the DB.",
+@sla_router.delete(
+    "/{sla_id}",
+    summary="Delete sla with given sub",
+    description="Delete a sla with the given subject, for this issuer, from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_user_group(
-    request: Request, user_group_id: uuid.UUID, session: SessionDep
-) -> None:
-    """Remove a user group from the system by their unique identifier.
+def remove_sla(request: Request, sla_id: uuid.UUID, session: SessionDep) -> None:
+    """Remove a sla from the system by their unique identifier.
 
     Logs the deletion process and delegates the actual removal to the
-    `delete_user_group` function.
+    `delete_sla` function.
 
     Args:
         request (Request): The HTTP request object, used for logging and request context
-        user_group_id (uuid.UUID): The unique identifier of the user group to be removed
+        sla_id (uuid.UUID): The unique identifier of the sla to be removed
         session (SessionDep): The database session dependency used to perform the
             deletion.
 
@@ -342,6 +339,6 @@ def remove_user_group(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    request.state.logger.info("Delete user group with ID '%s'", str(user_group_id))
-    delete_user_group(session=session, user_group_id=user_group_id)
-    request.state.logger.info("User Group with ID '%s' deleted", str(user_group_id))
+    request.state.logger.info("Delete sla with ID '%s'", str(sla_id))
+    delete_sla(session=session, sla_id=sla_id)
+    request.state.logger.info("sla with ID '%s' deleted", str(sla_id))
