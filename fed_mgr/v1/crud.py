@@ -194,7 +194,7 @@ def update_item(
     session: Session,
     item_id: uuid.UUID,
     new_data: UpdateModel,
-    updated_by: uuid.UUID | None = None,
+    **kwargs
 ) -> None:
     """Update an existing item in the database with new data.
 
@@ -203,7 +203,7 @@ def update_item(
         session: The SQLModel session for database access.
         item_id: The UUID of the item to update.
         new_data: The Pydantic/SQLModel model instance containing updated fields.
-        updated_by: The user who is editing the item, or None if not applicable.
+        **kwargs: Additional keyword arguments to pass to the entity constructor.
 
     Raises:
         NoItemToUpdateError: If no item with the given ID exists in the database.
@@ -212,9 +212,6 @@ def update_item(
 
     """
     try:
-        kwargs = {}
-        if updated_by is not None:
-            kwargs = {"updated_by": updated_by, "updated_at": func.now()}
         statement = (
             update(entity)
             .where(entity.id == item_id)
