@@ -54,6 +54,81 @@ def raise_from_integrity_error(
         ) from error
 
 
+def _handle_special_date_fields(entity, k, v):
+    """Handle special date field filters for SQLAlchemy queries.
+
+    Given an entity, a key, and a value, this function checks if the key corresponds
+    to a special date filter (such as 'created_before', 'updated_after', etc.).
+    If so, it returns a SQLAlchemy binary expression suitable for filtering the entity
+    based on the specified date field and comparison operator. If the key does not
+    match any special date filter, returns None.
+
+    Args:
+        entity: The SQLAlchemy model or table to filter.
+        k (str): The filter key indicating the date field and comparison
+            (e.g., 'created_before').
+        v: The value to compare the date field against.
+
+    Returns:
+        A SQLAlchemy binary expression for filtering, or None if the key is not a
+        special date filter.
+
+    """
+    field_map = {
+        "created_before": ("created_at", "<="),
+        "created_after": ("created_at", ">="),
+        "updated_before": ("updated_at", "<="),
+        "updated_after": ("updated_at", ">="),
+        "start_before": ("start_date", "<="),
+        "start_after": ("start_date", ">="),
+        "end_before": ("end_date", "<="),
+        "end_after": ("end_date", ">="),
+    }
+    if k in field_map:
+        field, op = field_map[k]
+        col = entity.__table__.c.get(field)
+        if op == "<=":
+            return col <= v
+        else:
+            return col >= v
+    return None
+
+
+def _handle_generic_field(entity, k, v):
+    """Handle the creation of SQLAlchemy filter expressions for a given entity's field.
+
+    Args:
+        entity: The SQLAlchemy model class or instance whose table columns are being
+            filtered.
+        k (str): The field name or filter key. For numeric values, may end with '_lte'
+            or '_gte' to indicate range filters.
+        v (str, int, float): The value to filter by. Strings are used for
+            case-insensitive containment; numbers for equality or range.
+
+    Returns:
+        sqlalchemy.sql.elements.BinaryExpression corresponding to the field and value,
+        or None if the value type is unsupported.
+
+    Notes:
+        - For string values, performs a case-insensitive containment filter (LIKE '%v%')
+        - For numeric values, supports less-than-or-equal ('_lte'),
+        greater-than-or-equal ('_gte'), and equality filters.
+
+    """
+    if isinstance(v, str):
+        return entity.__table__.c.get(k).icontains(v)
+    elif isinstance(v, (int, float)):
+        if k.endswith("_lte"):
+            k = k[:-4]
+            return entity.__table__.c.get(k) <= v
+        elif k.endswith("_gte"):
+            k = k[:-4]
+            return entity.__table__.c.get(k) >= v
+        else:
+            return entity.__table__.c.get(k) == v
+    return None
+
+
 def get_conditions(
     *, entity: type[Entity], **kwargs
 ) -> list[sqlalchemy.BinaryExpression]:
@@ -72,25 +147,12 @@ def get_conditions(
     """
     conditions = []
     for k, v in kwargs.items():
-        if k == "created_before":
-            conditions.append(entity.__table__.c.get("created_at") <= v)
-        elif k == "updated_before":
-            conditions.append(entity.__table__.c.get("updated_at") <= v)
-        elif k == "created_after":
-            conditions.append(entity.__table__.c.get("created_at") >= v)
-        elif k == "updated_after":
-            conditions.append(entity.__table__.c.get("updated_at") >= v)
-        elif isinstance(v, str):
-            conditions.append(entity.__table__.c.get(k).icontains(v))
-        elif isinstance(v, (int, float)):
-            if k.endswith("_lte"):
-                k = k[:-4]
-                conditions.append(entity.__table__.c.get(k) <= v)
-            elif k.endswith("_gte"):
-                k = k[:-4]
-                conditions.append(entity.__table__.c.get(k) >= v)
-            else:
-                conditions.append(entity.__table__.c.get(k) == v)
+        cond = _handle_special_date_fields(entity, k, v)
+        if cond is not None:
+            conditions.append(cond)
+        cond = _handle_generic_field(entity, k, v)
+        if cond is not None:
+            conditions.append(cond)
     return conditions
 
 
@@ -194,7 +256,7 @@ def update_item(
     session: Session,
     item_id: uuid.UUID,
     new_data: UpdateModel,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Update an existing item in the database with new data.
 

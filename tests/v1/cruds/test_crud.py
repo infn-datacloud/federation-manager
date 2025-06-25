@@ -37,6 +37,8 @@ class DummyEntity(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: int = Field(default=0)
     updated_at: int = Field(default=0)
+    start_date: int = Field(default=0)
+    end_date: int = Field(default=0)
     name: str = Field(default="foo")
     value: int = Field(default=0)
 
@@ -123,13 +125,39 @@ def test_get_conditions_created_updated():
     assert "dummyentity.updated_at >= :updated_at_1" in conds
 
 
-@pytest.mark.parametrize("item", ["item", None])
-def test_get_item_calls_session_exec(session, item):
+def test_get_conditions_start_end():
+    """Test get_conditions with start/end before/after filters."""
+    conds = get_conditions(
+        entity=DummyEntity,
+        start_before=1,
+        start_after=2,
+        end_before=3,
+        end_after=4,
+    )
+    conds = [str(c) for c in conds]
+    assert "dummyentity.start_date <= :start_date_1" in conds
+    assert "dummyentity.start_date >= :start_date_1" in conds
+    assert "dummyentity.end_date <= :end_date_1" in conds
+    assert "dummyentity.end_date >= :end_date_1" in conds
+
+
+def test_get_conditions_unsupported_type():
+    """Test get_conditions returns no condition for unsupported value types."""
+
+    class DummyUnsupported:
+        pass
+
+    conds = get_conditions(entity=DummyEntity, unsupported=DummyUnsupported())
+    assert conds == []
+
+
+@pytest.mark.parametrize("item_value", ["item", None])
+def test_get_item_calls_session_exec(session, item_value):
     """Test get_item calls session.exec and returns the first result or None."""
     item_id = uuid.uuid4()
-    session.exec.return_value.first.return_value = item
+    session.exec.return_value.first.return_value = item_value
     result = get_item(entity=DummyEntity, session=session, item_id=item_id)
-    assert result == item
+    assert result == item_value
     session.exec.assert_called()
 
 

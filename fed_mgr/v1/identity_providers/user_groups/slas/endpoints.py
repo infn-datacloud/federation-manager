@@ -17,7 +17,7 @@ from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
 from fed_mgr.v1.identity_providers.user_groups.dependencies import (
     UserGroupDep,
@@ -197,7 +197,9 @@ def retrieve_slas(
         new_sla = SLARead(
             **sla.model_dump(),
             links={
-                "slas": urllib.parse.urljoin(str(request.url), f"{sla.id}{SLAS_PREFIX}")
+                "projects": urllib.parse.urljoin(
+                    str(request.url), f"{sla.id}{PROJECTS_PREFIX}"
+                )
             },
         )
         new_slas.append(new_sla)
@@ -248,7 +250,9 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
     sla = SLARead(
         **sla.model_dump(),
         links={
-            "slas": urllib.parse.urljoin(str(request.url), f"{sla_id}{SLAS_PREFIX}")
+            "projects": urllib.parse.urljoin(
+                str(request.url), f"{sla_id}{PROJECTS_PREFIX}"
+            )
         },
     )
     return sla
