@@ -26,3 +26,12 @@ class NoItemToUpdateError(Exception):
         """Initialize NoItemToUpdateError with a specific error message."""
         self.message = message
         super().__init__(self.message)
+
+
+class ProviderStateChangeError(Exception):
+    """Exception raised when the proposed state change fails."""
+
+    def __init__(self, message):
+        """Initialize ProviderStateChangeError with a specific error message."""
+        self.message = message
+        super().__init__(self.message)

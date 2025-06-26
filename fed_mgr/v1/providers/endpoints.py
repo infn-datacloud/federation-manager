@@ -7,11 +7,17 @@ from fastapi import APIRouter, HTTPException, Request, Response, Security, statu
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    NoItemToUpdateError,
+    NotNullError,
+    ProviderStateChangeError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.providers.crud import (
     add_provider,
+    change_provider_state,
     delete_provider,
     get_providers,
     update_provider,
@@ -22,6 +28,7 @@ from fed_mgr.v1.providers.schemas import (
     ProviderList,
     ProviderQueryDep,
     ProviderRead,
+    ProviderStatus,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
@@ -343,3 +350,58 @@ def remove_provider(
     request.state.logger.info(
         "Resource Provider with ID '%s' deleted", str(provider_id)
     )
+
+
+@provider_router.put(
+    "/{provider_id}/change_state/{next_state}",
+    summary="Change the provider state",
+    description="Receive the next status the provider should go. If it is a valid one, "
+    "following the status FSM, go into that state. Otherwise reject the request.",
+    status_code=status.HTTP_200_OK,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+)
+def update_provider_state(
+    request: Request,
+    session: SessionDep,
+    provider: ProviderDep,
+    current_user: CurrenUserDep,
+    next_state: ProviderStatus,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    try:
+        request.state.logger.info(
+            "Changing provider state from '%s' to '%s'", provider.status, next_state
+        )
+        change_provider_state(
+            session=session,
+            provider=provider,
+            next_state=next_state,
+            updated_by=current_user,
+        )
+        request.state.logger.info("Resource provider state changed")
+    except ProviderStateChangeError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e

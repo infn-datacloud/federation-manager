@@ -10,10 +10,33 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
+from fed_mgr.exceptions import ProviderStateChangeError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
-from fed_mgr.v1.providers.schemas import ProviderCreate
+from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus
 from fed_mgr.v1.schemas import ItemID
+
+AVAILABLE_STATE_TRANSITIONS = {
+    ProviderStatus.draft: [ProviderStatus.submitted],
+    ProviderStatus.submitted: [ProviderStatus.ready, ProviderStatus.draft],
+    ProviderStatus.ready: [ProviderStatus.evaluation, ProviderStatus.removed],
+    ProviderStatus.evaluation: [ProviderStatus.pre_production, ProviderStatus.removed],
+    ProviderStatus.pre_production: [
+        ProviderStatus.active,
+        ProviderStatus.evaluation,
+        ProviderStatus.removed,
+    ],
+    ProviderStatus.active: [
+        ProviderStatus.deprecated,
+        ProviderStatus.degraded,
+        ProviderStatus.maintenance,
+    ],
+    ProviderStatus.deprecated: [ProviderStatus.removed],
+    ProviderStatus.removed: [],  # Final state
+    ProviderStatus.degraded: [ProviderStatus.removed, ProviderStatus.maintenance],
+    ProviderStatus.maintenance: [ProviderStatus.re_evaluation, ProviderStatus.removed],
+    ProviderStatus.re_evaluation: [ProviderStatus.active, ProviderStatus.maintenance],
+}
 
 
 def get_provider(*, session: SessionDep, provider_id: uuid.UUID) -> Provider | None:
@@ -99,13 +122,16 @@ def update_provider(
         new_provider: The new data to update the provider with.
         updated_by: The User instance representing the updater of the provider.
 
+    Returns:
+        None
+
     """
     return update_item(
         session=session,
         entity=Provider,
         item_id=provider_id,
-        new_data=new_provider,
         updated_by=updated_by.id,
+        **new_provider.model_dump(),
     )
 
 
@@ -116,5 +142,49 @@ def delete_provider(*, session: Session, provider_id: uuid.UUID) -> None:
         session: The database session.
         provider_id: The UUID of the provider to delete.
 
+    Returns:
+        None
+
     """
     delete_item(session=session, entity=Provider, item_id=provider_id)
+
+
+def change_provider_state(
+    *,
+    session: Session,
+    provider_id: uuid.UUID,
+    next_state: ProviderStatus,
+    updated_by: User,
+) -> None:
+    """Update a provider changing only its state.
+
+    Args:
+        session: The database session.
+        provider_id: The UUID of the provider to update.
+        next_state: The target next provider state.
+        updated_by: The User instance representing the updater of the provider.
+
+    Returns:
+        None
+
+    Raises:
+        ProviderStateChangeError: If the target state is not reachable from the current
+            state.
+
+    """
+    db_provider = get_item(session=session, entity=Provider, item_id=provider_id)
+    if (
+        next_state != db_provider.status
+        and next_state not in AVAILABLE_STATE_TRANSITIONS[db_provider.status]
+    ):
+        raise ProviderStateChangeError(
+            f"Transition from state '{db_provider.status}' to state '{next_state}' is "
+            "forbidden"
+        )
+    return update_item(
+        session=session,
+        entity=Provider,
+        item_id=provider_id,
+        updated_by=updated_by.id,
+        status=next_state,
+    )
