@@ -10,9 +10,9 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.v1.models import IdentityProvider, User, UserGroup
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupCreate
+from fed_mgr.v1.models import IdentityProvider, User, UserGroup
 from fed_mgr.v1.schemas import ItemID
 
 
@@ -113,8 +113,8 @@ def update_user_group(
         session=session,
         entity=UserGroup,
         item_id=user_group_id,
-        new_data=new_user_group,
         updated_by=updated_by.id,
+        **new_user_group.model_dump(),
     )
 
 

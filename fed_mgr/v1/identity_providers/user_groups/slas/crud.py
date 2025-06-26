@@ -10,9 +10,9 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.v1.models import SLA, User, UserGroup
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLACreate
+from fed_mgr.v1.models import SLA, User, UserGroup
 from fed_mgr.v1.schemas import ItemID
 
 
@@ -111,8 +111,8 @@ def update_sla(
         session=session,
         entity=SLA,
         item_id=sla_id,
-        new_data=new_sla,
         updated_by=updated_by.id,
+        **new_sla.model_dump(),
     )
 
 

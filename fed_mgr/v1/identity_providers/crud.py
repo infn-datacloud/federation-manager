@@ -10,9 +10,9 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.v1.models import IdentityProvider, User
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderCreate
+from fed_mgr.v1.models import IdentityProvider, User
 from fed_mgr.v1.schemas import ItemID
 
 
@@ -105,8 +105,8 @@ def update_idp(
         session=session,
         entity=IdentityProvider,
         item_id=idp_id,
-        new_data=new_idp,
         updated_by=updated_by.id,
+        **new_idp.model_dump(),
     )
 
 

@@ -9,8 +9,8 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.v1.models import User
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
+from fed_mgr.v1.models import User
 from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import UserCreate
 
@@ -78,7 +78,9 @@ def update_user(*, session: Session, user_id: uuid.UUID, new_user: UserCreate) -
         new_user: The new data to update the user with.
 
     """
-    return update_item(session=session, entity=User, item_id=user_id, new_data=new_user)
+    return update_item(
+        session=session, entity=User, item_id=user_id, **new_user.model_dump()
+    )
 
 
 def delete_user(*, session: Session, user_id: uuid.UUID) -> None:

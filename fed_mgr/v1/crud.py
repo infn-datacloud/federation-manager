@@ -17,19 +17,15 @@ UpdateModel = TypeVar("UpdateModel", bound=SQLModel)
 
 
 def raise_from_integrity_error(
-    *,
-    entity: type[Entity],
-    session: Session,
-    item: CreateModel | UpdateModel,
-    error: Exception,
+    *, entity: type[Entity], session: Session, error: Exception, **kwargs
 ):
     """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
 
     Args:
         entity: The SQLModel entity class involved in the operation.
         session: The SQLModel session for database access.
-        item: The model instance being created or updated.
         error: The exception raised during the database operation.
+        kwargs: The received model attributes.
 
     Raises:
         NotNullError: If a NOT NULL constraint is violated.
@@ -50,7 +46,7 @@ def raise_from_integrity_error(
     if match is not None:
         attr = match.group(0).split(".")[1]
         raise ConflictError(
-            f"{element_str} with {attr} '{item.model_dump().get(attr)}' already exists"
+            f"{element_str} with {attr} '{kwargs.get(attr)}' already exists"
         ) from error
 
 
@@ -247,16 +243,13 @@ def add_item(
         session.commit()
         return db_item
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(entity=entity, session=session, item=item, error=e)
+        raise_from_integrity_error(
+            entity=entity, session=session, error=e, **item.model_dump()
+        )
 
 
 def update_item(
-    *,
-    entity: type[Entity],
-    session: Session,
-    item_id: uuid.UUID,
-    new_data: UpdateModel,
-    **kwargs,
+    *, entity: type[Entity], session: Session, item_id: uuid.UUID, **kwargs
 ) -> None:
     """Update an existing item in the database with new data.
 
@@ -264,8 +257,8 @@ def update_item(
         entity: The SQLModel entity class to update.
         session: The SQLModel session for database access.
         item_id: The UUID of the item to update.
-        new_data: The Pydantic/SQLModel model instance containing updated fields.
-        **kwargs: Additional keyword arguments to pass to the entity constructor.
+        **kwargs: Pydantic/SQLModel model updated fields and additional keyword
+            arguments to pass to the entity constructor.
 
     Raises:
         NoItemToUpdateError: If no item with the given ID exists in the database.
@@ -274,20 +267,14 @@ def update_item(
 
     """
     try:
-        statement = (
-            update(entity)
-            .where(entity.id == item_id)
-            .values(**new_data.model_dump(), **kwargs)
-        )
+        statement = update(entity).where(entity.id == item_id).values(**kwargs)
         result = session.exec(statement)
         if result.rowcount == 0:
             element_str = split_camel_case(entity.__name__)
             raise NoItemToUpdateError(f"{element_str} with ID {item_id} does not exist")
         session.commit()
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(
-            entity=entity, session=session, item=new_data, error=e
-        )
+        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
 
 
 def delete_item(*, entity: type[Entity], session: Session, item_id: uuid.UUID) -> None:
