@@ -1,13 +1,14 @@
 """Providers schemas returned by the endpoints."""
 
+import uuid
 from enum import Enum
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AfterValidator, AnyHttpUrl, EmailStr
+from pydantic import AfterValidator, AnyHttpUrl, BeforeValidator, EmailStr
 from sqlmodel import AutoString, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType, check_list_not_empty
+from fed_mgr.utils import HttpUrlType, check_list_not_empty, retrieve_id_from_entity
 from fed_mgr.v1.schemas import (
     Creation,
     CreationQuery,
@@ -56,7 +57,7 @@ class ProviderBase(ItemDescription):
             description="Resource provider type. Allowed values: openstack, kubernetes"
         ),
     ]
-    auth_url: Annotated[
+    auth_endpoint: Annotated[
         AnyHttpUrl,
         Field(
             sa_type=HttpUrlType,
@@ -108,6 +109,14 @@ class ProviderInternal(SQLModel):
 class ProviderCreate(ProviderBase):
     """Schema used to create a Provider."""
 
+    site_admins: Annotated[
+        list[uuid.UUID],
+        Field(
+            sa_type=AutoString,
+            description="List of the provider/site administrator IDs",
+        ),
+    ]
+
 
 class ProviderLinks(SQLModel):
     """Schema containing links related to the Provider."""
@@ -138,6 +147,14 @@ class ProviderLinks(SQLModel):
 class ProviderRead(ItemID, Creation, Editable, ProviderBase, ProviderInternal):
     """Schema used to read an Provider."""
 
+    site_admins: Annotated[
+        list[uuid.UUID],
+        Field(
+            sa_type=AutoString,
+            description="List of the provider/site administrator IDs",
+        ),
+        BeforeValidator(retrieve_id_from_entity),
+    ]
     links: Annotated[
         ProviderLinks,
         Field(
@@ -171,7 +188,7 @@ class ProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
             default=None, description="Resource provider type must contain this string"
         ),
     ]
-    auth_url: Annotated[
+    auth_endpoint: Annotated[
         str | None,
         Field(
             default=None,
@@ -209,6 +226,14 @@ class ProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
     ]
     status: Annotated[
         str | None, Field(default=None, description="Resource provider status")
+    ]
+    site_admins: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Any of the provider/site administrators IDs must contain this "
+            "string",
+        ),
     ]
 
 

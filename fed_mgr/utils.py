@@ -1,6 +1,7 @@
 """Utility functions and adapters for specific pydantic types."""
 
 import re
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Response
@@ -98,3 +99,8 @@ def check_list_not_empty(items: list[Any]) -> list[Any]:
     if not len(items) > 0:
         raise ValueError("List must not be empty")
     return items
+
+
+def retrieve_id_from_entity(items: list[Any]) -> list[uuid.UUID]:
+    """Convert list of entities into a list of uuids."""
+    return [item.id for item in items]

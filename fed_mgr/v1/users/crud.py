@@ -64,7 +64,7 @@ def add_user(*, session: Session, user: UserCreate) -> ItemID:
         ItemID: The identifier of the newly created user.
 
     """
-    return add_item(session=session, entity=User, item=user)
+    return add_item(session=session, entity=User, **user.model_dump())
 
 
 def update_user(*, session: Session, user_id: uuid.UUID, new_user: UserCreate) -> None:

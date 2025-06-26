@@ -35,3 +35,12 @@ class ProviderStateChangeError(Exception):
         """Initialize ProviderStateChangeError with a specific error message."""
         self.message = message
         super().__init__(self.message)
+
+
+class UserNotFoundError(Exception):
+    """Exception raised when the target ID does not match a user in the DB."""
+
+    def __init__(self, message):
+        """Initialize UserNotFoundError with a specific error message."""
+        self.message = message
+        super().__init__(self.message)

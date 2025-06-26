@@ -84,10 +84,10 @@ def add_user_group(
     return add_item(
         session=session,
         entity=UserGroup,
-        item=user_group,
         created_by=created_by.id,
         updated_by=created_by.id,
         idp=parent_idp.id,
+        **user_group.model_dump(),
     )
 
 

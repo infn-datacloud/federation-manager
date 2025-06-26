@@ -82,10 +82,10 @@ def add_sla(
     return add_item(
         session=session,
         entity=SLA,
-        item=sla,
         created_by=created_by.id,
         updated_by=created_by.id,
         user_group=parent_user_group.id,
+        **sla.model_dump(),
     )
 
 

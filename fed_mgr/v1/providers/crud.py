@@ -10,11 +10,12 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ProviderStateChangeError
+from fed_mgr.exceptions import ProviderStateChangeError, UserNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus
 from fed_mgr.v1.schemas import ItemID
+from fed_mgr.v1.users.crud import get_user
 
 AVAILABLE_STATE_TRANSITIONS = {
     ProviderStatus.draft: [ProviderStatus.submitted],
@@ -87,6 +88,8 @@ def add_provider(
 ) -> ItemID:
     """Add a new provider to the database.
 
+    At first, verify that given site administrators exist.
+
     Args:
         session: The database session.
         provider: The ProviderCreate model instance to add.
@@ -96,12 +99,19 @@ def add_provider(
         ItemID: The identifier of the newly created provider.
 
     """
+    site_admins = []
+    for user_id in provider.site_admins:
+        user = get_user(session=session, user_id=user_id)
+        if user is None:
+            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
+        site_admins.append(user)
     return add_item(
         session=session,
         entity=Provider,
-        item=provider,
         created_by=created_by.id,
         updated_by=created_by.id,
+        site_admins=site_admins,
+        **provider.model_dump(exclude={"site_admins"}),
     )
 
 
@@ -126,12 +136,19 @@ def update_provider(
         None
 
     """
+    site_admins = []
+    for user_id in new_provider.site_admins:
+        user = get_user(session=session, user_id=user_id)
+        if user is None:
+            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
+        site_admins.append(user)
     return update_item(
         session=session,
         entity=Provider,
         item_id=provider_id,
         updated_by=updated_by.id,
-        **new_provider.model_dump(),
+        site_admins=site_admins,
+        **new_provider.model_dump(exclude={"site_admins"}),
     )
 
 

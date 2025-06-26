@@ -12,6 +12,7 @@ from fed_mgr.exceptions import (
     NoItemToUpdateError,
     NotNullError,
     ProviderStateChangeError,
+    UserNotFoundError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
@@ -119,7 +120,12 @@ def create_provider(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+        ) from e
+    except UserNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
 
 
@@ -309,6 +315,11 @@ def edit_provider(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+        ) from e
+    except UserNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
     request.state.logger.info(
         "Resource Provider with ID '%s' updated", str(provider_id)

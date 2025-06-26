@@ -77,9 +77,9 @@ def add_idp(
     return add_item(
         session=session,
         entity=IdentityProvider,
-        item=idp,
         created_by=created_by.id,
         updated_by=created_by.id,
+        **idp.model_dump(),
     )
 
 

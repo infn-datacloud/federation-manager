@@ -218,9 +218,7 @@ def get_items(
     return items, tot_items
 
 
-def add_item(
-    *, entity: type[Entity], session: Session, item: CreateModel, **kwargs
-) -> Entity:
+def add_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity:
     """Add a new item to the database.
 
     Args:
@@ -238,14 +236,12 @@ def add_item(
 
     """
     try:
-        db_item = entity(**item.model_dump(), **kwargs)
+        db_item = entity(**kwargs)
         session.add(db_item)
         session.commit()
         return db_item
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(
-            entity=entity, session=session, error=e, **item.model_dump()
-        )
+        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
 
 
 def update_item(

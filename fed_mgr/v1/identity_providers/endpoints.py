@@ -105,7 +105,7 @@ def create_idp(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
 
 

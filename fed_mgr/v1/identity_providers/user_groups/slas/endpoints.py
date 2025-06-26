@@ -145,7 +145,7 @@ def create_sla(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
 
 
@@ -243,10 +243,10 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
     """
     request.state.logger.info("Retrieve sla with ID '%s'", str(sla_id))
     if sla is None:
-        message = f"sla with ID '{sla_id!s}' does not exist"
+        message = f"SLA with ID '{sla_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info("sla with ID '%s' found: %s", str(sla_id), repr(sla))
+    request.state.logger.info("SLA with ID '%s' found: %s", str(sla_id), repr(sla))
     sla = SLARead(
         **sla.model_dump(),
         links={
