@@ -1,6 +1,5 @@
 """User Groups schemas returned by the endpoints."""
 
-import uuid
 from typing import Annotated
 
 from fastapi import Query
@@ -26,15 +25,6 @@ class UserGroupBase(ItemDescription):
     name: Annotated[str, Field(description="Name of the user group in the user group")]
 
 
-class UserGroup(ItemID, Creation, Editable, UserGroupBase, table=True):
-    """Schema used to return User Group's data to clients."""
-
-    idp: Annotated[
-        uuid.UUID,
-        Field(description="Parent user group", foreign_key="identityprovider.id"),
-    ]
-
-
 class UserGroupCreate(UserGroupBase):
     """Schema used to create an User Group."""
 
@@ -56,8 +46,8 @@ class UserGroupRead(ItemID, Creation, Editable, UserGroupBase):
     links: Annotated[
         UserGroupLinks,
         Field(
-            description="Dict with the links of the user groups related entities",
             sa_type=AutoString,
+            description="Dict with the links of the user groups related entities",
         ),
     ]
 

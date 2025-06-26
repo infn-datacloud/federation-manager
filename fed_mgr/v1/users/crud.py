@@ -9,9 +9,10 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
+from fed_mgr.v1.models import User
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.schemas import ItemID
-from fed_mgr.v1.users.schemas import User, UserCreate
+from fed_mgr.v1.users.schemas import UserCreate
 
 
 def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:

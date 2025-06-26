@@ -1,6 +1,5 @@
 """SLAs schemas returned by the endpoints."""
 
-import uuid
 from datetime import date, datetime
 from typing import Annotated
 
@@ -29,33 +28,24 @@ class SLABase(ItemDescription):
     url: Annotated[
         AnyHttpUrl,
         Field(
-            description="Link where the physical SLA is stored",
             sa_type=HttpUrlType,
             unique=True,
+            description="Link where the physical SLA is stored",
         ),
     ]
     start_date: Annotated[
         date,
         Field(
-            description="The SLA is valid starting from this date",
             sa_type=TIMESTAMP(timezone=True),
+            description="The SLA is valid starting from this date",
         ),
     ]
     end_date: Annotated[
         date,
         Field(
-            description="The SLA is valid before this date",
             sa_type=TIMESTAMP(timezone=True),
+            description="The SLA is valid before this date",
         ),
-    ]
-
-
-class SLA(ItemID, Creation, Editable, SLABase, table=True):
-    """Schema used to return SLA's data to clients."""
-
-    user_group: Annotated[
-        uuid.UUID,
-        Field(description="Parent user group", foreign_key="usergroup.id"),
     ]
 
 
@@ -80,8 +70,8 @@ class SLARead(ItemID, Creation, Editable, SLABase):
     links: Annotated[
         SLALinks,
         Field(
-            description="Dict with the links of the user groups related entities",
             sa_type=AutoString,
+            description="Dict with the links of the user groups related entities",
         ),
     ]
 

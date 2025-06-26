@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from fed_mgr.auth import check_authentication, check_authorization
 from fed_mgr.main import app, sub_app_v1
+from fed_mgr.v1.models import User
 from fed_mgr.v1.users.dependencies import get_current_user
-from fed_mgr.v1.users.schemas import User
 
 
 @pytest.fixture

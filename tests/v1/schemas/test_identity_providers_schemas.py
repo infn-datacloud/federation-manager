@@ -15,7 +15,6 @@ from datetime import datetime
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1.identity_providers.schemas import (
-    IdentityProvider,
     IdentityProviderBase,
     IdentityProviderCreate,
     IdentityProviderLinks,
@@ -23,6 +22,7 @@ from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderQuery,
     IdentityProviderRead,
 )
+from fed_mgr.v1.models import IdentityProvider
 
 DUMMY_ENDPOINT = "https://idp.example.com"
 DUMMY_NAME = "Test IdP"

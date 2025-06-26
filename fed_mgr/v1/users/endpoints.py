@@ -12,7 +12,7 @@ from fed_mgr.v1 import USERS_PREFIX
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.crud import add_user, delete_user, get_users, update_user
 from fed_mgr.v1.users.dependencies import UserDep
-from fed_mgr.v1.users.schemas import User, UserCreate, UserList, UserQueryDep
+from fed_mgr.v1.users.schemas import UserCreate, UserList, UserQueryDep, UserRead
 
 user_router = APIRouter(
     prefix=USERS_PREFIX,
@@ -83,7 +83,7 @@ def create_user(
     """
     try:
         if user is None:
-            user = User(
+            user = UserCreate(
                 sub=current_user_infos.subject,
                 issuer=current_user_infos.issuer,
                 name=current_user_infos.user_info["name"],
@@ -166,7 +166,7 @@ def retrieve_users(
     "If the user does not exist in the DB, the endpoint raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
-def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> User:
+def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> UserRead:
     """Retrieve a user by their unique identifier.
 
     Logs the retrieval attempt, checks if the user exists, and returns the user object

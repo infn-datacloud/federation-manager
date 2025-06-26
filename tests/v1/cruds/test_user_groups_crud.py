@@ -18,7 +18,7 @@ from fed_mgr.v1.identity_providers.user_groups.crud import (
     get_user_groups,
     update_user_group,
 )
-from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroup
+from fed_mgr.v1.models import UserGroup
 
 
 def test_get_user_group_found(session):

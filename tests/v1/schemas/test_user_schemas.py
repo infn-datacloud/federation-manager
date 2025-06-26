@@ -25,8 +25,8 @@ from datetime import datetime
 import pytest
 from pydantic import AnyHttpUrl, ValidationError
 
+from fed_mgr.v1.models import User
 from fed_mgr.v1.users.schemas import (
-    User,
     UserBase,
     UserCreate,
     UserList,

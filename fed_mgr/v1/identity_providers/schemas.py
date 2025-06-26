@@ -26,9 +26,9 @@ class IdentityProviderBase(ItemDescription):
     endpoint: Annotated[
         AnyHttpUrl,
         Field(
-            description="Endpoint of the Identity Provider",
             sa_type=HttpUrlType,
             unique=True,
+            description="Endpoint of the Identity Provider",
         ),
     ]
     name: Annotated[
@@ -60,10 +60,6 @@ class IdentityProviderBase(ItemDescription):
     ]
 
 
-class IdentityProvider(ItemID, Creation, Editable, IdentityProviderBase, table=True):
-    """Schema used to return Identity Provider's data to clients."""
-
-
 class IdentityProviderCreate(IdentityProviderBase):
     """Schema used to create an Identity Provider."""
 
@@ -86,8 +82,8 @@ class IdentityProviderRead(ItemID, Creation, Editable, IdentityProviderBase):
     links: Annotated[
         IdentityProviderLinks,
         Field(
-            description="Dict with the links of the identity provider related entities",
             sa_type=AutoString,
+            description="Dict with the links of the identity provider related entities",
         ),
     ]
 

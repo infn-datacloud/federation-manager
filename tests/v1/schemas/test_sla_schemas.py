@@ -16,7 +16,6 @@ from datetime import date, datetime
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
-    SLA,
     SLABase,
     SLACreate,
     SLALinks,
@@ -24,6 +23,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLAQuery,
     SLARead,
 )
+from fed_mgr.v1.models import SLA
 
 DUMMY_NAME = "Test SLA"
 DUMMY_DESC = "desc"
@@ -66,7 +66,7 @@ def test_sla_inheritance():
         user_group=user_group_id,
     )
     assert sla.id == id_
-    assert sla.user_group == user_group_id
+    assert sla.user_group_id == user_group_id
     assert sla.name == DUMMY_NAME
     assert AnyHttpUrl(sla.url) == AnyHttpUrl(DUMMY_URL)
 

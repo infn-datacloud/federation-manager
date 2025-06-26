@@ -10,13 +10,10 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
+from fed_mgr.v1.models import IdentityProvider, User
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
-from fed_mgr.v1.identity_providers.schemas import (
-    IdentityProvider,
-    IdentityProviderCreate,
-)
+from fed_mgr.v1.identity_providers.schemas import IdentityProviderCreate
 from fed_mgr.v1.schemas import ItemID
-from fed_mgr.v1.users.schemas import User
 
 
 def get_idp(*, session: SessionDep, idp_id: uuid.UUID) -> IdentityProvider | None:

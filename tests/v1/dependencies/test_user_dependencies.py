@@ -5,8 +5,8 @@ from unittest import mock
 import pytest
 from fastapi import HTTPException
 
+from fed_mgr.v1.models import User
 from fed_mgr.v1.users.dependencies import get_current_user
-from fed_mgr.v1.users.schemas import User
 
 DUMMY_SUB = "sub-123"
 DUMMY_ISS = "issuer-abc"

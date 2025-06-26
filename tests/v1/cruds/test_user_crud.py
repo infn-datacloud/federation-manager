@@ -11,6 +11,7 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
+from fed_mgr.v1.models import User
 from fed_mgr.v1.users.crud import (
     add_user,
     delete_user,
@@ -18,7 +19,6 @@ from fed_mgr.v1.users.crud import (
     get_users,
     update_user,
 )
-from fed_mgr.v1.users.schemas import User
 
 
 def test_get_user_found(session):

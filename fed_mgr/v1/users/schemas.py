@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Query
 from pydantic import AnyHttpUrl, EmailStr
-from sqlmodel import AutoString, Field, SQLModel, UniqueConstraint
+from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
@@ -23,29 +23,25 @@ class UserBase(SQLModel):
     sub: Annotated[str, Field(description="Issuer's subject associated with this user")]
     name: Annotated[str, Field(description="User name and surname")]
     email: Annotated[
-        EmailStr, Field(description="User email address", sa_type=AutoString)
+        EmailStr, Field(sa_type=AutoString, description="User email address")
     ]
-    issuer: Annotated[AnyHttpUrl, Field(description="Issuer URL", sa_type=HttpUrlType)]
+    issuer: Annotated[AnyHttpUrl, Field(sa_type=HttpUrlType, description="Issuer URL")]
 
 
-class User(ItemID, CreationTime, UserBase, table=True):
+class UserCreate(UserBase):
+    """Schema used to define request's body parameters of a POST on 'users' endpoint."""
+
+
+class UserRead(ItemID, CreationTime, UserBase):
     """Schema used to return User's data to clients."""
-
-    __table_args__ = (
-        UniqueConstraint("sub", "issuer", name="unique_sub_issuer_couple"),
-    )
 
 
 class UserList(PaginatedList):
     """Schema used to return paginated list of Users' data to clients."""
 
     data: Annotated[
-        list[User], Field(default_factory=list, description="List of users")
+        list[UserRead], Field(default_factory=list, description="List of users")
     ]
-
-
-class UserCreate(UserBase):
-    """Schema used to define request's body parameters of a POST on 'users' endpoint."""
 
 
 class UserQuery(CreationTimeQuery, PaginationQuery, SortQuery):

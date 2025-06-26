@@ -13,7 +13,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
     get_slas,
     update_sla,
 )
-from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLA
+from fed_mgr.v1.models import SLA
 
 
 def test_get_sla_found(session):

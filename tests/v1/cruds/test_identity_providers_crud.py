@@ -18,11 +18,7 @@ from fed_mgr.v1.identity_providers.crud import (
     get_idps,
     update_idp,
 )
-from fed_mgr.v1.identity_providers.schemas import (
-    IdentityProvider,
-    IdentityProviderCreate,
-)
-from fed_mgr.v1.users.schemas import User
+from fed_mgr.v1.models import IdentityProvider
 
 
 def test_get_idp_found(session):
@@ -93,8 +89,8 @@ def test_add_idp_calls_add_item(session):
 def test_update_idp_calls_update_item(session):
     """Test update_idp calls update_item with correct arguments."""
     idp_id = uuid.uuid4()
-    new_idp = MagicMock(spec=IdentityProviderCreate)
-    updated_by = MagicMock(spec=User)
+    new_idp = MagicMock()
+    updated_by = MagicMock()
     updated_by.id = uuid.uuid4()
     with patch("fed_mgr.v1.identity_providers.crud.update_item") as mock_update_item:
         update_idp(

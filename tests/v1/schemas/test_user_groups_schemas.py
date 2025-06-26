@@ -16,7 +16,6 @@ import uuid
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
-    UserGroup,
     UserGroupBase,
     UserGroupCreate,
     UserGroupLinks,
@@ -24,6 +23,7 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupQuery,
     UserGroupRead,
 )
+from fed_mgr.v1.models import UserGroup
 
 
 def test_user_group_base_fields():
@@ -31,6 +31,7 @@ def test_user_group_base_fields():
     base = UserGroupBase(name="Test Group", description="desc")
     assert base.name == "Test Group"
     assert base.description == "desc"
+
 
 def test_user_group_inheritance():
     """Test UserGroup inherits and assigns all fields."""
@@ -53,18 +54,21 @@ def test_user_group_inheritance():
     assert group.updated_by == id_
     assert group.name == "Test Group"
     assert group.description == "desc"
-    assert group.idp == idp_id
+    assert group.idp_id == idp_id
+
 
 def test_user_group_create_is_base():
     """Test that UserGroupCreate is an instance of UserGroupBase."""
     group_create = UserGroupCreate(name="Test Group", description="desc")
     assert isinstance(group_create, UserGroupBase)
 
+
 def test_user_group_links_fields():
     """Test UserGroupLinks field assignment."""
     url = AnyHttpUrl("https://api.com/slas")
     links = UserGroupLinks(slas=url)
     assert links.slas == url
+
 
 def test_user_group_read_inheritance():
     """Test UserGroupRead inherits from UserGroup and adds links."""
@@ -85,6 +89,7 @@ def test_user_group_read_inheritance():
     )
     assert group_read.id == id_
     assert group_read.links == links
+
 
 def test_user_group_list():
     """Test UserGroupList data field contains list of UserGroupRead."""
@@ -113,10 +118,12 @@ def test_user_group_list():
     assert isinstance(group_list.data, list)
     assert group_list.data[0].id == id_
 
+
 def test_user_group_query_defaults():
     """Test that UserGroupQuery initializes name to None by default."""
     query = UserGroupQuery()
     assert query.name is None
+
 
 def test_user_group_query_with_values():
     """Test that UserGroupQuery assigns provided values to its fields."""

@@ -6,8 +6,8 @@ from fastapi import Depends, HTTPException, status
 
 from fed_mgr.auth import AuthenticationDep
 from fed_mgr.db import SessionDep
+from fed_mgr.v1.models import User
 from fed_mgr.v1.users.crud import get_user, get_users
-from fed_mgr.v1.users.schemas import User
 
 UserDep = Annotated[User | None, Depends(get_user)]
 
