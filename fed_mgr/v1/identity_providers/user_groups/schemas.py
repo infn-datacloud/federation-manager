@@ -9,6 +9,7 @@ from sqlmodel import AutoString, Field, SQLModel
 from fed_mgr.v1.schemas import (
     Creation,
     CreationQuery,
+    DescriptionQuery,
     Editable,
     EditableQuery,
     ItemDescription,
@@ -60,7 +61,9 @@ class UserGroupList(PaginatedList):
     ]
 
 
-class UserGroupQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
+class UserGroupQuery(
+    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+):
     """Schema used to define request's body parameters."""
 
     name: Annotated[

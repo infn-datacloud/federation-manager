@@ -65,6 +65,12 @@ def test_item_description_default():
     assert item.description == ""
 
 
+def test_item_description_query_default():
+    """Generate ItemDescription with a valid description by default."""
+    item = ItemDescription()
+    assert item.description is None
+
+
 def test_sort_query_defaults():
     """Check SortQuery default values."""
     pq = SortQuery()

@@ -10,6 +10,7 @@ from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
     Creation,
     CreationQuery,
+    DescriptionQuery,
     Editable,
     EditableQuery,
     ItemDescription,
@@ -97,7 +98,9 @@ class IdentityProviderList(PaginatedList):
     ]
 
 
-class IdentityProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
+class IdentityProviderQuery(
+    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+):
     """Schema used to define request's body parameters."""
 
     endpoint: Annotated[

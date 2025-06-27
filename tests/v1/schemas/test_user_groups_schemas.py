@@ -25,20 +25,25 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupRead,
 )
 from fed_mgr.v1.models import UserGroup
+from fed_mgr.v1.schemas import (
+    Creation,
+    CreationQuery,
+    DescriptionQuery,
+    Editable,
+    EditableQuery,
+    ItemDescription,
+    ItemID,
+    PaginationQuery,
+    SortQuery,
+)
 
 DUMMY_DESC = "desc"
 DUMMY_NAME = "Test Group"
+DUMMY_ENDPOINT = "https://example.com"
 
 
-def test_user_group_base_fields():
-    """Test UserGroupBase field assignment."""
-    base = UserGroupBase(name=DUMMY_NAME, description=DUMMY_DESC)
-    assert base.name == DUMMY_NAME
-    assert base.description == DUMMY_DESC
-
-
-def test_user_group_inheritance():
-    """Test UserGroup inherits and assigns all fields."""
+def test_user_group_model():
+    """Test UserGroup model fields."""
     id_ = uuid.uuid4()
     now = datetime.now()
     idp_id = uuid.uuid4()
@@ -52,6 +57,10 @@ def test_user_group_inheritance():
         description=DUMMY_DESC,
         idp_id=idp_id,
     )
+    assert isinstance(group, ItemID)
+    assert isinstance(group, Creation)
+    assert isinstance(group, Editable)
+    assert isinstance(group, UserGroupBase)
     assert group.id == id_
     assert group.created_at == now
     assert group.created_by == id_
@@ -62,6 +71,13 @@ def test_user_group_inheritance():
     assert group.idp_id == idp_id
 
 
+def test_user_group_base_fields():
+    """Test UserGroupBase field assignment."""
+    base = UserGroupBase(name=DUMMY_NAME, description=DUMMY_DESC)
+    assert isinstance(base, ItemDescription)
+    assert base.name == DUMMY_NAME
+
+
 def test_user_group_create_is_base():
     """Test that UserGroupCreate is an instance of UserGroupBase."""
     group_create = UserGroupCreate(name=DUMMY_NAME, description=DUMMY_DESC)
@@ -70,29 +86,29 @@ def test_user_group_create_is_base():
 
 def test_user_group_links_fields():
     """Test UserGroupLinks field assignment."""
-    url = AnyHttpUrl("https://api.com/slas")
-    links = UserGroupLinks(slas=url)
-    assert links.slas == url
+    links = UserGroupLinks(slas=DUMMY_ENDPOINT)
+    assert links.slas == AnyHttpUrl(DUMMY_ENDPOINT)
 
 
 def test_user_group_read_inheritance():
     """Test UserGroupRead inherits from UserGroup and adds links."""
     id_ = uuid.uuid4()
-    idp_id = uuid.uuid4()
-    url = AnyHttpUrl("https://api.com/slas")
-    links = UserGroupLinks(slas=url)
+    now = datetime.now()
+    links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
-        created_at=1,
+        created_at=now,
         created_by=id_,
-        updated_at=2,
+        updated_at=now,
         updated_by=id_,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
-        idp=idp_id,
         links=links,
     )
-    assert group_read.id == id_
+    assert isinstance(group_read, ItemID)
+    assert isinstance(group_read, Creation)
+    assert isinstance(group_read, Editable)
+    assert isinstance(group_read, UserGroupBase)
     assert group_read.links == links
 
 
@@ -100,8 +116,7 @@ def test_user_group_list():
     """Test UserGroupList data field contains list of UserGroupRead."""
     id_ = uuid.uuid4()
     idp_id = uuid.uuid4()
-    url = AnyHttpUrl("https://api.com/slas")
-    links = UserGroupLinks(slas=url)
+    links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
         created_at=1,
@@ -121,12 +136,17 @@ def test_user_group_list():
         resource_url=AnyHttpUrl("https://api.com/groups"),
     )
     assert isinstance(group_list.data, list)
-    assert group_list.data[0].id == id_
+    assert group_list.data[0] == group_read
 
 
 def test_user_group_query_defaults():
     """Test that UserGroupQuery initializes name to None by default."""
     query = UserGroupQuery()
+    assert isinstance(query, DescriptionQuery)
+    assert isinstance(query, CreationQuery)
+    assert isinstance(query, EditableQuery)
+    assert isinstance(query, SortQuery)
+    assert isinstance(query, PaginationQuery)
     assert query.name is None
 
 

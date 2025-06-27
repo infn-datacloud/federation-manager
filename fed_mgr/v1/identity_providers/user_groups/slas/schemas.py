@@ -11,6 +11,7 @@ from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
     Creation,
     CreationQuery,
+    DescriptionQuery,
     Editable,
     EditableQuery,
     ItemDescription,
@@ -84,7 +85,9 @@ class SLAList(PaginatedList):
     ]
 
 
-class SLAQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
+class SLAQuery(
+    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+):
     """Schema used to define request's body parameters."""
 
     name: Annotated[

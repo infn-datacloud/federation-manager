@@ -12,6 +12,7 @@ from fed_mgr.utils import HttpUrlType, check_list_not_empty, retrieve_id_from_en
 from fed_mgr.v1.schemas import (
     Creation,
     CreationQuery,
+    DescriptionQuery,
     Editable,
     EditableQuery,
     ItemDescription,
@@ -29,7 +30,7 @@ class ProviderType(str, Enum):
     kubernetes = "kubernetes"
 
 
-class ProviderStatus(str, Enum):
+class ProviderStatus(int, Enum):
     """Enumeration of possible resource provider statuses."""
 
     draft = 0
@@ -173,7 +174,9 @@ class ProviderList(PaginatedList):
     ]
 
 
-class ProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
+class ProviderQuery(
+    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+):
     """Schema used to define request's body parameters."""
 
     name: Annotated[
@@ -206,7 +209,6 @@ class ProviderQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
             description="Any of the resource provider support emails must contain this "
             "string",
         ),
-        AfterValidator(check_list_not_empty),
     ]
     image_tags: Annotated[
         str | None,

@@ -24,12 +24,58 @@ from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLARead,
 )
 from fed_mgr.v1.models import SLA
+from fed_mgr.v1.schemas import (
+    Creation,
+    CreationQuery,
+    DescriptionQuery,
+    Editable,
+    EditableQuery,
+    ItemID,
+    PaginationQuery,
+    SortQuery,
+)
 
 DUMMY_NAME = "Test SLA"
 DUMMY_DESC = "desc"
-DUMMY_URL = "https://sla.example.com"
+DUMMY_URL = "https://example.com"
 DUMMY_START_DATE = date(2024, 1, 1)
 DUMMY_END_DATE = date(2025, 1, 1)
+
+
+def test_sla_model():
+    """Test SLA inherits and assigns all fields."""
+    id_ = uuid.uuid4()
+    now = datetime.now()
+    user_group_id = uuid.uuid4()
+    sla = SLA(
+        id=id_,
+        created_at=now,
+        created_by=id_,
+        updated_at=now,
+        updated_by=id_,
+        name=DUMMY_NAME,
+        description=DUMMY_DESC,
+        url=DUMMY_URL,
+        start_date=DUMMY_START_DATE,
+        end_date=DUMMY_END_DATE,
+        user_group_id=user_group_id,
+    )
+    assert isinstance(sla, ItemID)
+    assert isinstance(sla, Creation)
+    assert isinstance(sla, Editable)
+    assert isinstance(sla, SLABase)
+    assert sla.id == id_
+    assert sla.created_at == now
+    assert sla.created_by == id_
+    assert sla.updated_at == now
+    assert sla.updated_by == id_
+    assert isinstance(sla.url, str)
+    assert AnyHttpUrl(sla.url) == AnyHttpUrl(DUMMY_URL)
+    assert sla.name == DUMMY_NAME
+    assert sla.description == DUMMY_DESC
+    assert sla.start_date == DUMMY_START_DATE
+    assert sla.end_date == DUMMY_END_DATE
+    assert sla.user_group_id == user_group_id
 
 
 def test_sla_base_fields():
@@ -48,34 +94,6 @@ def test_sla_base_fields():
     assert base.end_date == DUMMY_END_DATE
 
 
-def test_sla_inheritance():
-    """Test SLA inherits and assigns all fields."""
-    id_ = uuid.uuid4()
-    now = datetime.now()
-    user_group_id = uuid.uuid4()
-    sla = SLA(
-        id=id_,
-        created_at=now,
-        created_by=id_,
-        updated_at=now,
-        updated_by=id_,
-        name=DUMMY_NAME,
-        description=DUMMY_DESC,
-        url=DUMMY_URL,
-        start_date=DUMMY_START_DATE,
-        end_date=DUMMY_END_DATE,
-        user_group_id=user_group_id,
-    )
-    assert sla.id == id_
-    assert sla.created_at == now
-    assert sla.created_by == id_
-    assert sla.updated_at == now
-    assert sla.updated_by == id_
-    assert sla.user_group_id == user_group_id
-    assert sla.name == DUMMY_NAME
-    assert AnyHttpUrl(sla.url) == AnyHttpUrl(DUMMY_URL)
-
-
 def test_sla_create_is_base():
     """Test that SLACreate is an instance of SLABase."""
     sla_create = SLACreate(
@@ -90,21 +108,20 @@ def test_sla_create_is_base():
 
 def test_sla_links_fields():
     """Test SLALinks field assignment."""
-    url = AnyHttpUrl("https://api.com/projects")
-    links = SLALinks(projects=url)
-    assert links.projects == url
+    links = SLALinks(projects=DUMMY_URL)
+    assert links.projects == AnyHttpUrl(DUMMY_URL)
 
 
 def test_sla_read_inheritance():
     """Test SLARead inherits from SLA and adds links."""
     id_ = uuid.uuid4()
-    url = AnyHttpUrl("https://api.com/projects")
-    links = SLALinks(projects=url)
+    now = datetime.now()
+    links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
-        created_at=datetime.now(),
+        created_at=now,
         created_by=id_,
-        updated_at=datetime.now(),
+        updated_at=now,
         updated_by=id_,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
@@ -113,20 +130,23 @@ def test_sla_read_inheritance():
         end_date=DUMMY_END_DATE,
         links=links,
     )
-    assert sla_read.id == id_
+    assert isinstance(sla_read, ItemID)
+    assert isinstance(sla_read, Creation)
+    assert isinstance(sla_read, Editable)
+    assert isinstance(sla_read, SLABase)
     assert sla_read.links == links
 
 
 def test_sla_list():
     """Test SLAList data field contains list of SLARead."""
     id_ = uuid.uuid4()
-    url = AnyHttpUrl("https://api.com/projects")
-    links = SLALinks(projects=url)
+    now = datetime.now()
+    links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
-        created_at=datetime.now(),
+        created_at=now,
         created_by=id_,
-        updated_at=datetime.now(),
+        updated_at=now,
         updated_by=id_,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
@@ -143,12 +163,17 @@ def test_sla_list():
         resource_url=AnyHttpUrl("https://api.com/slas"),
     )
     assert isinstance(sla_list.data, list)
-    assert sla_list.data[0].id == id_
+    assert sla_list.data[0] == sla_read
 
 
 def test_sla_query_defaults():
     """Test that SLAQuery initializes all fields to None by default."""
     query = SLAQuery()
+    assert isinstance(query, DescriptionQuery)
+    assert isinstance(query, CreationQuery)
+    assert isinstance(query, EditableQuery)
+    assert isinstance(query, SortQuery)
+    assert isinstance(query, PaginationQuery)
     assert query.name is None
     assert query.url is None
     assert query.start_before is None
