@@ -87,10 +87,10 @@ def test_add_user_group(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
-            item=user_group,
             created_by=created_by.id,
             updated_by=created_by.id,
             idp=parent_idp.id,
+            **user_group.model_dump(),
         )
 
 
@@ -113,8 +113,8 @@ def test_update_user_group(session):
             session=session,
             entity=UserGroup,
             item_id=user_group_id,
-            new_data=new_user_group,
             updated_by=updated_by.id,
+            **new_user_group.model_dump(),
         )
 
 

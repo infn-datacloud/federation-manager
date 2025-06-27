@@ -12,6 +12,7 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
 
 from pydantic import AnyHttpUrl
 
@@ -25,41 +26,45 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import (
 )
 from fed_mgr.v1.models import UserGroup
 
+DUMMY_DESC = "desc"
+DUMMY_NAME = "Test Group"
+
 
 def test_user_group_base_fields():
     """Test UserGroupBase field assignment."""
-    base = UserGroupBase(name="Test Group", description="desc")
-    assert base.name == "Test Group"
-    assert base.description == "desc"
+    base = UserGroupBase(name=DUMMY_NAME, description=DUMMY_DESC)
+    assert base.name == DUMMY_NAME
+    assert base.description == DUMMY_DESC
 
 
 def test_user_group_inheritance():
     """Test UserGroup inherits and assigns all fields."""
     id_ = uuid.uuid4()
+    now = datetime.now()
     idp_id = uuid.uuid4()
     group = UserGroup(
         id=id_,
-        created_at=1,
+        created_at=now,
         created_by=id_,
-        updated_at=2,
+        updated_at=now,
         updated_by=id_,
-        name="Test Group",
-        description="desc",
-        idp=idp_id,
+        name=DUMMY_NAME,
+        description=DUMMY_DESC,
+        idp_id=idp_id,
     )
     assert group.id == id_
-    assert group.created_at == 1
+    assert group.created_at == now
     assert group.created_by == id_
-    assert group.updated_at == 2
+    assert group.updated_at == now
     assert group.updated_by == id_
-    assert group.name == "Test Group"
-    assert group.description == "desc"
+    assert group.name == DUMMY_NAME
+    assert group.description == DUMMY_DESC
     assert group.idp_id == idp_id
 
 
 def test_user_group_create_is_base():
     """Test that UserGroupCreate is an instance of UserGroupBase."""
-    group_create = UserGroupCreate(name="Test Group", description="desc")
+    group_create = UserGroupCreate(name=DUMMY_NAME, description=DUMMY_DESC)
     assert isinstance(group_create, UserGroupBase)
 
 
@@ -82,8 +87,8 @@ def test_user_group_read_inheritance():
         created_by=id_,
         updated_at=2,
         updated_by=id_,
-        name="Test Group",
-        description="desc",
+        name=DUMMY_NAME,
+        description=DUMMY_DESC,
         idp=idp_id,
         links=links,
     )
@@ -103,8 +108,8 @@ def test_user_group_list():
         created_by=id_,
         updated_at=2,
         updated_by=id_,
-        name="Test Group",
-        description="desc",
+        name=DUMMY_NAME,
+        description=DUMMY_DESC,
         idp=idp_id,
         links=links,
     )

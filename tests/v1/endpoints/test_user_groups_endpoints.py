@@ -126,7 +126,7 @@ def test_create_user_group_not_null_error(client, monkeypatch):
     )
 
     resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
-    assert resp.status_code == 409
+    assert resp.status_code == 422
     assert "cannot be null" in resp.json()["detail"]
 
 

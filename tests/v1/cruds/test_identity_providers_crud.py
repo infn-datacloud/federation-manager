@@ -80,9 +80,9 @@ def test_add_idp_calls_add_item(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=IdentityProvider,
-            item=idp,
             created_by=created_by.id,
             updated_by=created_by.id,
+            **idp.model_dump(),
         )
 
 
@@ -100,8 +100,8 @@ def test_update_idp_calls_update_item(session):
             session=session,
             entity=IdentityProvider,
             item_id=idp_id,
-            new_data=new_idp,
             updated_by=updated_by.id,
+            **new_idp.model_dump(),
         )
 
 

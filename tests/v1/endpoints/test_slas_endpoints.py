@@ -230,7 +230,7 @@ def test_create_sla_not_null_error(client, monkeypatch):
         f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
         json=sla_data,
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 422
     assert "cannot be null" in resp.json()["detail"]
 
 

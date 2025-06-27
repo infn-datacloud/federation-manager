@@ -68,7 +68,9 @@ def test_add_user_calls_add_item(session):
         "fed_mgr.v1.users.crud.add_item", return_value=expected_item
     ) as mock_add_item:
         add_user(session=session, user=user)
-        mock_add_item.assert_called_once_with(session=session, entity=User, item=user)
+        mock_add_item.assert_called_once_with(
+            session=session, entity=User, **user.model_dump()
+        )
 
 
 def test_update_user_calls_update_item(session):
@@ -78,7 +80,7 @@ def test_update_user_calls_update_item(session):
     with patch("fed_mgr.v1.users.crud.update_item") as mock_update_item:
         update_user(session=session, user_id=user_id, new_user=new_user)
         mock_update_item.assert_called_once_with(
-            session=session, entity=User, item_id=user_id, new_data=new_user
+            session=session, entity=User, item_id=user_id, **new_user.model_dump()
         )
 
 

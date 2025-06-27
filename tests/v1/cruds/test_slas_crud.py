@@ -89,10 +89,10 @@ def test_add_sla(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=SLA,
-            item=sla,
             created_by=created_by.id,
             updated_by=created_by.id,
             user_group=parent_user_group.id,
+            **sla.model_dump(),
         )
 
 
@@ -115,8 +115,8 @@ def test_update_sla(session):
             session=session,
             entity=SLA,
             item_id=sla_id,
-            new_data=new_sla,
             updated_by=updated_by.id,
+            **new_sla.model_dump(),
         )
 
 

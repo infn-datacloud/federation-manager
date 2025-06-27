@@ -93,6 +93,7 @@ def test_user_model_inherits_and_has_created_at():
     assert user.id == fake_id
     assert user.sub == DUMMY_SUB
     assert isinstance(user.created_at, datetime)
+    assert len(user.owned_providers) == 0
 
 
 def test_user_create_is_user_base():

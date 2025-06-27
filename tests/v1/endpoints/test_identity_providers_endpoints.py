@@ -106,7 +106,7 @@ def test_create_idp_not_null_error(client, monkeypatch):
     monkeypatch.setattr("fed_mgr.v1.identity_providers.endpoints.add_idp", fake_add_idp)
 
     resp = client.post("/api/v1/idps/", json=idp_data)
-    assert resp.status_code == 409
+    assert resp.status_code == 422
     assert "cannot be null" in resp.json()["detail"]
 
 

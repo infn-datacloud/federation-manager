@@ -51,21 +51,26 @@ def test_sla_base_fields():
 def test_sla_inheritance():
     """Test SLA inherits and assigns all fields."""
     id_ = uuid.uuid4()
+    now = datetime.now()
     user_group_id = uuid.uuid4()
     sla = SLA(
         id=id_,
-        created_at=datetime.now(),
+        created_at=now,
         created_by=id_,
-        updated_at=datetime.now(),
+        updated_at=now,
         updated_by=id_,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         url=DUMMY_URL,
         start_date=DUMMY_START_DATE,
         end_date=DUMMY_END_DATE,
-        user_group=user_group_id,
+        user_group_id=user_group_id,
     )
     assert sla.id == id_
+    assert sla.created_at == now
+    assert sla.created_by == id_
+    assert sla.updated_at == now
+    assert sla.updated_by == id_
     assert sla.user_group_id == user_group_id
     assert sla.name == DUMMY_NAME
     assert AnyHttpUrl(sla.url) == AnyHttpUrl(DUMMY_URL)

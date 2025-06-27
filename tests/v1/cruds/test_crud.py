@@ -53,10 +53,7 @@ def test_raise_from_integrity_error_not_null(session, monkeypatch):
     error.args = ("NOT NULL constraint failed: dummyentity.name",)
     with pytest.raises(NotNullError) as exc:
         raise_from_integrity_error(
-            entity=DummyEntity,
-            session=session,
-            item=item,
-            error=error,
+            entity=DummyEntity, session=session, error=error, **item.model_dump()
         )
     assert "Attribute 'name' of Dummy Entity can't be NULL" in str(exc.value)
     session.rollback.assert_called_once()
@@ -71,10 +68,7 @@ def test_raise_from_integrity_error_unique(session, monkeypatch):
     error.args = ("UNIQUE constraint failed: dummyentity.name",)
     with pytest.raises(ConflictError) as exc:
         raise_from_integrity_error(
-            entity=DummyEntity,
-            session=session,
-            item=item,
-            error=error,
+            entity=DummyEntity, session=session, error=error, **item.model_dump()
         )
     assert "Dummy Entity with name 'foo' already exists" in str(exc.value)
     session.rollback.assert_called_once()
@@ -89,10 +83,7 @@ def test_raise_from_integrity_error_other_error(session, monkeypatch):
     error.args = ("Some other error",)
     # Should not raise NotNullError or ConflictError
     raise_from_integrity_error(
-        entity=DummyEntity,
-        session=session,
-        item=item,
-        error=error,
+        entity=DummyEntity, session=session, error=error, **item.model_dump()
     )
     session.rollback.assert_called_once()
 
@@ -230,7 +221,9 @@ def test_add_item_adds_and_commits(session):
     """Test add_item adds the entity to the session and commits."""
     item = MagicMock(spec=DummyEntity)
     item.model_dump.return_value = {"id": uuid.uuid4()}
-    result = add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+    result = add_item(
+        entity=DummyEntity, session=session, created_by=None, **item.model_dump()
+    )
     session.add.assert_called()
     session.commit.assert_called()
     assert isinstance(result, DummyEntity)
@@ -241,7 +234,10 @@ def test_add_item_with_created_by(session):
     item = MagicMock(spec=DummyEntity)
     item.model_dump.return_value = {"id": uuid.uuid4()}
     result = add_item(
-        entity=DummyEntity, session=session, item=item, created_by=uuid.uuid4()
+        entity=DummyEntity,
+        session=session,
+        created_by=uuid.uuid4(),
+        **item.model_dump(),
     )
     session.add.assert_called()
     session.commit.assert_called()
@@ -263,7 +259,9 @@ def test_add_item_raises_not_null_error(session):
     session.add.side_effect = exc
 
     with pytest.raises(NotNullError) as e:
-        add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+        add_item(
+            entity=DummyEntity, session=session, created_by=None, **item.model_dump()
+        )
     assert "can't be NULL" in str(e.value)
     session.rollback.assert_called_once()
     session.commit.assert_not_called()
@@ -284,7 +282,9 @@ def test_add_item_raises_conflict_error(session):
     session.add.side_effect = exc
 
     with pytest.raises(ConflictError) as e:
-        add_item(entity=DummyEntity, session=session, item=item, created_by=None)
+        add_item(
+            entity=DummyEntity, session=session, created_by=None, **item.model_dump()
+        )
     assert "already exists" in str(e.value)
     session.rollback.assert_called_once()
     session.commit.assert_not_called()
@@ -301,7 +301,9 @@ def test_update_item_success(session):
     exec_result.rowcount = 1
     session.exec.return_value = exec_result
 
-    update_item(entity=DummyEntity, session=session, item_id=item_id, new_data=new_data)
+    update_item(
+        entity=DummyEntity, session=session, item_id=item_id, **new_data.model_dump()
+    )
     session.exec.assert_called()
     session.commit.assert_called_once()
 
@@ -319,7 +321,10 @@ def test_update_item_no_item_to_update(session):
 
     with pytest.raises(NoItemToUpdateError) as exc:
         update_item(
-            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+            entity=DummyEntity,
+            session=session,
+            item_id=item_id,
+            **new_data.model_dump(),
         )
     assert "Dummy Entity" in str(exc.value) or "DummyEntity" in str(exc.value)
     session.exec.assert_called()
@@ -344,7 +349,10 @@ def test_update_item_integrity_error_not_null(monkeypatch, session):
 
     with pytest.raises(NotNullError) as e:
         update_item(
-            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+            entity=DummyEntity,
+            session=session,
+            item_id=item_id,
+            **new_data.model_dump(),
         )
     assert "can't be NULL" in str(e.value)
     session.rollback.assert_called_once()
@@ -369,7 +377,10 @@ def test_update_item_integrity_error_unique(monkeypatch, session):
 
     with pytest.raises(ConflictError) as e:
         update_item(
-            entity=DummyEntity, session=session, item_id=item_id, new_data=new_data
+            entity=DummyEntity,
+            session=session,
+            item_id=item_id,
+            **new_data.model_dump(),
         )
     assert "already exists" in str(e.value)
     session.rollback.assert_called_once()
