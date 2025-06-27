@@ -30,6 +30,7 @@ from fed_mgr.v1.providers.schemas import (
     ProviderQueryDep,
     ProviderRead,
     ProviderStatus,
+    ProviderUpdate,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
@@ -259,10 +260,11 @@ def retrieve_provider(
     return provider
 
 
-@provider_router.put(
+@provider_router.patch(
     "/{provider_id}",
     summary="Update resource provider with the given id",
-    description="Update a resource provider with the given id in the DB",
+    description="Update only a subset of the fields of a resource provider with the "
+    "given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
@@ -273,7 +275,7 @@ def retrieve_provider(
 def edit_provider(
     request: Request,
     provider_id: uuid.UUID,
-    new_provider: ProviderCreate,
+    new_provider: ProviderUpdate,
     session: SessionDep,
     current_user: CurrenUserDep,
 ) -> None:

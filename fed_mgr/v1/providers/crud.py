@@ -13,7 +13,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ProviderStateChangeError, UserNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
-from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus
+from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
 from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.crud import get_user
 
@@ -114,12 +114,12 @@ def update_provider(
     *,
     session: Session,
     provider_id: uuid.UUID,
-    new_provider: ProviderCreate,
+    new_provider: ProviderUpdate,
     updated_by: User,
 ) -> None:
     """Update an provider by their unique provider_id from the database.
 
-    Completely override an provider entity.
+    Override only a subset of the provider entity attributes.
 
     Args:
         session: The database session.
@@ -131,14 +131,17 @@ def update_provider(
         None
 
     """
+    kwargs = {}
     site_admins = check_site_admins_exist(session=session, provider=new_provider)
+    if len(site_admins) > 0:
+        kwargs = {"site_admins": site_admins}
     return update_item(
         session=session,
         entity=Provider,
         item_id=provider_id,
         updated_by=updated_by.id,
-        site_admins=site_admins,
-        **new_provider.model_dump(exclude={"site_admins"}),
+        **new_provider.model_dump(exclude={"site_admins"}, esclude_none=True),
+        **kwargs,
     )
 
 

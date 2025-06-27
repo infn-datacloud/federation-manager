@@ -94,9 +94,9 @@ def split_camel_case(text: str) -> str:
     return " ".join([m.group(0) for m in matches])
 
 
-def check_list_not_empty(items: list[Any]) -> list[Any]:
+def check_list_not_empty(items: list[Any] | Any) -> list[Any] | Any:
     """Validate that the list of support emails is not empty."""
-    if not len(items) > 0:
+    if isinstance(items, list) and not len(items) > 0:
         raise ValueError("List must not be empty")
     return items
 

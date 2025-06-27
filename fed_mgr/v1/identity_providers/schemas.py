@@ -35,7 +35,7 @@ class IdentityProviderBase(ItemDescription):
     name: Annotated[
         str,
         Field(
-            description="Freindly name of the identity provider. It should be used by "
+            description="Friendly name of the identity provider. It should be used by "
             "the resource provider to connect to it during authentication procedures"
         ),
     ]

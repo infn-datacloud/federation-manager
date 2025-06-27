@@ -103,6 +103,22 @@ def test_add_provider_calls_add_item(mock_get_user, mock_add_item, session):
     )
 
 
+@patch("fed_mgr.v1.providers.crud.check_site_admins_exist")
+def test_add_provider_user_not_found(mock_check_admins, session):
+    """Test add_provider raises UserNotFoundError if site admin not found."""
+    provider = MagicMock()
+    created_by = MagicMock()
+    created_by.id = uuid.uuid4()
+    mock_check_admins.side_effect = UserNotFoundError("user not found")
+    with pytest.raises(UserNotFoundError) as exc:
+        add_provider(
+            session=session,
+            provider=provider,
+            created_by=created_by,
+        )
+    assert "user not found" in str(exc.value)
+
+
 @patch("fed_mgr.v1.providers.crud.update_item")
 @patch("fed_mgr.v1.providers.crud.get_user")
 def test_update_provider_calls_update_item(mock_get_user, mock_update_item, session):
@@ -127,8 +143,49 @@ def test_update_provider_calls_update_item(mock_get_user, mock_update_item, sess
         item_id=provider_id,
         updated_by=updated_by.id,
         site_admins=[site_admin],
-        **new_provider.model_dump(),
+        **new_provider.model_dump(exclude={"site_admins"}, exclude_none=True),
     )
+
+
+@patch("fed_mgr.v1.providers.crud.update_item")
+def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, session):
+    """Test update_provider omits site_admins if empty."""
+    provider_id = uuid.uuid4()
+    new_provider = MagicMock()
+    updated_by = MagicMock()
+    updated_by.id = uuid.uuid4()
+    new_provider.site_admins = []
+    update_provider(
+        session=session,
+        provider_id=provider_id,
+        new_provider=new_provider,
+        updated_by=updated_by,
+    )
+    mock_update_item.assert_called_once_with(
+        session=session,
+        entity=Provider,
+        item_id=provider_id,
+        updated_by=updated_by.id,
+        **new_provider.model_dump(exclude={"site_admins"}, exclude_none=True),
+    )
+
+
+@patch("fed_mgr.v1.providers.crud.check_site_admins_exist")
+def test_update_provider_user_not_found(mock_check_admins, session):
+    """Test update_provider raises UserNotFoundError if site admin not found."""
+    provider_id = uuid.uuid4()
+    new_provider = MagicMock()
+    updated_by = MagicMock()
+    updated_by.id = uuid.uuid4()
+    mock_check_admins.side_effect = UserNotFoundError("user not found")
+    with pytest.raises(UserNotFoundError) as exc:
+        update_provider(
+            session=session,
+            provider_id=provider_id,
+            new_provider=new_provider,
+            updated_by=updated_by,
+        )
+    assert "user not found" in str(exc.value)
 
 
 def test_delete_provider_calls_delete_item(session):

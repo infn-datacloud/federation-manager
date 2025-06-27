@@ -50,7 +50,7 @@ class ProviderBase(ItemDescription):
     """Schema with the basic parameters of the Provider entity."""
 
     name: Annotated[
-        str, Field(unique=True, description="Freindly name of the resource provider")
+        str, Field(unique=True, description="Friendly name of the resource provider")
     ]
     type: Annotated[
         ProviderType,
@@ -113,6 +113,75 @@ class ProviderCreate(ProviderBase):
     site_admins: Annotated[
         list[uuid.UUID],
         Field(
+            sa_type=AutoString,
+            description="List of the provider/site administrator IDs",
+        ),
+        AfterValidator(check_list_not_empty),
+    ]
+
+
+class ProviderUpdate(SQLModel):
+    """Schema used to update singe fields of a Provider.
+
+    It is not possible to update the provider's type or the status.
+    To udpate the status field a dedicated endpoint exists.
+    """
+
+    description: Annotated[
+        str | None, Field(default=None, description="Item decription")
+    ]
+    name: Annotated[
+        str | None,
+        Field(
+            default=None,
+            unique=True,
+            description="Friendly name of the resource provider",
+        ),
+    ]
+    auth_endpoint: Annotated[
+        AnyHttpUrl | None,
+        Field(
+            default=None,
+            sa_type=HttpUrlType,
+            unique=True,
+            description="Authentication URL of the resource provider",
+        ),
+    ]
+    is_public: Annotated[
+        bool | None,
+        Field(default=None, description="Define if the provider is public or not"),
+    ]
+    support_emails: Annotated[
+        list[EmailStr] | None,
+        Field(
+            default=None,
+            sa_type=AutoString,
+            description="Non-empty list of Provider's admins/support email addresses",
+        ),
+        AfterValidator(check_list_not_empty),
+    ]
+    image_tags: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            sa_type=AutoString,
+            description="List of tags used to filter provider images (used only with "
+            "'openstack' provider types)",
+        ),
+    ]
+    network_tags: Annotated[
+        list[str] | None,
+        Field(
+            default=None,
+            sa_type=AutoString,
+            description="List of tags used to filter provider networks (used only with "
+            "'openstack' provider types)",
+        ),
+    ]
+    site_admins: Annotated[
+        list[uuid.UUID] | None,
+        Field(
+            default=None,
             sa_type=AutoString,
             description="List of the provider/site administrator IDs",
         ),

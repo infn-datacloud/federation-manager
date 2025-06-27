@@ -17,6 +17,7 @@ from fed_mgr.v1.providers.schemas import (
     ProviderRead,
     ProviderStatus,
     ProviderType,
+    ProviderUpdate,
 )
 from fed_mgr.v1.schemas import (
     Creation,
@@ -124,7 +125,7 @@ def test_provider_base_required_fields():
     assert obj.network_tags == []
 
 
-def test_provider_base_support_emails_not_empty():
+def test_provider_base_support_emails_empty():
     """Test ProviderBase support_emails must not be empty."""
     with pytest.raises(ValidationError):
         ProviderBase(
@@ -179,7 +180,7 @@ def test_provider_create_is_base():
     assert provider_create.site_admins == site_admins
 
 
-def test_provider_create_site_admins_not_empty():
+def test_provider_create_site_admins_empty():
     """Test ProviderCreate site_admins must not be empty."""
     with pytest.raises(ValidationError):
         ProviderCreate(
@@ -191,6 +192,53 @@ def test_provider_create_site_admins_not_empty():
             support_emails=DUMMY_EMAILS,
             site_admins=[],
         )
+
+
+def test_provider_update_default_values():
+    """Test ProviderUpdate default fields are all None."""
+    obj = ProviderUpdate()
+    assert obj.name is None
+    assert obj.description is None
+    assert obj.auth_endpoint is None
+    assert obj.is_public is None
+    assert obj.support_emails is None
+    assert obj.image_tags is None
+    assert obj.network_tags is None
+    assert obj.site_admins is None
+
+
+def test_provider_update_fields():
+    """Test fields of ProviderUpdate accept same values of ProviderCreate."""
+    site_admins = [uuid.uuid4()]
+    obj = ProviderUpdate(
+        name=DUMMY_NAME,
+        description=DUMMY_DESC,
+        auth_endpoint=DUMMY_AUTH_ENDPOINT,
+        is_public=DUMMY_IS_PUB,
+        support_emails=DUMMY_EMAILS,
+        image_tags=["img1"],
+        network_tags=["net1"],
+        site_admins=site_admins,
+    )
+    assert obj.name == DUMMY_NAME
+    assert obj.auth_endpoint == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
+    assert obj.is_public == DUMMY_IS_PUB
+    assert obj.support_emails == DUMMY_EMAILS
+    assert obj.image_tags == ["img1"]
+    assert obj.network_tags == ["net1"]
+    assert obj.site_admins == site_admins
+
+
+def test_provider_update_support_emails_empty():
+    """Test ProviderUpdate support_emails must not be empty (if not None)."""
+    with pytest.raises(ValidationError):
+        ProviderUpdate(support_emails=[])
+
+
+def test_provider_update_site_admins_empty():
+    """Test ProviderUpdate site_admins must not be empty (if not None)."""
+    with pytest.raises(ValidationError):
+        ProviderUpdate(site_admins=[])
 
 
 def test_provider_links_fields():
