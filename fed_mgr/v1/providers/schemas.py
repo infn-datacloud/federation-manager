@@ -116,6 +116,7 @@ class ProviderCreate(ProviderBase):
             sa_type=AutoString,
             description="List of the provider/site administrator IDs",
         ),
+        AfterValidator(check_list_not_empty),
     ]
 
 

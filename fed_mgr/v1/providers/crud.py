@@ -99,12 +99,7 @@ def add_provider(
         ItemID: The identifier of the newly created provider.
 
     """
-    site_admins = []
-    for user_id in provider.site_admins:
-        user = get_user(session=session, user_id=user_id)
-        if user is None:
-            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
-        site_admins.append(user)
+    site_admins = check_site_admins_exist(session=session, provider=provider)
     return add_item(
         session=session,
         entity=Provider,
@@ -136,12 +131,7 @@ def update_provider(
         None
 
     """
-    site_admins = []
-    for user_id in new_provider.site_admins:
-        user = get_user(session=session, user_id=user_id)
-        if user is None:
-            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
-        site_admins.append(user)
+    site_admins = check_site_admins_exist(session=session, provider=new_provider)
     return update_item(
         session=session,
         entity=Provider,
@@ -164,6 +154,31 @@ def delete_provider(*, session: Session, provider_id: uuid.UUID) -> None:
 
     """
     delete_item(session=session, entity=Provider, item_id=provider_id)
+
+
+def check_site_admins_exist(session: Session, provider: ProviderCreate) -> list[User]:
+    """Check if all user IDs in the provider's site_admins list exist in the database.
+
+    Args:
+        session (Session): The database session used to query users.
+        provider (ProviderCreate): The provider object containing a list of site admin
+            user IDs.
+
+    Returns:
+        list: A list of user objects corresponding to the provided site admin user IDs.
+
+    Raises:
+        UserNotFoundError: If any user ID in provider.site_admins does not exist in the
+            database.
+
+    """
+    site_admins = []
+    for user_id in provider.site_admins:
+        user = get_user(session=session, user_id=user_id)
+        if user is None:
+            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
+        site_admins.append(user)
+    return site_admins
 
 
 def change_provider_state(

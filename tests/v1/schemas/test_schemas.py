@@ -36,6 +36,7 @@ from fed_mgr.v1.schemas import (
     CreationTime,
     Creator,
     CreatorQuery,
+    DescriptionQuery,
     Editable,
     EditableQuery,
     Editor,
@@ -67,7 +68,7 @@ def test_item_description_default():
 
 def test_item_description_query_default():
     """Generate ItemDescription with a valid description by default."""
-    item = ItemDescription()
+    item = DescriptionQuery()
     assert item.description is None
 
 

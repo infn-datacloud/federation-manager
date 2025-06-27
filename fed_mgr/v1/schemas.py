@@ -29,15 +29,13 @@ class ItemID(SQLModel):
 class ItemDescription(SQLModel):
     """Schema for an item description."""
 
-    description: Annotated[
-        str | None, Field(default=None, description="Item decription")
-    ]
+    description: Annotated[str, Field(default="", description="Item decription")]
 
 
 class DescriptionQuery(SQLModel):
     """Schema for querying by the description."""
 
-    decription: Annotated[
+    description: Annotated[
         str | None,
         Field(default=None, description="The description must contain this string"),
     ]

@@ -179,6 +179,20 @@ def test_provider_create_is_base():
     assert provider_create.site_admins == site_admins
 
 
+def test_provider_create_site_admins_not_empty():
+    """Test ProviderCreate site_admins must not be empty."""
+    with pytest.raises(ValidationError):
+        ProviderCreate(
+            name=DUMMY_NAME,
+            description=DUMMY_DESC,
+            type=DUMMY_TYPE,
+            auth_endpoint=DUMMY_AUTH_ENDPOINT,
+            is_public=DUMMY_IS_PUB,
+            support_emails=DUMMY_EMAILS,
+            site_admins=[],
+        )
+
+
 def test_provider_links_fields():
     """Test ProviderLinks fields are required and AnyHttpUrl."""
     links = ProviderLinks(
