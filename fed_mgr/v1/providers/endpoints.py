@@ -267,6 +267,7 @@ def retrieve_provider(
     "given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
@@ -291,8 +292,11 @@ def edit_provider(
             from the access token.
 
     Raises:
-        HTTPException: If the resource provider is not found or another update error
-        occurs.
+        400 Bad Request: If one of the admin users does not exist in the DB (handled
+            below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+        409 Conflict: If the user already exists (handled below).
 
     """
     request.state.logger.info("Update resource provider with ID '%s'", str(provider_id))

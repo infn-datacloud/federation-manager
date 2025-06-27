@@ -11,7 +11,7 @@ from fed_mgr.auth import configure_flaat
 from fed_mgr.config import API_V1_STR, get_settings
 from fed_mgr.db import create_db_and_tables, dispose_engine
 from fed_mgr.logger import get_logger
-from fed_mgr.v1.router import router as router_v1
+from fed_mgr.v1.router import public_router_v1, secured_router_v1
 from fed_mgr.v1.users.crud import create_fake_user, delete_fake_user
 
 settings = get_settings()
@@ -96,5 +96,6 @@ sub_app_v1 = FastAPI(
     title=settings.PROJECT_NAME,
     version=version,
 )
-sub_app_v1.include_router(router_v1)
+sub_app_v1.include_router(secured_router_v1)
+sub_app_v1.include_router(public_router_v1)
 app.mount(API_V1_STR, sub_app_v1)
