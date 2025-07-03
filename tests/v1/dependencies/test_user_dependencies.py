@@ -18,18 +18,15 @@ def test_get_current_user_found(session):
     user_infos.user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
     fake_user = mock.Mock(spec=User)
 
-    def get_users(session, skip=0, limit=100, sort=None, sub=None, issuer=None):
-        return [fake_user], 1
+    def get_user(session, sub=None, issuer=None):
+        return fake_user
 
     with mock.patch(
-        "fed_mgr.v1.users.dependencies.get_users", side_effect=get_users
-    ) as mock_get_users:
+        "fed_mgr.v1.users.dependencies.get_user", side_effect=get_user
+    ) as mock_get_user:
         result = get_current_user(user_infos, session)
-        mock_get_users.assert_called_once_with(
+        mock_get_user.assert_called_once_with(
             session=session,
-            skip=0,
-            limit=1,
-            sort="-created_at",
             sub=user_infos.user_info["sub"],
             issuer=user_infos.user_info["iss"],
         )
@@ -41,19 +38,13 @@ def test_get_current_user_not_found(session):
     user_infos = mock.Mock()
     user_infos.user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
 
-    def get_users(session, skip=0, limit=100, sort=None, sub=None, issuer=None):
-        return [], 0
-
     with mock.patch(
-        "fed_mgr.v1.users.dependencies.get_users", side_effect=get_users
-    ) as mock_get_users:
+        "fed_mgr.v1.users.dependencies.get_user", return_value=None
+    ) as mock_get_user:
         with pytest.raises(HTTPException) as exc:
             get_current_user(user_infos, session)
-        mock_get_users.assert_called_once_with(
+        mock_get_user.assert_called_once_with(
             session=session,
-            skip=0,
-            limit=1,
-            sort="-created_at",
             sub=user_infos.user_info["sub"],
             issuer=user_infos.user_info["iss"],
         )

@@ -154,7 +154,7 @@ def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, s
     new_provider = MagicMock()
     updated_by = MagicMock()
     updated_by.id = uuid.uuid4()
-    new_provider.site_admins = []
+    new_provider.site_admins = None
     update_provider(
         session=session,
         provider_id=provider_id,
@@ -166,7 +166,7 @@ def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, s
         entity=Provider,
         item_id=provider_id,
         updated_by=updated_by.id,
-        **new_provider.model_dump(exclude={"site_admins"}, exclude_none=True),
+        **new_provider.model_dump(exclude_none=True),
     )
 
 

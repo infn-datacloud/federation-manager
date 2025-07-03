@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import Query
 from pydantic import AfterValidator, AnyHttpUrl, BeforeValidator, EmailStr
-from sqlmodel import AutoString, Field, SQLModel
+from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType, check_list_not_empty, retrieve_id_from_entity
 from fed_mgr.v1.schemas import (
@@ -73,7 +73,7 @@ class ProviderBase(ItemDescription):
     support_emails: Annotated[
         list[EmailStr],
         Field(
-            sa_type=AutoString,
+            sa_column=Column(JSON),
             description="Non-empty list of Provider's admins/support email addresses",
         ),
         AfterValidator(check_list_not_empty),
@@ -82,7 +82,7 @@ class ProviderBase(ItemDescription):
         list[str],
         Field(
             default_factory=list,
-            sa_type=AutoString,
+            sa_column=Column(JSON),
             description="List of tags used to filter provider images (used only with "
             "'openstack' provider types)",
         ),
@@ -91,7 +91,7 @@ class ProviderBase(ItemDescription):
         list[str],
         Field(
             default_factory=list,
-            sa_type=AutoString,
+            sa_column=Column(JSON),
             description="List of tags used to filter provider networks (used only with "
             "'openstack' provider types)",
         ),

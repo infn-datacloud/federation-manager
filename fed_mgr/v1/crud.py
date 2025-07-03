@@ -152,21 +152,28 @@ def get_conditions(
     return conditions
 
 
-def get_item(
-    *, entity: type[Entity], session: Session, item_id: uuid.UUID
-) -> Entity | None:
+def get_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity | None:
     """Retrieve a single item by its ID from the database.
+
+    When multiple values are returned from the DB query, only the first one is returned.
 
     Args:
         entity: The SQLModel entity class to query.
         session: The SQLModel session for database access.
-        item_id: The UUID of the item to retrieve.
+        **kwargs: Additional arguments used to filter entities.
 
     Returns:
-        The entity instance if found, otherwise None.
+        The first entity instance if found, otherwise None.
 
     """
-    statement = select(entity).where(entity.id == item_id)
+    if "item_id" in kwargs.keys():
+        kwargs["id"] = kwargs.pop("item_id")
+
+    conditions = []
+    for k, v in kwargs.items():
+        conditions.append(entity.__table__.c.get(k) == v)
+
+    statement = select(entity).where(sqlalchemy.and_(True, *conditions))
     return session.exec(statement).first()
 
 
@@ -212,7 +219,7 @@ def get_items(
     )
     items = session.exec(statement).all()
 
-    statement = select(func.count(entity.id)).filter(sqlalchemy.and_(True, *conditions))
+    statement = select(func.count()).filter(sqlalchemy.and_(True, *conditions))
     tot_items = session.exec(statement).first()
 
     return items, tot_items
@@ -244,15 +251,12 @@ def add_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity:
         raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
 
 
-def update_item(
-    *, entity: type[Entity], session: Session, item_id: uuid.UUID, **kwargs
-) -> None:
+def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
     """Update an existing item in the database with new data.
 
     Args:
         entity: The SQLModel entity class to update.
         session: The SQLModel session for database access.
-        item_id: The UUID of the item to update.
         **kwargs: Pydantic/SQLModel model updated fields and additional keyword
             arguments to pass to the entity constructor.
 
@@ -262,26 +266,43 @@ def update_item(
         ConflictError: If a UNIQUE constraint is violated.
 
     """
+    if "item_id" in kwargs.keys():
+        kwargs["id"] = kwargs.pop("item_id")
+
+    conditions = []
+    for k, v in kwargs.items():
+        if isinstance(v, uuid.UUID):
+            conditions.append(entity.__table__.c.get(k) == v)
     try:
-        statement = update(entity).where(entity.id == item_id).values(**kwargs)
+        statement = (
+            update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
+        )
         result = session.exec(statement)
         if result.rowcount == 0:
             element_str = split_camel_case(entity.__name__)
-            raise NoItemToUpdateError(f"{element_str} with ID {item_id} does not exist")
+            message = f"{element_str} with given keys does not exist"
+            raise NoItemToUpdateError(message)
         session.commit()
     except sqlalchemy.exc.IntegrityError as e:
         raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
 
 
-def delete_item(*, entity: type[Entity], session: Session, item_id: uuid.UUID) -> None:
+def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
     """Delete an item by its ID from the database.
 
     Args:
         entity: The SQLModel entity class to delete from.
         session: The SQLModel session for database access.
-        item_id: The UUID of the item to delete.
+        **kwargs: Additional arguments used to filter entities.
 
     """
-    statement = delete(entity).where(entity.id == item_id)
+    if "item_id" in kwargs.keys():
+        kwargs["id"] = kwargs.pop("item_id")
+
+    conditions = []
+    for k, v in kwargs.items():
+        conditions.append(entity.__table__.c.get(k) == v)
+
+    statement = delete(entity).where(sqlalchemy.and_(True, *conditions))
     session.exec(statement)
     session.commit()

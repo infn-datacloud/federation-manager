@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 
-from fed_mgr.v1.models import IdentityProvider
 from fed_mgr.v1.identity_providers.crud import get_idp
+from fed_mgr.v1.models import IdentityProvider
 
 IdentityProviderDep = Annotated[IdentityProvider | None, Depends(get_idp)]
 

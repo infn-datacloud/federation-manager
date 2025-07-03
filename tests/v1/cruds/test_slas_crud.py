@@ -72,8 +72,7 @@ def test_add_sla(session):
     sla = MagicMock()
     created_by = MagicMock()
     created_by.id = uuid.uuid4()
-    parent_user_group = MagicMock()
-    parent_user_group.id = uuid.uuid4()
+    parent_user_group_id = uuid.uuid4()
     expected_item = MagicMock()
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.add_item",
@@ -83,7 +82,7 @@ def test_add_sla(session):
             session=session,
             sla=sla,
             created_by=created_by,
-            parent_user_group=parent_user_group,
+            user_group_id=parent_user_group_id,
         )
         assert result == expected_item
         mock_add_item.assert_called_once_with(
@@ -91,7 +90,7 @@ def test_add_sla(session):
             entity=SLA,
             created_by=created_by.id,
             updated_by=created_by.id,
-            user_group=parent_user_group.id,
+            user_group_id=parent_user_group_id,
             **sla.model_dump(),
         )
 

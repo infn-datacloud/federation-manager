@@ -83,7 +83,7 @@ def test_create_user_group_success(client, monkeypatch):
     class FakeUserGroup:
         id = fake_id
 
-    def fake_add_user_group(session, user_group, created_by, parent_idp):
+    def fake_add_user_group(session, user_group, created_by, idp_id):
         return FakeUserGroup()
 
     monkeypatch.setattr(
@@ -100,7 +100,7 @@ def test_create_user_group_conflict(client, monkeypatch):
     fake_idp_id = get_fake_idp_id()
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
-    def fake_add_user_group(session, user_group, created_by, parent_idp):
+    def fake_add_user_group(session, user_group, created_by, idp_id):
         raise ConflictError("User group already exists")
 
     monkeypatch.setattr(
@@ -117,7 +117,7 @@ def test_create_user_group_not_null_error(client, monkeypatch):
     fake_idp_id = get_fake_idp_id()
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
-    def fake_add_user_group(session, user_group, created_by, parent_idp):
+    def fake_add_user_group(session, user_group, created_by, idp_id):
         raise NotNullError("Field 'name' cannot be null")
 
     monkeypatch.setattr(

@@ -19,10 +19,7 @@ from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
-from fed_mgr.v1.identity_providers.user_groups.dependencies import (
-    UserGroupDep,
-    user_group_required,
-)
+from fed_mgr.v1.identity_providers.user_groups.dependencies import user_group_required
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
     add_sla,
     delete_sla,
@@ -95,7 +92,7 @@ def create_sla(
     session: SessionDep,
     sla: SLACreate,
     current_user: CurrenUserDep,
-    parent_user_group: UserGroupDep,
+    user_group_id: uuid.UUID,
 ) -> ItemID:
     """Create a new sla in the system.
 
@@ -105,13 +102,11 @@ def create_sla(
 
     Args:
         request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
         sla (SLACreate | None): The sla data to create.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
-        session (SessionDep): The database session dependency.
-        idp_id (uuid): The parent identity provider's ID.
-        parent_user_group (UserGroupDep): The parent identity provider associated with
-            the sla.
+        user_group_id (uuid): The parent user group associated with the sla.
 
     Returns:
         ItemID: A dictionary containing the ID of the created sla on
@@ -133,7 +128,7 @@ def create_sla(
             session=session,
             sla=sla,
             created_by=current_user,
-            parent_user_group=parent_user_group,
+            user_group_id=user_group_id,
         )
         request.state.logger.info("SLA created: %s", repr(db_sla))
         return {"id": db_sla.id}

@@ -13,7 +13,6 @@ from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderCreate
 from fed_mgr.v1.models import IdentityProvider, User
-from fed_mgr.v1.schemas import ItemID
 
 
 def get_idp(*, session: SessionDep, idp_id: uuid.UUID) -> IdentityProvider | None:
@@ -62,7 +61,7 @@ def get_idps(
 
 def add_idp(
     *, session: Session, idp: IdentityProviderCreate, created_by: User
-) -> ItemID:
+) -> IdentityProvider:
     """Add a new identity provider to the database.
 
     Args:
@@ -71,7 +70,7 @@ def add_idp(
         created_by: The User instance representing the creator of the identity provider.
 
     Returns:
-        ItemID: The identifier of the newly created identity provider.
+        IdentityProvider: The identifier of the newly created identity provider.
 
     """
     return add_item(

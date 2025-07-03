@@ -11,22 +11,31 @@ from sqlmodel import Session
 from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import User
-from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.schemas import UserCreate
 
+FAKE_USER_NAME = "fake_name"
+FAKE_USER_EMAIL = "fake@email.com"
+FAKE_USER_ISSUER = "fake_sub"
+FAKE_USER_SUBJECT = "http://fake.iss.it"
 
-def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:
+
+def get_user(
+    *, session: SessionDep, user_id: uuid.UUID | None = None, **kwargs
+) -> User | None:
     """Retrieve a user by their unique user_id from the database.
 
     Args:
-        user_id: The UUID of the user to retrieve.
         session: The database session dependency.
+        user_id: The UUID of the user to retrieve. If present, kwargs is ignored.
+        **kwargs: Additional parameters to filter the user research
 
     Returns:
         User instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=User, item_id=user_id)
+    if user_id is not None:
+        return get_item(session=session, entity=User, item_id=user_id)
+    return get_item(session=session, entity=User, **kwargs)
 
 
 def get_users(
@@ -53,7 +62,7 @@ def get_users(
     )
 
 
-def add_user(*, session: Session, user: UserCreate) -> ItemID:
+def add_user(*, session: Session, user: UserCreate) -> User:
     """Add a new user to the database.
 
     Args:
@@ -61,7 +70,7 @@ def add_user(*, session: Session, user: UserCreate) -> ItemID:
         user: The UserCreate model instance to add.
 
     Returns:
-        ItemID: The identifier of the newly created user.
+        User: The identifier of the newly created user.
 
     """
     return add_item(session=session, entity=User, **user.model_dump())
@@ -106,17 +115,15 @@ def create_fake_user(session: Session):
         the id of the fake user.
 
     """
-    users, count = get_users(
-        session=session, skip=0, limit=1, sort="-created_at", name="fake_name"
-    )
-    if count == 0:
+    user = get_user(session=session, name=FAKE_USER_NAME, issuer=FAKE_USER_ISSUER)
+    if user is None:
         add_user(
             session=session,
             user=UserCreate(
-                name="fake_name",
-                email="fake@email.com",
-                sub="fake_sub",
-                issuer="http://fake.iss.it",
+                name=FAKE_USER_NAME,
+                email=FAKE_USER_EMAIL,
+                sub=FAKE_USER_SUBJECT,
+                issuer=FAKE_USER_ISSUER,
             ),
         )
 
@@ -129,8 +136,6 @@ def delete_fake_user(session: Session) -> None:
         user_id: ID of the user to delete.
 
     """
-    users, count = get_users(
-        session=session, skip=0, limit=1, sort="-created_at", name="fake_name"
-    )
-    if count > 0:
-        delete_user(session=session, user_id=users[0].id)
+    user = get_user(session=session, name=FAKE_USER_NAME, issuer=FAKE_USER_ISSUER)
+    if user is not None:
+        delete_user(session=session, user_id=user.id)

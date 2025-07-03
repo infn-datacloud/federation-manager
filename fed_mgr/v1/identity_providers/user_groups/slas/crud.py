@@ -12,8 +12,7 @@ from sqlmodel import Session
 from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLACreate
-from fed_mgr.v1.models import SLA, User, UserGroup
-from fed_mgr.v1.schemas import ItemID
+from fed_mgr.v1.models import SLA, User
 
 
 def get_sla(*, session: SessionDep, sla_id: uuid.UUID) -> SLA | None:
@@ -65,18 +64,18 @@ def add_sla(
     session: Session,
     sla: SLACreate,
     created_by: User,
-    parent_user_group: UserGroup,
-) -> ItemID:
+    user_group_id: uuid.UUID,
+) -> SLA:
     """Add a new sla to the database.
 
     Args:
         session: The database session.
         sla: The SLACreate model instance to add.
         created_by: The User istance representing the creator of the SLA.
-        parent_user_group: The sla's parent user group.
+        user_group_id: The ID of the SLA's parent user group.
 
     Returns:
-        ItemID: The identifier of the newly created sla.
+        SLA: The identifier of the newly created sla.
 
     """
     return add_item(
@@ -84,7 +83,7 @@ def add_sla(
         entity=SLA,
         created_by=created_by.id,
         updated_by=created_by.id,
-        user_group=parent_user_group.id,
+        user_group_id=user_group_id,
         **sla.model_dump(),
     )
 

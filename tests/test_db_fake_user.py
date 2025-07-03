@@ -34,14 +34,14 @@ def test_delete_fake_user(monkeypatch):
     fake_id = uuid.uuid4()
     called = {}
 
-    def fake_get_users(session, **kwargs):
-        return [mock.Mock(id=fake_id)], 1
+    def fake_get_user(session, **kwargs):
+        return mock.Mock(id=fake_id)
 
     def fake_delete_user(session, user_id):
         called["session"] = session
         called["user_id"] = user_id
 
-    monkeypatch.setattr("fed_mgr.v1.users.crud.get_users", fake_get_users)
+    monkeypatch.setattr("fed_mgr.v1.users.crud.get_user", fake_get_user)
     monkeypatch.setattr("fed_mgr.v1.users.crud.delete_user", fake_delete_user)
     delete_fake_user(session)
     assert called["session"] is session

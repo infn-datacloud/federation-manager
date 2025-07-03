@@ -177,7 +177,8 @@ def retrieve_providers(
     new_providers = []
     for provider in providers:
         new_provider = ProviderRead(
-            **provider.model_dump(),
+            **provider.model_dump(),  # Does not return site_admins
+            site_admins=provider.site_admins,
             links={
                 "idps": urllib.parse.urljoin(
                     str(request.url), f"{provider.id}{IDPS_PREFIX}"
@@ -245,6 +246,7 @@ def retrieve_provider(
     )
     provider = ProviderRead(
         **provider.model_dump(),
+        site_admins=provider.site_admins,  # Does not return site_admins
         links={
             "idps": urllib.parse.urljoin(
                 str(request.url), f"{provider.id}{IDPS_PREFIX}"

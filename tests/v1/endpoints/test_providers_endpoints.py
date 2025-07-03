@@ -165,6 +165,7 @@ def test_get_provider_success(client):
         updated_by = fake_id
 
         def model_dump(self):
+            # Does not return site_admins which is a relationship
             return {
                 "id": self.id,
                 "description": self.description,
@@ -173,7 +174,6 @@ def test_get_provider_success(client):
                 "auth_endpoint": self.auth_endpoint,
                 "is_public": self.is_public,
                 "support_emails": self.support_emails,
-                "site_admins": self.site_admins,
                 "status": 0,
                 "created_at": self.created_at,
                 "created_by": self.created_by,

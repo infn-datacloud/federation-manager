@@ -14,7 +14,6 @@ from fed_mgr.exceptions import ProviderStateChangeError, UserNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
-from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.crud import get_user
 
 AVAILABLE_STATE_TRANSITIONS = {
@@ -85,7 +84,7 @@ def get_providers(
 
 def add_provider(
     *, session: Session, provider: ProviderCreate, created_by: User
-) -> ItemID:
+) -> Provider:
     """Add a new provider to the database.
 
     At first, verify that given site administrators exist.
@@ -96,7 +95,7 @@ def add_provider(
         created_by: The User instance representing the creator of the provider.
 
     Returns:
-        ItemID: The identifier of the newly created provider.
+        Provider: The identifier of the newly created provider.
 
     """
     site_admins = check_site_admins_exist(session=session, provider=provider)
@@ -132,15 +131,15 @@ def update_provider(
 
     """
     kwargs = {}
-    site_admins = check_site_admins_exist(session=session, provider=new_provider)
-    if len(site_admins) > 0:
+    if new_provider.site_admins is not None:
+        site_admins = check_site_admins_exist(session=session, provider=new_provider)
         kwargs = {"site_admins": site_admins}
     return update_item(
         session=session,
         entity=Provider,
         item_id=provider_id,
         updated_by=updated_by.id,
-        **new_provider.model_dump(exclude={"site_admins"}, esclude_none=True),
+        **new_provider.model_dump(exclude_none=True),
         **kwargs,
     )
 
