@@ -11,10 +11,15 @@ from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
+from fed_mgr.v1.locations.schemas import LocationBase
 from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionBase
 from fed_mgr.v1.providers.schemas import ProviderBase, ProviderInternal
 from fed_mgr.v1.schemas import Creation, CreationTime, Editable, ItemID
 from fed_mgr.v1.users.schemas import UserBase
+
+
+class Location(ItemID, Creation, Editable, LocationBase, table=True):
+    """Physical site hosting one or multiple resource providers."""
 
 
 class ProviderIdPConnection(Creation, Editable, ProviderIdPConnectionBase, table=True):

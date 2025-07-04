@@ -1,5 +1,6 @@
 """REST API v1 package initialization."""
 
+LOCATIONS_PREFIX = "/locations"
 USERS_PREFIX = "/users"
 IDPS_PREFIX = "/idps"
 USER_GROUPS_PREFIX = "/user-groups"
