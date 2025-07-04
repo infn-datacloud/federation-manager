@@ -164,7 +164,7 @@ def test_create_sla_success(client, monkeypatch):
     class FakeSLA:
         id = fake_id
 
-    def fake_add_sla(session, sla, created_by, user_group_id):
+    def fake_add_sla(session, sla, created_by, user_group):
         return FakeSLA()
 
     monkeypatch.setattr(
@@ -191,7 +191,7 @@ def test_create_sla_conflict(client, monkeypatch):
         "end_date": DUMMY_END_DATE,
     }
 
-    def fake_add_sla(session, sla, created_by, user_group_id):
+    def fake_add_sla(session, sla, created_by, user_group):
         raise ConflictError("User group already exists")
 
     monkeypatch.setattr(
@@ -218,7 +218,7 @@ def test_create_sla_not_null_error(client, monkeypatch):
         "end_date": DUMMY_END_DATE,
     }
 
-    def fake_add_sla(session, sla, created_by, user_group_id):
+    def fake_add_sla(session, sla, created_by, user_group):
         raise NotNullError("Field 'name' cannot be null")
 
     monkeypatch.setattr(

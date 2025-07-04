@@ -17,7 +17,7 @@ from fed_mgr.v1.crud import (
     get_items,
     update_item,
 )
-from fed_mgr.v1.models import ProviderIdPConnection, User
+from fed_mgr.v1.models import IdentityProvider, Provider, ProviderIdPConnection, User
 from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionCreate
 
 
@@ -80,15 +80,15 @@ def connect_prov_idp(
     session: Session,
     overrides: ProviderIdPConnectionCreate,
     created_by: User,
-    idp_id: uuid.UUID,
-    provider_id: uuid.UUID,
+    idp: IdentityProvider,
+    provider: Provider,
 ) -> ProviderIdPConnection:
     """Connect an existing resource provider to an existing identity provider.
 
     Args:
         session: The database session.
-        idp_id: The target Identity Provider's ID to link.
-        provider_id: The target Resource Provider' ID to link.
+        idp: The target Identity Provider's ID to link.
+        provider: The target Resource Provider' ID to link.
         overrides: The IdP attributes to override for this specific connection.
         created_by: The User instance representing the creator of the identity provider.
 
@@ -99,8 +99,8 @@ def connect_prov_idp(
     return add_item(
         session=session,
         entity=ProviderIdPConnection,
-        provider_id=provider_id,
-        idp_id=idp_id,
+        provider=provider,
+        idp=idp,
         created_by=created_by.id,
         updated_by=created_by.id,
         **overrides.model_dump(),

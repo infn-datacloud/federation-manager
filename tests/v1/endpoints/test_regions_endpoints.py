@@ -111,7 +111,7 @@ def test_create_region_success(client, monkeypatch):
     }
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.add_region",
-        lambda session, region, created_by: fake_add_region(fake_id),
+        lambda session, region, created_by, provider: fake_add_region(fake_id),
     )
     resp = client.post(
         f"/api/v1/providers/{fake_provider_id}/regions/", json=region_data
@@ -129,7 +129,7 @@ def test_create_region_conflict(client, monkeypatch):
         "location_id": DUMMY_LOCATION_ID,
     }
 
-    def fake_add_region(session, region, created_by):
+    def fake_add_region(session, region, created_by, provider):
         raise ConflictError("Region already exists")
 
     monkeypatch.setattr(
@@ -151,7 +151,7 @@ def test_create_region_not_null_error(client, monkeypatch):
         "location_id": DUMMY_LOCATION_ID,
     }
 
-    def fake_add_region(session, region, created_by):
+    def fake_add_region(session, region, created_by, provider):
         raise NotNullError("Field 'name' cannot be null")
 
     monkeypatch.setattr(
@@ -173,7 +173,7 @@ def test_create_region_location_not_found(client, monkeypatch):
         "location_id": DUMMY_LOCATION_ID,
     }
 
-    def fake_add_region(session, region, created_by):
+    def fake_add_region(session, region, created_by, provider):
         raise LocationNotFoundError("Location not found")
 
     monkeypatch.setattr(

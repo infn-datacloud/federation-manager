@@ -136,7 +136,7 @@ def test_create_rel_success(client, monkeypatch):
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.identity_providers.endpoints.connect_prov_idp",
-        lambda session, idp_id, provider_id, overrides, created_by: None,
+        lambda session, idp, provider, overrides, created_by: None,
     )
 
     resp = client.post(
@@ -157,7 +157,7 @@ def test_create_rel_conflict(client, monkeypatch):
         "audience": DUMMY_AUD,
     }
 
-    def fake_add_idp(session, idp_id, provider_id, overrides, created_by):
+    def fake_add_idp(session, idp, provider, overrides, created_by):
         raise ConflictError("Provider IDP Connection already exists")
 
     monkeypatch.setattr(
@@ -183,7 +183,7 @@ def test_create_rel_not_null_error(client, monkeypatch):
         "audience": DUMMY_AUD,
     }
 
-    def fake_add_idp(session, idp_id, provider_id, overrides, created_by):
+    def fake_add_idp(session, idp, provider, overrides, created_by):
         raise NotNullError("Field 'name' cannot be null")
 
     monkeypatch.setattr(

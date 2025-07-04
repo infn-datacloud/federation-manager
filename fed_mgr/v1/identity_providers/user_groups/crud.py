@@ -12,7 +12,7 @@ from sqlmodel import Session
 from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupCreate
-from fed_mgr.v1.models import User, UserGroup
+from fed_mgr.v1.models import IdentityProvider, User, UserGroup
 
 
 def get_user_group(
@@ -66,7 +66,7 @@ def add_user_group(
     session: Session,
     user_group: UserGroupCreate,
     created_by: User,
-    idp_id: uuid.UUID,
+    idp: IdentityProvider,
 ) -> UserGroup:
     """Add a new user group to the database.
 
@@ -74,7 +74,7 @@ def add_user_group(
         session: The database session.
         user_group: The UserGroupCreate model instance to add.
         created_by: The User istance representing the creator of the identity provider.
-        idp_id: The ID of the user group's parent identity provider.
+        idp: The user group's parent identity provider.
 
     Returns:
         UserGroup: The identifier of the newly created user group.
@@ -85,7 +85,7 @@ def add_user_group(
         entity=UserGroup,
         created_by=created_by.id,
         updated_by=created_by.id,
-        idp_id=idp_id,
+        idp=idp,
         **user_group.model_dump(),
     )
 

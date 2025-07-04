@@ -80,8 +80,8 @@ def test_get_idps(session):
 def test_add_idp_calls_add_item(session):
     """Test connect_prov_idp calls add_item with correct arguments."""
     overrides = MagicMock()
-    idp_id = uuid.uuid4()
-    provider_id = uuid.uuid4()
+    idp = MagicMock()
+    provider = MagicMock()
     created_by = MagicMock()
     created_by.id = uuid.uuid4()
     expected_item = MagicMock()
@@ -92,16 +92,16 @@ def test_add_idp_calls_add_item(session):
         result = connect_prov_idp(
             session=session,
             overrides=overrides,
-            idp_id=idp_id,
-            provider_id=provider_id,
+            idp=idp,
+            provider=provider,
             created_by=created_by,
         )
         assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=ProviderIdPConnection,
-            idp_id=idp_id,
-            provider_id=provider_id,
+            idp=idp,
+            provider=provider,
             created_by=created_by.id,
             updated_by=created_by.id,
             **overrides.model_dump(),

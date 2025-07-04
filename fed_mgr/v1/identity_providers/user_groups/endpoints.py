@@ -18,7 +18,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import idp_required
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
 from fed_mgr.v1.identity_providers.user_groups.crud import (
     add_user_group,
     delete_user_group,
@@ -85,7 +85,7 @@ def create_user_group(
     session: SessionDep,
     user_group: UserGroupCreate,
     current_user: CurrenUserDep,
-    idp_id: uuid.UUID,
+    idp: IdentityProviderDep,
 ) -> ItemID:
     """Create a new user group in the system.
 
@@ -99,7 +99,7 @@ def create_user_group(
         user_group (UserGroupCreate | None): The user group data to create.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
-        idp_id (uuid): The parent identity provider's ID.
+        idp (IdentityProvider): The parent identity provider's ID.
 
     Returns:
         ItemID: A dictionary containing the ID of the created user group on
@@ -118,10 +118,7 @@ def create_user_group(
     )
     try:
         db_user_group = add_user_group(
-            session=session,
-            user_group=user_group,
-            created_by=current_user,
-            idp_id=idp_id,
+            session=session, user_group=user_group, created_by=current_user, idp=idp
         )
         request.state.logger.info("User Group created: %s", repr(db_user_group))
         return {"id": db_user_group.id}

@@ -13,7 +13,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import LocationNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.locations.crud import get_location
-from fed_mgr.v1.models import Region, User
+from fed_mgr.v1.models import Provider, Region, User
 from fed_mgr.v1.providers.regions.schemas import RegionCreate
 
 
@@ -60,13 +60,16 @@ def get_regions(
     )
 
 
-def add_region(*, session: Session, region: RegionCreate, created_by: User) -> Region:
+def add_region(
+    *, session: Session, region: RegionCreate, created_by: User, provider: Provider
+) -> Region:
     """Add a new region to the database.
 
     Args:
         session: The database session.
         region: The RegionCreate model instance to add.
         created_by: The User instance representing the creator of the region.
+        provider: The region's parent provider.
 
     Returns:
         Region: The identifier of the newly created region.
@@ -78,6 +81,7 @@ def add_region(*, session: Session, region: RegionCreate, created_by: User) -> R
         entity=Region,
         created_by=created_by.id,
         updated_by=created_by.id,
+        provider=provider,
         location=location,
         **region.model_dump(),
     )

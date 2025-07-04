@@ -18,8 +18,8 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import idp_required
-from fed_mgr.v1.providers.dependencies import provider_required
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
+from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
 from fed_mgr.v1.providers.identity_providers.crud import (
     connect_prov_idp,
     disconnect_prov_idp,
@@ -81,8 +81,8 @@ def create_prov_idp_connection(
     session: SessionDep,
     current_user: CurrenUserDep,
     overrides: ProviderIdPConnectionCreate,
-    provider_id: uuid.UUID,
-    idp_id: uuid.UUID,
+    provider: ProviderDep,
+    idp: IdentityProviderDep,
 ) -> None:
     """Create a new identity provider in the system.
 
@@ -96,8 +96,8 @@ def create_prov_idp_connection(
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
         overrides (ProviderIdPConnectionCreate): Values overriding the IdP default ones.
-        provider_id (uuid): The ID of the resource provider instance to connect.
-        idp_id (uuid): The ID of the identity provider instance to connect.
+        provider (Provider): The resource provider instance to connect.
+        idp (IdentityProvider): The identity provider instance to connect.
 
     Returns:
         ItemID: A dictionary containing the ID of the created identity provider on
@@ -117,15 +117,15 @@ def create_prov_idp_connection(
         )
         rel = connect_prov_idp(
             session=session,
-            idp_id=idp_id,
-            provider_id=provider_id,
+            idp=idp,
+            provider=provider,
             overrides=overrides,
             created_by=current_user,
         )
         request.state.logger.info(
             "Provider '%s' connected to Identity Provider '%s' with params: %s",
-            provider_id,
-            idp_id,
+            provider.id,
+            idp.id,
             repr(rel),
         )
         return None

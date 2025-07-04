@@ -23,7 +23,7 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import LOCATIONS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
-from fed_mgr.v1.providers.dependencies import provider_required
+from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
 from fed_mgr.v1.providers.regions.crud import (
     add_region,
     delete_region,
@@ -84,6 +84,7 @@ def create_region(
     session: SessionDep,
     region: RegionCreate,
     current_user: CurrenUserDep,
+    provider: ProviderDep,
 ) -> ItemID:
     """Create a new resource region in the system.
 
@@ -97,6 +98,7 @@ def create_region(
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
         session (SessionDep): The database session dependency.
+        provider (Provider): The region's parent provider.
 
     Returns:
         ItemID: A dictionary containing the ID of the created resource region on
@@ -112,7 +114,9 @@ def create_region(
         request.state.logger.info(
             "Creating region with params: %s", region.model_dump(exclude_none=True)
         )
-        db_region = add_region(session=session, region=region, created_by=current_user)
+        db_region = add_region(
+            session=session, region=region, created_by=current_user, provider=provider
+        )
         request.state.logger.info("Region created: %s", repr(db_region))
         return {"id": db_region.id}
     except ConflictError as e:

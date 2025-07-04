@@ -81,6 +81,7 @@ def test_add_region_success(session):
     created_by = MagicMock()
     created_by.id = uuid.uuid4()
     location = MagicMock()
+    provider = MagicMock()
     region.model_dump.return_value = {"foo": "bar"}
     with (
         patch(
@@ -92,7 +93,9 @@ def test_add_region_success(session):
             return_value=location,
         ) as mock_add_item,
     ):
-        result = add_region(session=session, region=region, created_by=created_by)
+        result = add_region(
+            session=session, region=region, created_by=created_by, provider=provider
+        )
         assert result == location
         mock_check_loc.assert_called_once_with(session=session, region=region)
         mock_add_item.assert_called_once_with(
@@ -101,6 +104,7 @@ def test_add_region_success(session):
             created_by=created_by.id,
             updated_by=created_by.id,
             location=location,
+            provider=provider,
             **region.model_dump(),
         )
 
@@ -109,12 +113,15 @@ def test_add_region_location_not_found(session):
     """Test add_region raises LocationNotFoundError if location does not exist."""
     region = MagicMock(spec=RegionCreate)
     created_by = MagicMock()
+    provider = MagicMock()
     with patch(
         "fed_mgr.v1.providers.regions.crud.check_location_exist",
         side_effect=LocationNotFoundError("not found"),
     ):
         with pytest.raises(LocationNotFoundError) as exc:
-            add_region(session=session, region=region, created_by=created_by)
+            add_region(
+                session=session, region=region, created_by=created_by, provider=provider
+            )
         assert "not found" in str(exc.value)
 
 

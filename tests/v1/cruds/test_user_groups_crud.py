@@ -70,7 +70,7 @@ def test_add_user_group(session):
     user_group = MagicMock()
     created_by = MagicMock()
     created_by.id = uuid.uuid4()
-    parent_idp_id = uuid.uuid4()
+    parent_idp = MagicMock()
     expected_item = MagicMock()
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.crud.add_item",
@@ -80,7 +80,7 @@ def test_add_user_group(session):
             session=session,
             user_group=user_group,
             created_by=created_by,
-            idp_id=parent_idp_id,
+            idp=parent_idp,
         )
         assert result == expected_item
         mock_add_item.assert_called_once_with(
@@ -88,7 +88,7 @@ def test_add_user_group(session):
             entity=UserGroup,
             created_by=created_by.id,
             updated_by=created_by.id,
-            idp_id=parent_idp_id,
+            idp=parent_idp,
             **user_group.model_dump(),
         )
 
