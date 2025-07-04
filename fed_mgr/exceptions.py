@@ -44,3 +44,12 @@ class UserNotFoundError(Exception):
         """Initialize UserNotFoundError with a specific error message."""
         self.message = message
         super().__init__(self.message)
+
+
+class LocationNotFoundError(Exception):
+    """Exception raised when the target ID does not match a location in the DB."""
+
+    def __init__(self, message):
+        """Initialize LocationNotFoundError with a specific error message."""
+        self.message = message
+        super().__init__(self.message)
