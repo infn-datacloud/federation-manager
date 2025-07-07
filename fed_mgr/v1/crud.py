@@ -266,9 +266,6 @@ def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         ConflictError: If a UNIQUE constraint is violated.
 
     """
-    if "item_id" in kwargs.keys():
-        kwargs["id"] = kwargs.pop("item_id")
-
     conditions = []
     for k, v in kwargs.items():
         if isinstance(v, uuid.UUID):

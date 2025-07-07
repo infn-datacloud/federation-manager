@@ -11,6 +11,7 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from fed_mgr.v1.locations.schemas import (
     LocationBase,
@@ -21,29 +22,32 @@ from fed_mgr.v1.locations.schemas import (
 )
 from fed_mgr.v1.models import Location
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 
 def test_location_model():
     """Test Location model fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
     location = Location(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="Test Location",
         country="IT",
         lat=45.0,
@@ -51,9 +55,14 @@ def test_location_model():
         description="A test location.",
     )
     assert isinstance(location, ItemID)
-    assert isinstance(location, Creation)
-    assert isinstance(location, Editable)
+    assert isinstance(location, CreationTime)
+    assert isinstance(location, UpdateTime)
     assert isinstance(location, LocationBase)
+    assert location.id == id_
+    assert location.created_at == now
+    assert location.created_by == creator
+    assert location.updated_at == now
+    assert location.updated_by == creator
     assert location.name == "Test Location"
     assert location.country == "IT"
     assert location.lat == 45.0
@@ -87,15 +96,19 @@ def test_location_create_inheritance():
 
 
 def test_location_read_inheritance():
-    """Test LocationRead inherits from ItemID, Creation, Editable, LocationBase."""
+    """Test LocationRead inheritance.
+
+    Inherits from ItemID, CreationRead, EditableRead, LocationBase.
+    """
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     loc = LocationRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="ReadLoc",
         country="DE",
         lat=52.5,
@@ -103,8 +116,8 @@ def test_location_read_inheritance():
         description="Berlin",
     )
     assert isinstance(loc, ItemID)
-    assert isinstance(loc, Creation)
-    assert isinstance(loc, Editable)
+    assert isinstance(loc, CreationRead)
+    assert isinstance(loc, EditableRead)
     assert isinstance(loc, LocationBase)
     assert loc.id == id_
     assert loc.created_at == now
@@ -118,14 +131,15 @@ def test_location_read_inheritance():
 
 def test_location_list_structure():
     """Test LocationList data field contains list of LocationRead."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     loc_read = LocationRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="ListLoc",
         country="ES",
         lat=40.4,

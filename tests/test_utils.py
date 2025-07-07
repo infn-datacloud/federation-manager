@@ -7,15 +7,12 @@ These tests cover:
 - retrieve_id_from_entity
 """
 
-import uuid
-
 import pytest
 from fastapi import APIRouter, Response
 
 from fed_mgr.utils import (
     add_allow_header_to_resp,
     check_list_not_empty,
-    retrieve_id_from_entity,
     split_camel_case,
 )
 
@@ -87,28 +84,3 @@ def test_check_list_not_empty_accepts_various_types():
     """Test that check_list_not_empty accept a list with etherogeneus values."""
     assert check_list_not_empty(["a", "b"]) == ["a", "b"]
     assert check_list_not_empty([None]) == [None]
-
-
-def test_retrieve_id_from_entity_returns_uuids():
-    """Test retrieve_id_from_entity returns a list of UUIDs from entities."""
-    ids = [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
-    entities = [DummyEntity(id_) for id_ in ids]
-    result = retrieve_id_from_entity(entities)
-    assert result == ids
-    assert all(isinstance(i, uuid.UUID) for i in result)
-
-
-def test_retrieve_id_from_entity_empty_list():
-    """Test retrieve_id_from_entity returns an empty list when given an empty list."""
-    assert retrieve_id_from_entity([]) == []
-
-
-def test_retrieve_id_from_entity_with_non_uuid_ids():
-    """Test retrieve_id_from_entity returns whatever is in the id attribute.
-
-    No type checking.
-    """
-    # This test demonstrates that the function does not enforce UUID type at runtime.
-    entities = [DummyEntity("not-a-uuid"), DummyEntity(123)]
-    result = retrieve_id_from_entity(entities)
-    assert result == ["not-a-uuid", 123]

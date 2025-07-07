@@ -101,8 +101,8 @@ def connect_prov_idp(
         entity=ProviderIdPConnection,
         provider=provider,
         idp=idp,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         **overrides.model_dump(),
     )
 
@@ -132,7 +132,7 @@ def update_prov_idp_link(
         entity=ProviderIdPConnection,
         idp_id=idp_id,
         provider_id=provider_id,
-        updated_by=updated_by.id,
+        updated_by=updated_by,
         **new_overrides.model_dump(),
     )
 

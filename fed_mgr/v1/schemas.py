@@ -214,7 +214,7 @@ class CreatorQuery(SQLModel):
     ]
 
 
-class Creation(CreationTime, Creator):
+class CreationRead(CreationTime, Creator):
     """Schema for reading creation time and creator's user ID."""
 
 
@@ -263,8 +263,7 @@ class Editor(SQLModel):
     """Schema for tracking the user who last edit an entity."""
 
     updated_by: Annotated[
-        uuid.UUID,
-        Field(description="User who last updated this item.", foreign_key="user.id"),
+        uuid.UUID, Field(description="User who last updated this item.")
     ]
 
 
@@ -277,7 +276,7 @@ class EditorQuery(SQLModel):
     ]
 
 
-class Editable(UpdateTime, Editor):
+class EditableRead(UpdateTime, Editor):
     """Schema for reading update time and editor's user ID."""
 
 

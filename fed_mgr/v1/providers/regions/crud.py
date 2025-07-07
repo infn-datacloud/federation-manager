@@ -28,7 +28,7 @@ def get_region(*, session: SessionDep, region_id: uuid.UUID) -> Region | None:
         Region instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=Region, item_id=region_id)
+    return get_item(session=session, entity=Region, id=region_id)
 
 
 def get_regions(
@@ -79,8 +79,8 @@ def add_region(
     return add_item(
         session=session,
         entity=Region,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         provider=provider,
         location=location,
         **region.model_dump(),
@@ -112,8 +112,8 @@ def update_region(
     return update_item(
         session=session,
         entity=Region,
-        item_id=region_id,
-        updated_by=updated_by.id,
+        id=region_id,
+        updated_by=updated_by,
         location=location,
         **new_region.model_dump(exclude_none=True),
     )
@@ -130,7 +130,7 @@ def delete_region(*, session: Session, region_id: uuid.UUID) -> None:
         None
 
     """
-    delete_item(session=session, entity=Region, item_id=region_id)
+    delete_item(session=session, entity=Region, id=region_id)
 
 
 def check_location_exist(session: Session, region: RegionCreate) -> list[User]:

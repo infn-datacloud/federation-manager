@@ -46,7 +46,7 @@ def test_get_provider_found(session):
         result = get_provider(session=session, provider_id=provider_id)
         assert result == expected_provider
         mock_get_item.assert_called_once_with(
-            session=session, entity=Provider, item_id=provider_id
+            session=session, entity=Provider, id=provider_id
         )
 
 
@@ -60,7 +60,7 @@ def test_get_provider_not_found(session):
         result = get_provider(session=session, provider_id=provider_id)
         assert result is None
         mock_get_item.assert_called_once_with(
-            session=session, entity=Provider, item_id=provider_id
+            session=session, entity=Provider, id=provider_id
         )
 
 
@@ -85,7 +85,6 @@ def test_add_provider_calls_add_item(mock_get_user, mock_add_item, session):
     """Test add_provider calls add_item with correct arguments."""
     provider = MagicMock()
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     provider.site_admins = [created_by]
     expected_item = MagicMock()
     mock_add_item.return_value = expected_item
@@ -96,8 +95,8 @@ def test_add_provider_calls_add_item(mock_get_user, mock_add_item, session):
     mock_add_item.assert_called_once_with(
         session=session,
         entity=Provider,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         site_admins=[created_by],
         **provider.model_dump(),
     )
@@ -108,7 +107,6 @@ def test_add_provider_user_not_found(mock_check_admins, session):
     """Test add_provider raises UserNotFoundError if site admin not found."""
     provider = MagicMock()
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     mock_check_admins.side_effect = UserNotFoundError("user not found")
     with pytest.raises(UserNotFoundError) as exc:
         add_provider(
@@ -126,7 +124,6 @@ def test_update_provider_calls_update_item(mock_get_user, mock_update_item, sess
     provider_id = uuid.uuid4()
     new_provider = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     site_admin = MagicMock()
     new_provider.site_admins = [site_admin]
     mock_get_user.return_value = site_admin
@@ -140,8 +137,8 @@ def test_update_provider_calls_update_item(mock_get_user, mock_update_item, sess
     mock_update_item.assert_called_once_with(
         session=session,
         entity=Provider,
-        item_id=provider_id,
-        updated_by=updated_by.id,
+        id=provider_id,
+        updated_by=updated_by,
         site_admins=[site_admin],
         **new_provider.model_dump(exclude={"site_admins"}, exclude_none=True),
     )
@@ -153,7 +150,6 @@ def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, s
     provider_id = uuid.uuid4()
     new_provider = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     new_provider.site_admins = None
     update_provider(
         session=session,
@@ -164,8 +160,8 @@ def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, s
     mock_update_item.assert_called_once_with(
         session=session,
         entity=Provider,
-        item_id=provider_id,
-        updated_by=updated_by.id,
+        id=provider_id,
+        updated_by=updated_by,
         **new_provider.model_dump(exclude_none=True),
     )
 
@@ -176,7 +172,6 @@ def test_update_provider_user_not_found(mock_check_admins, session):
     provider_id = uuid.uuid4()
     new_provider = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     mock_check_admins.side_effect = UserNotFoundError("user not found")
     with pytest.raises(UserNotFoundError) as exc:
         update_provider(
@@ -194,7 +189,7 @@ def test_delete_provider_calls_delete_item(session):
     with patch("fed_mgr.v1.providers.crud.delete_item") as mock_delete_item:
         delete_provider(session=session, provider_id=provider_id)
         mock_delete_item.assert_called_once_with(
-            session=session, entity=Provider, item_id=provider_id
+            session=session, entity=Provider, id=provider_id
         )
 
 
@@ -281,7 +276,6 @@ def test_change_provider_state_valid_transition(session, current_status, next_st
     db_provider.status = current_status
     provider_id = uuid.uuid4()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     with (
         patch(
             "fed_mgr.v1.providers.crud.get_item", return_value=db_provider
@@ -295,13 +289,13 @@ def test_change_provider_state_valid_transition(session, current_status, next_st
             updated_by=updated_by,
         )
         get_item_mock.assert_called_once_with(
-            session=session, entity=Provider, item_id=provider_id
+            session=session, entity=Provider, id=provider_id
         )
         update_item_mock.assert_called_once_with(
             session=session,
             entity=Provider,
-            item_id=provider_id,
-            updated_by=updated_by.id,
+            id=provider_id,
+            updated_by=updated_by,
             status=next_status,
         )
 
@@ -316,7 +310,6 @@ def test_change_provider_state_same_state_no_update(
     db_provider.status = ProviderStatus.active
     provider_id = uuid.uuid4()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     get_item_mock.return_value = db_provider
     change_provider_state(
         session=session,
@@ -328,8 +321,8 @@ def test_change_provider_state_same_state_no_update(
     update_item_mock.assert_called_once_with(
         session=session,
         entity=Provider,
-        item_id=provider_id,
-        updated_by=updated_by.id,
+        id=provider_id,
+        updated_by=updated_by,
         status=ProviderStatus.active,
     )
 
@@ -351,7 +344,6 @@ def test_change_provider_state_invalid_transition_raises(
     db_provider.status = current_status
     provider_id = uuid.uuid4()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     with patch("fed_mgr.v1.providers.crud.get_item", return_value=db_provider):
         with pytest.raises(ProviderStateChangeError) as exc:
             change_provider_state(

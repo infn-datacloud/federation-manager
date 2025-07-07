@@ -1,7 +1,7 @@
 """Unit tests for fed_mgr.v1.schemas (common pydantic/sqlmodel schemas).
 
 Covers:
-- test_item_id_default
+- test_id_default
 - test_item_description_default
 - test_sort_query_defaults
 - test_pagination_query_defaults
@@ -31,14 +31,14 @@ from datetime import datetime
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     CreationTime,
     Creator,
     CreatorQuery,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     Editor,
     EditorQuery,
     ErrorMessage,
@@ -54,7 +54,7 @@ from fed_mgr.v1.schemas import (
 )
 
 
-def test_item_id_default():
+def test_id_default():
     """Generate ItemID with a valid UUID by default."""
     item = ItemID()
     assert isinstance(item.id, uuid.UUID)
@@ -201,10 +201,10 @@ def test_creator_query_fields():
 
 
 def test_creation_inheritance():
-    """Test Creation schema inherits from Creator and CreationTime."""
+    """Test CreationRead schema inherits from Creator and CreationTime."""
     user_id = uuid.uuid4()
     now = datetime.now()
-    creation = Creation(created_by=user_id, created_at=now)
+    creation = CreationRead(created_by=user_id, created_at=now)
     assert creation.created_by == user_id
     assert creation.created_at == now
 
@@ -259,10 +259,10 @@ def test_editor_query_fields():
 
 
 def test_editable_inheritance():
-    """Test Editable schema inherits from Editor and UpdateTime."""
+    """Test EditableRead schema inherits from Editor and UpdateTime."""
     user_id = uuid.uuid4()
     now = datetime.now()
-    editable = Editable(updated_by=user_id, updated_at=now)
+    editable = EditableRead(updated_by=user_id, updated_at=now)
     assert editable.updated_by == user_id
     assert editable.updated_at == now
 

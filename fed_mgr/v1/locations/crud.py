@@ -26,7 +26,7 @@ def get_location(*, session: SessionDep, location_id: uuid.UUID) -> Location | N
         Location instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=Location, item_id=location_id)
+    return get_item(session=session, entity=Location, id=location_id)
 
 
 def get_locations(
@@ -75,8 +75,8 @@ def add_location(
     return add_item(
         session=session,
         entity=Location,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         **location.model_dump(),
     )
 
@@ -102,8 +102,8 @@ def update_location(
     return update_item(
         session=session,
         entity=Location,
-        item_id=location_id,
-        updated_by=updated_by.id,
+        id=location_id,
+        updated_by=updated_by,
         **new_location.model_dump(),
     )
 
@@ -116,4 +116,4 @@ def delete_location(*, session: Session, location_id: uuid.UUID) -> None:
         location_id: The UUID of the location to delete.
 
     """
-    delete_item(session=session, entity=Location, item_id=location_id)
+    delete_item(session=session, entity=Location, id=location_id)

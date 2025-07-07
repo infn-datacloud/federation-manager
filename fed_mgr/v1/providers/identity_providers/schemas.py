@@ -8,11 +8,11 @@ from pydantic import AnyHttpUrl
 from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     PaginatedList,
     PaginationQuery,
     SortQuery,
@@ -73,7 +73,7 @@ class ProviderIdPConnectionLinks(SQLModel):
     ]
 
 
-class ProviderIdPConnectionRead(Creation, Editable, ProviderIdPConnectionBase):
+class ProviderIdPConnectionRead(CreationRead, EditableRead, ProviderIdPConnectionBase):
     """Schema used to read an Identity Provider."""
 
     provider_id: Annotated[uuid.UUID, Field(description="Resource provider ID")]

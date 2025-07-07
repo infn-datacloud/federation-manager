@@ -7,11 +7,11 @@ from pydantic import AnyHttpUrl
 from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -41,7 +41,7 @@ class UserGroupLinks(SQLModel):
     ]
 
 
-class UserGroupRead(ItemID, Creation, Editable, UserGroupBase):
+class UserGroupRead(ItemID, CreationRead, EditableRead, UserGroupBase):
     """Schema used to read an Identity Provider."""
 
     links: Annotated[

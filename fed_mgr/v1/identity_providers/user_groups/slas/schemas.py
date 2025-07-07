@@ -9,11 +9,11 @@ from sqlmodel import TIMESTAMP, AutoString, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -65,7 +65,7 @@ class SLALinks(SQLModel):
     ]
 
 
-class SLARead(ItemID, Creation, Editable, SLABase):
+class SLARead(ItemID, CreationRead, EditableRead, SLABase):
     """Schema used to read an Identity Provider."""
 
     links: Annotated[

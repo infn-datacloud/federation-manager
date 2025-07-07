@@ -32,7 +32,7 @@ def test_get_user_group_found(session):
         result = get_user_group(session=session, user_group_id=user_group_id)
         assert result == expected_user_group
         mock_get_item.assert_called_once_with(
-            session=session, entity=UserGroup, item_id=user_group_id
+            session=session, entity=UserGroup, id=user_group_id
         )
 
 
@@ -46,7 +46,7 @@ def test_get_user_group_not_found(session):
         result = get_user_group(session=session, user_group_id=user_group_id)
         assert result is None
         mock_get_item.assert_called_once_with(
-            session=session, entity=UserGroup, item_id=user_group_id
+            session=session, entity=UserGroup, id=user_group_id
         )
 
 
@@ -69,7 +69,6 @@ def test_add_user_group(session):
     """Test add_user_group calls add_item with correct arguments."""
     user_group = MagicMock()
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     parent_idp = MagicMock()
     expected_item = MagicMock()
     with patch(
@@ -86,8 +85,8 @@ def test_add_user_group(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
-            created_by=created_by.id,
-            updated_by=created_by.id,
+            created_by=created_by,
+            updated_by=created_by,
             idp=parent_idp,
             **user_group.model_dump(),
         )
@@ -98,7 +97,6 @@ def test_update_user_group(session):
     user_group_id = uuid.uuid4()
     new_user_group = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.crud.update_item"
     ) as mock_update_item:
@@ -111,8 +109,8 @@ def test_update_user_group(session):
         mock_update_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
-            item_id=user_group_id,
-            updated_by=updated_by.id,
+            id=user_group_id,
+            updated_by=updated_by,
             **new_user_group.model_dump(),
         )
 
@@ -125,5 +123,5 @@ def test_delete_user_group_calls_delete_item(session):
     ) as mock_delete_item:
         delete_user_group(session=session, user_group_id=user_group_id)
         mock_delete_item.assert_called_once_with(
-            session=session, entity=UserGroup, item_id=user_group_id
+            session=session, entity=UserGroup, id=user_group_id
         )

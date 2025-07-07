@@ -8,11 +8,11 @@ from pydantic import AnyHttpUrl
 from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -54,7 +54,7 @@ class RegionLinks(SQLModel):
     ]
 
 
-class RegionRead(ItemID, Creation, Editable, RegionBase):
+class RegionRead(ItemID, CreationRead, EditableRead, RegionBase):
     """Schema used to read an Region."""
 
     links: Annotated[

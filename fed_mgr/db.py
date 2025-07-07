@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy import Engine
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from fed_mgr.config import get_settings
 
@@ -29,6 +29,9 @@ def create_db_and_tables(logger: Logger) -> Engine:
     """
     logger.info("Connecting to database and generating tables")
     SQLModel.metadata.create_all(engine)
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as connection:
+            connection.execute(text("PRAGMA foreign_keys=ON"))
     return engine
 
 

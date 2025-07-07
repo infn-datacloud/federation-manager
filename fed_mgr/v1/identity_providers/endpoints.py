@@ -156,7 +156,9 @@ def retrieve_idps(
     new_idps = []
     for idp in idps:
         new_idp = IdentityProviderRead(
-            **idp.model_dump(),
+            **idp.model_dump(),  # Does not return created_by and updated_by
+            created_by=idp.created_by_id,
+            updated_by=idp.created_by_id,
             links={
                 "user_groups": urllib.parse.urljoin(
                     str(request.url), f"{idp.id}{USER_GROUPS_PREFIX}"
@@ -214,7 +216,9 @@ def retrieve_idp(
         "Identity Provider with ID '%s' found: %s", str(idp_id), repr(idp)
     )
     idp = IdentityProviderRead(
-        **idp.model_dump(),
+        **idp.model_dump(),  # Does not return created_by and updated_by
+        created_by=idp.created_by_id,
+        updated_by=idp.created_by_id,
         links={
             "user_groups": urllib.parse.urljoin(
                 str(request.url), f"{idp_id}{USER_GROUPS_PREFIX}"

@@ -182,7 +182,9 @@ def retrieve_user_groups(
     new_user_groups = []
     for user_group in user_groups:
         new_user_group = UserGroupRead(
-            **user_group.model_dump(),
+            **user_group.model_dump(),  # Does not return created_by and updated_by
+            created_by=user_group.created_by_id,
+            updated_by=user_group.created_by_id,
             links={
                 "slas": urllib.parse.urljoin(
                     str(request.url), f"{user_group.id}{SLAS_PREFIX}"
@@ -239,7 +241,9 @@ def retrieve_user_group(
         "User Group with ID '%s' found: %s", str(user_group_id), repr(user_group)
     )
     user_group = UserGroupRead(
-        **user_group.model_dump(),
+        **user_group.model_dump(),  # Does not return created_by and updated_by
+        created_by=user_group.created_by_id,
+        updated_by=user_group.created_by_id,
         links={
             "slas": urllib.parse.urljoin(
                 str(request.url), f"{user_group_id}{SLAS_PREFIX}"

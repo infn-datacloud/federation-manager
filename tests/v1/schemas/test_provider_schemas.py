@@ -20,14 +20,14 @@ from fed_mgr.v1.providers.schemas import (
     ProviderUpdate,
 )
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
     ItemID,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 DUMMY_NAME = "foo"
@@ -67,17 +67,17 @@ def test_provider_status_enum_all_values():
 
 def test_identity_provider_model():
     """Test IdentityProvider model fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
     site_admin = MagicMock()
-    site_admin.id = uuid.uuid4()
     site_admins = [site_admin]
     provider = Provider(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         type=DUMMY_TYPE,
@@ -87,14 +87,14 @@ def test_identity_provider_model():
         site_admins=site_admins,
     )
     assert isinstance(provider, ItemID)
-    assert isinstance(provider, Creation)
-    assert isinstance(provider, Editable)
+    assert isinstance(provider, CreationTime)
+    assert isinstance(provider, UpdateTime)
     assert isinstance(provider, ProviderBase)
     assert provider.id == id_
     assert provider.created_at == now
-    assert provider.created_by == id_
+    assert provider.created_by == creator
     assert provider.updated_at == now
-    assert provider.updated_by == id_
+    assert provider.updated_by == creator
     assert isinstance(provider.auth_endpoint, str)
     assert AnyHttpUrl(provider.auth_endpoint) == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
     assert provider.name == DUMMY_NAME
@@ -253,10 +253,10 @@ def test_provider_links_fields():
 
 def test_provider_read_inheritance():
     """Test ProviderRead inherits from Provider and adds links."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    site_admin = MagicMock()
-    site_admin.id = uuid.uuid4()
+    site_admin = uuid.uuid4()
     site_admins = [site_admin]
     links = ProviderLinks(
         idps=DUMMY_ENDPOINT, projects=DUMMY_ENDPOINT, regions=DUMMY_ENDPOINT
@@ -264,9 +264,9 @@ def test_provider_read_inheritance():
     provider_read = ProviderRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         type=DUMMY_TYPE,
@@ -279,15 +279,15 @@ def test_provider_read_inheritance():
     )
     assert provider_read.links == links
     assert provider_read.status == ProviderStatus.active
-    assert provider_read.site_admins == [item.id for item in site_admins]
+    assert provider_read.site_admins == site_admins
 
 
 def test_provider_list():
     """Test ProviderList schema with data list."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    site_admin = MagicMock()
-    site_admin.id = uuid.uuid4()
+    site_admin = uuid.uuid4()
     site_admins = [site_admin]
     links = ProviderLinks(
         idps=DUMMY_ENDPOINT, projects=DUMMY_ENDPOINT, regions=DUMMY_ENDPOINT
@@ -295,9 +295,9 @@ def test_provider_list():
     read = ProviderRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         type=DUMMY_TYPE,

@@ -147,7 +147,7 @@ def test_get_item_calls_session_exec(session, item_value):
     """Test get_item calls session.exec and returns the first result or None."""
     item_id = uuid.uuid4()
     session.exec.return_value.first.return_value = item_value
-    result = get_item(entity=DummyEntity, session=session, item_id=item_id)
+    result = get_item(entity=DummyEntity, session=session, id=item_id)
     assert result == item_value
     session.exec.assert_called()
 
@@ -302,7 +302,7 @@ def test_update_item_success(session):
     session.exec.return_value = exec_result
 
     update_item(
-        entity=DummyEntity, session=session, item_id=item_id, **new_data.model_dump()
+        entity=DummyEntity, session=session, id=item_id, **new_data.model_dump()
     )
     session.exec.assert_called()
     session.commit.assert_called_once()
@@ -323,7 +323,7 @@ def test_update_item_no_item_to_update(session):
         update_item(
             entity=DummyEntity,
             session=session,
-            item_id=item_id,
+            id=item_id,
             **new_data.model_dump(),
         )
     assert "Dummy Entity" in str(exc.value) or "DummyEntity" in str(exc.value)
@@ -351,7 +351,7 @@ def test_update_item_integrity_error_not_null(monkeypatch, session):
         update_item(
             entity=DummyEntity,
             session=session,
-            item_id=item_id,
+            id=item_id,
             **new_data.model_dump(),
         )
     assert "can't be NULL" in str(e.value)
@@ -379,7 +379,7 @@ def test_update_item_integrity_error_unique(monkeypatch, session):
         update_item(
             entity=DummyEntity,
             session=session,
-            item_id=item_id,
+            id=item_id,
             **new_data.model_dump(),
         )
     assert "already exists" in str(e.value)
@@ -390,6 +390,6 @@ def test_update_item_integrity_error_unique(monkeypatch, session):
 def test_delete_item_executes_and_commits(session):
     """Test delete_item executes the delete statement and commits."""
     item_id = uuid.uuid4()
-    delete_item(entity=DummyEntity, session=session, item_id=item_id)
+    delete_item(entity=DummyEntity, session=session, id=item_id)
     session.exec.assert_called()
     session.commit.assert_called()

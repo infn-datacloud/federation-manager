@@ -28,7 +28,7 @@ def get_user_group(
         UserGroup instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=UserGroup, item_id=user_group_id)
+    return get_item(session=session, entity=UserGroup, id=user_group_id)
 
 
 def get_user_groups(
@@ -83,8 +83,8 @@ def add_user_group(
     return add_item(
         session=session,
         entity=UserGroup,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         idp=idp,
         **user_group.model_dump(),
     )
@@ -111,8 +111,8 @@ def update_user_group(
     return update_item(
         session=session,
         entity=UserGroup,
-        item_id=user_group_id,
-        updated_by=updated_by.id,
+        id=user_group_id,
+        updated_by=updated_by,
         **new_user_group.model_dump(),
     )
 
@@ -125,4 +125,4 @@ def delete_user_group(*, session: Session, user_group_id: uuid.UUID) -> None:
         user_group_id: The UUID of the user group to delete.
 
     """
-    delete_item(session=session, entity=UserGroup, item_id=user_group_id)
+    delete_item(session=session, entity=UserGroup, id=user_group_id)

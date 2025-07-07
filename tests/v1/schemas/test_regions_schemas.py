@@ -12,6 +12,7 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
@@ -25,49 +26,52 @@ from fed_mgr.v1.providers.regions.schemas import (
     RegionRead,
 )
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 
 def test_region_model():
     """Test Region model fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
-    provider_id = uuid.uuid4()
-    location_id = uuid.uuid4()
+    provider = MagicMock()
+    location = MagicMock()
     region = Region(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="eu-west-1",
         description="EU West 1",
-        provider_id=provider_id,
-        location_id=location_id,
+        provider=provider,
+        location=location,
     )
     assert isinstance(region, ItemID)
-    assert isinstance(region, Creation)
-    assert isinstance(region, Editable)
+    assert isinstance(region, CreationTime)
+    assert isinstance(region, UpdateTime)
     assert isinstance(region, RegionBase)
     assert region.id == id_
     assert region.created_at == now
-    assert region.created_by == id_
+    assert region.created_by == creator
     assert region.updated_at == now
-    assert region.updated_by == id_
+    assert region.updated_by == creator
     assert region.name == "eu-west-1"
     assert region.description == "EU West 1"
-    assert region.provider_id == provider_id
-    assert region.location_id == location_id
+    assert region.provider == provider
+    assert region.location == location
 
 
 def test_region_base_fields():
@@ -96,22 +100,23 @@ def test_region_links_fields():
 
 def test_region_read_inheritance():
     """Test RegionRead inheritance and adds links."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = RegionLinks(location="https://example.com/location")
     region = RegionRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="eu-central-1",
         description="desc",
         links=links,
     )
     assert isinstance(region, ItemID)
-    assert isinstance(region, Creation)
-    assert isinstance(region, Editable)
+    assert isinstance(region, CreationRead)
+    assert isinstance(region, EditableRead)
     assert isinstance(region, RegionBase)
     assert region.links == links
     assert region.name == "eu-central-1"
@@ -120,15 +125,16 @@ def test_region_read_inheritance():
 
 def test_region_list_structure():
     """Test RegionList data field contains list of RegionRead."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = RegionLinks(location="https://example.com/location")
     region_read = RegionRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name="eu-north-1",
         description="desc",
         links=links,

@@ -154,6 +154,15 @@ def retrieve_locations(
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     request.state.logger.info("%d retrieved locations: %s", tot_items, repr(locations))
+    new_locations = []
+    for location in locations:
+        new_locations.append(
+            LocationRead(
+                **location.model_dump(),  # Does not return created_by and updated_by
+                created_by=location.created_by_id,
+                updated_by=location.created_by_id,
+            )
+        )
     return LocationList(
         data=locations,
         resource_url=str(request.url),
@@ -201,6 +210,11 @@ def retrieve_location(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
     request.state.logger.info(
         "Location with ID '%s' found: %s", str(location_id), repr(location)
+    )
+    location = LocationRead(
+        **location.model_dump(),  # Does not return created_by and updated_by
+        created_by=location.created_by_id,
+        updated_by=location.created_by_id,
     )
     return location
 

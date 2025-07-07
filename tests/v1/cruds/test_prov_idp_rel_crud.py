@@ -83,7 +83,6 @@ def test_add_idp_calls_add_item(session):
     idp = MagicMock()
     provider = MagicMock()
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     expected_item = MagicMock()
     with patch(
         "fed_mgr.v1.providers.identity_providers.crud.add_item",
@@ -102,8 +101,8 @@ def test_add_idp_calls_add_item(session):
             entity=ProviderIdPConnection,
             idp=idp,
             provider=provider,
-            created_by=created_by.id,
-            updated_by=created_by.id,
+            created_by=created_by,
+            updated_by=created_by,
             **overrides.model_dump(),
         )
 
@@ -114,7 +113,6 @@ def test_update_idp_calls_update_item(session):
     provider_id = uuid.uuid4()
     new_overrides = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     with patch(
         "fed_mgr.v1.providers.identity_providers.crud.update_item"
     ) as mock_update_item:
@@ -130,7 +128,7 @@ def test_update_idp_calls_update_item(session):
             entity=ProviderIdPConnection,
             idp_id=idp_id,
             provider_id=provider_id,
-            updated_by=updated_by.id,
+            updated_by=updated_by,
             **new_overrides.model_dump(),
         )
 

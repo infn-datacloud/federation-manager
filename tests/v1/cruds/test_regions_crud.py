@@ -42,7 +42,7 @@ def test_get_region_found(session):
         result = get_region(session=session, region_id=region_id)
         assert result == expected_region
         mock_get_item.assert_called_once_with(
-            session=session, entity=Region, item_id=region_id
+            session=session, entity=Region, id=region_id
         )
 
 
@@ -56,7 +56,7 @@ def test_get_region_not_found(session):
         result = get_region(session=session, region_id=region_id)
         assert result is None
         mock_get_item.assert_called_once_with(
-            session=session, entity=Region, item_id=region_id
+            session=session, entity=Region, id=region_id
         )
 
 
@@ -79,7 +79,6 @@ def test_add_region_success(session):
     """Test add_region calls add_item with correct arguments and location exists."""
     region = MagicMock(spec=RegionCreate)
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     location = MagicMock()
     provider = MagicMock()
     region.model_dump.return_value = {"foo": "bar"}
@@ -101,8 +100,8 @@ def test_add_region_success(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=Region,
-            created_by=created_by.id,
-            updated_by=created_by.id,
+            created_by=created_by,
+            updated_by=created_by,
             location=location,
             provider=provider,
             **region.model_dump(),
@@ -130,7 +129,6 @@ def test_update_region_success(session):
     region_id = uuid.uuid4()
     new_region = MagicMock(spec=RegionCreate)
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     location = MagicMock()
     new_region.location_id = uuid.uuid4()
     new_region.model_dump.return_value = {"foo": "bar"}
@@ -151,8 +149,8 @@ def test_update_region_success(session):
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Region,
-            item_id=region_id,
-            updated_by=updated_by.id,
+            id=region_id,
+            updated_by=updated_by,
             foo="bar",
             location=location,
         )
@@ -184,7 +182,7 @@ def test_delete_region(session):
     with patch("fed_mgr.v1.providers.regions.crud.delete_item") as mock_delete_item:
         delete_region(session=session, region_id=region_id)
         mock_delete_item.assert_called_once_with(
-            session=session, entity=Region, item_id=region_id
+            session=session, entity=Region, id=region_id
         )
 
 

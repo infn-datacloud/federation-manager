@@ -11,6 +11,7 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
@@ -24,12 +25,14 @@ from fed_mgr.v1.providers.identity_providers.schemas import (
     ProviderIdPConnectionRead,
 )
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
-    Editable,
+    CreationRead,
+    CreationTime,
     EditableQuery,
+    EditableRead,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 DUMMY_ENDPOINT = "https://example.com"
@@ -41,35 +44,35 @@ DUMMY_AUDIENCE = "aud1"
 
 def test_prov_idp_rel_model():
     """Test ProviderIdPConnection model fields."""
-    id_ = uuid.uuid4()
-    provider_id = uuid.uuid4()
-    idp_id = uuid.uuid4()
+    creator = MagicMock()
+    provider = MagicMock()
+    idp = MagicMock()
     now = datetime.now()
-    idp = ProviderIdPConnection(
-        provider_id=provider_id,
-        idp_id=idp_id,
+    link = ProviderIdPConnection(
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
         audience=DUMMY_AUDIENCE,
+        provider=provider,
+        idp=idp,
     )
-    assert isinstance(idp, Creation)
-    assert isinstance(idp, Editable)
-    assert isinstance(idp, ProviderIdPConnectionBase)
-    assert idp.provider_id == provider_id
-    assert idp.idp_id == idp_id
-    assert idp.created_at == now
-    assert idp.created_by == id_
-    assert idp.updated_at == now
-    assert idp.updated_by == id_
-    assert idp.name == DUMMY_NAME
-    assert idp.groups_claim == DUMMY_GROUPS_CLAIM
-    assert idp.protocol == DUMMY_PROTOCOL
-    assert idp.audience == DUMMY_AUDIENCE
+    assert isinstance(link, CreationTime)
+    assert isinstance(link, UpdateTime)
+    assert isinstance(link, ProviderIdPConnectionBase)
+    assert link.created_at == now
+    assert link.created_by == creator
+    assert link.updated_at == now
+    assert link.updated_by == creator
+    assert link.name == DUMMY_NAME
+    assert link.groups_claim == DUMMY_GROUPS_CLAIM
+    assert link.protocol == DUMMY_PROTOCOL
+    assert link.audience == DUMMY_AUDIENCE
+    assert link.provider == provider
+    assert link.idp == idp
 
 
 def test_prov_idp_rel_base_fields():
@@ -111,7 +114,7 @@ def test_prov_idp_rel_links_fields():
 
 def test_prov_idp_rel_read_inheritance():
     """Test ProviderIdPConnectionRead inheritance and adds links."""
-    id_ = uuid.uuid4()
+    creator = uuid.uuid4()
     provider_id = uuid.uuid4()
     idp_id = uuid.uuid4()
     now = datetime.now()
@@ -120,24 +123,24 @@ def test_prov_idp_rel_read_inheritance():
         provider_id=provider_id,
         idp_id=idp_id,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
         audience=DUMMY_AUDIENCE,
         links=links,
     )
-    assert isinstance(read, Creation)
-    assert isinstance(read, Editable)
+    assert isinstance(read, CreationRead)
+    assert isinstance(read, EditableRead)
     assert isinstance(read, ProviderIdPConnectionBase)
     assert read.links == links
 
 
 def test_prov_idp_rel_list():
     """ProviderIdPConnectionList data contains list of ProviderIdPConnectionRead."""
-    id_ = uuid.uuid4()
+    creator = uuid.uuid4()
     provider_id = uuid.uuid4()
     idp_id = uuid.uuid4()
     now = datetime.now()
@@ -146,9 +149,9 @@ def test_prov_idp_rel_list():
         provider_id=provider_id,
         idp_id=idp_id,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,

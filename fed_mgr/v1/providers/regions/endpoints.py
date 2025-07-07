@@ -180,7 +180,9 @@ def retrieve_regions(
     new_regions = []
     for region in regions:
         new_region = RegionRead(
-            **region.model_dump(),  # Does not return site_admins
+            **region.model_dump(),  # Does not return created_by and updated_by
+            created_by=region.created_by_id,
+            updated_by=region.created_by_id,
             links={
                 "location": urllib.parse.urljoin(
                     str(request.url),
@@ -240,7 +242,9 @@ def retrieve_region(
         "Region with ID '%s' found: %s", str(region_id), repr(region)
     )
     region = RegionRead(
-        **region.model_dump(),
+        **region.model_dump(),  # Does not return created_by and updated_by
+        created_by=region.created_by_id,
+        updated_by=region.created_by_id,
         links={
             "location": urllib.parse.urljoin(
                 str(request.url), f"{region.id}{LOCATIONS_PREFIX}/{region.location_id}"

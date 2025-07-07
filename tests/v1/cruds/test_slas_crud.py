@@ -26,9 +26,7 @@ def test_get_sla_found(session):
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
         assert result == expected_sla
-        mock_get_item.assert_called_once_with(
-            session=session, entity=SLA, item_id=sla_id
-        )
+        mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
 
 
 def test_get_sla_not_found(session):
@@ -40,9 +38,7 @@ def test_get_sla_not_found(session):
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
         assert result is None
-        mock_get_item.assert_called_once_with(
-            session=session, entity=SLA, item_id=sla_id
-        )
+        mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
 
 
 def test_get_slas(session):
@@ -71,7 +67,6 @@ def test_add_sla(session):
     """Test add_sla passes correct arguments and returns ItemID."""
     sla = MagicMock()
     created_by = MagicMock()
-    created_by.id = uuid.uuid4()
     parent_user_group = MagicMock()
     expected_item = MagicMock()
     with patch(
@@ -88,8 +83,8 @@ def test_add_sla(session):
         mock_add_item.assert_called_once_with(
             session=session,
             entity=SLA,
-            created_by=created_by.id,
-            updated_by=created_by.id,
+            created_by=created_by,
+            updated_by=created_by,
             user_group=parent_user_group,
             **sla.model_dump(),
         )
@@ -100,7 +95,6 @@ def test_update_sla(session):
     sla_id = uuid.uuid4()
     new_sla = MagicMock()
     updated_by = MagicMock()
-    updated_by.id = uuid.uuid4()
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.update_item"
     ) as mock_update_item:
@@ -113,8 +107,8 @@ def test_update_sla(session):
         mock_update_item.assert_called_once_with(
             session=session,
             entity=SLA,
-            item_id=sla_id,
-            updated_by=updated_by.id,
+            id=sla_id,
+            updated_by=updated_by,
             **new_sla.model_dump(),
         )
 
@@ -126,6 +120,4 @@ def test_delete_sla(session):
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.delete_item"
     ) as mock_delete_item:
         delete_sla(session=session, sla_id=sla_id)
-        mock_delete_item.assert_called_once_with(
-            session=session, entity=SLA, item_id=sla_id
-        )
+        mock_delete_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)

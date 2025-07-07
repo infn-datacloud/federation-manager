@@ -5,16 +5,16 @@ from enum import Enum
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AfterValidator, AnyHttpUrl, BeforeValidator, EmailStr
+from pydantic import AfterValidator, AnyHttpUrl, EmailStr
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType, check_list_not_empty, retrieve_id_from_entity
+from fed_mgr.utils import HttpUrlType, check_list_not_empty
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -215,7 +215,7 @@ class ProviderLinks(SQLModel):
     ]
 
 
-class ProviderRead(ItemID, Creation, Editable, ProviderBase, ProviderInternal):
+class ProviderRead(ItemID, CreationRead, EditableRead, ProviderBase, ProviderInternal):
     """Schema used to read an Provider."""
 
     site_admins: Annotated[
@@ -224,7 +224,6 @@ class ProviderRead(ItemID, Creation, Editable, ProviderBase, ProviderInternal):
             sa_type=AutoString,
             description="List of the provider/site administrator IDs",
         ),
-        BeforeValidator(retrieve_id_from_entity),
     ]
     links: Annotated[
         ProviderLinks,

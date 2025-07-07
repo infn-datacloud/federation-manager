@@ -26,7 +26,7 @@ def get_sla(*, session: SessionDep, sla_id: uuid.UUID) -> SLA | None:
         SLA instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=SLA, item_id=sla_id)
+    return get_item(session=session, entity=SLA, id=sla_id)
 
 
 def get_slas(
@@ -77,8 +77,8 @@ def add_sla(
     return add_item(
         session=session,
         entity=SLA,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         user_group=user_group,
         **sla.model_dump(),
     )
@@ -105,8 +105,8 @@ def update_sla(
     return update_item(
         session=session,
         entity=SLA,
-        item_id=sla_id,
-        updated_by=updated_by.id,
+        id=sla_id,
+        updated_by=updated_by,
         **new_sla.model_dump(),
     )
 
@@ -119,4 +119,4 @@ def delete_sla(*, session: Session, sla_id: uuid.UUID) -> None:
         sla_id: The UUID of the sla to delete.
 
     """
-    delete_item(session=session, entity=SLA, item_id=sla_id)
+    delete_item(session=session, entity=SLA, id=sla_id)

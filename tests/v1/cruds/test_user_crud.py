@@ -30,9 +30,7 @@ def test_get_user_found(session):
     ) as mock_get_item:
         result = get_user(session=session, user_id=user_id)
         assert result == expected_user
-        mock_get_item.assert_called_once_with(
-            session=session, entity=User, item_id=user_id
-        )
+        mock_get_item.assert_called_once_with(session=session, entity=User, id=user_id)
 
 
 def test_get_user_not_found(session):
@@ -41,9 +39,7 @@ def test_get_user_not_found(session):
     with patch("fed_mgr.v1.users.crud.get_item", return_value=None) as mock_get_item:
         result = get_user(session=session, user_id=user_id)
         assert result is None
-        mock_get_item.assert_called_once_with(
-            session=session, entity=User, item_id=user_id
-        )
+        mock_get_item.assert_called_once_with(session=session, entity=User, id=user_id)
 
 
 def test_get_users(session):
@@ -80,7 +76,7 @@ def test_update_user_calls_update_item(session):
     with patch("fed_mgr.v1.users.crud.update_item") as mock_update_item:
         update_user(session=session, user_id=user_id, new_user=new_user)
         mock_update_item.assert_called_once_with(
-            session=session, entity=User, item_id=user_id, **new_user.model_dump()
+            session=session, entity=User, id=user_id, **new_user.model_dump()
         )
 
 
@@ -90,5 +86,5 @@ def test_delete_user_calls_delete_item(session):
     with patch("fed_mgr.v1.users.crud.delete_item") as mock_delete_item:
         delete_user(session=session, user_id=user_id)
         mock_delete_item.assert_called_once_with(
-            session=session, entity=User, item_id=user_id
+            session=session, entity=User, id=user_id
         )

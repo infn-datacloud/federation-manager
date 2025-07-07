@@ -50,7 +50,7 @@ def get_provider(*, session: SessionDep, provider_id: uuid.UUID) -> Provider | N
         Provider instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=Provider, item_id=provider_id)
+    return get_item(session=session, entity=Provider, id=provider_id)
 
 
 def get_providers(
@@ -102,8 +102,8 @@ def add_provider(
     return add_item(
         session=session,
         entity=Provider,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         site_admins=site_admins,
         **provider.model_dump(exclude={"site_admins"}),
     )
@@ -137,8 +137,8 @@ def update_provider(
     return update_item(
         session=session,
         entity=Provider,
-        item_id=provider_id,
-        updated_by=updated_by.id,
+        id=provider_id,
+        updated_by=updated_by,
         **new_provider.model_dump(exclude_none=True),
         **kwargs,
     )
@@ -155,7 +155,7 @@ def delete_provider(*, session: Session, provider_id: uuid.UUID) -> None:
         None
 
     """
-    delete_item(session=session, entity=Provider, item_id=provider_id)
+    delete_item(session=session, entity=Provider, id=provider_id)
 
 
 def check_site_admins_exist(session: Session, provider: ProviderCreate) -> list[User]:
@@ -206,7 +206,7 @@ def change_provider_state(
             state.
 
     """
-    db_provider = get_item(session=session, entity=Provider, item_id=provider_id)
+    db_provider = get_item(session=session, entity=Provider, id=provider_id)
     if (
         next_state != db_provider.status
         and next_state not in AVAILABLE_STATE_TRANSITIONS[db_provider.status]
@@ -218,7 +218,7 @@ def change_provider_state(
     return update_item(
         session=session,
         entity=Provider,
-        item_id=provider_id,
-        updated_by=updated_by.id,
+        id=provider_id,
+        updated_by=updated_by,
         status=next_state,
     )

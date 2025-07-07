@@ -34,7 +34,7 @@ def get_user(
 
     """
     if user_id is not None:
-        return get_item(session=session, entity=User, item_id=user_id)
+        return get_item(session=session, entity=User, id=user_id)
     return get_item(session=session, entity=User, **kwargs)
 
 
@@ -88,7 +88,7 @@ def update_user(*, session: Session, user_id: uuid.UUID, new_user: UserCreate) -
 
     """
     return update_item(
-        session=session, entity=User, item_id=user_id, **new_user.model_dump()
+        session=session, entity=User, id=user_id, **new_user.model_dump()
     )
 
 
@@ -100,7 +100,7 @@ def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
         user_id: The UUID of the user to delete.
 
     """
-    return delete_item(session=session, entity=User, item_id=user_id)
+    return delete_item(session=session, entity=User, id=user_id)
 
 
 def create_fake_user(session: Session):

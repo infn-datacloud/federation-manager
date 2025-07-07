@@ -12,6 +12,7 @@ Covers:
 
 import uuid
 from datetime import date, datetime
+from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
@@ -25,14 +26,16 @@ from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
 )
 from fed_mgr.v1.models import SLA
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemID,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 DUMMY_NAME = "Test SLA"
@@ -44,38 +47,39 @@ DUMMY_END_DATE = date(2025, 1, 1)
 
 def test_sla_model():
     """Test SLA inherits and assigns all fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
-    user_group_id = uuid.uuid4()
+    user_group = MagicMock()
     sla = SLA(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         url=DUMMY_URL,
         start_date=DUMMY_START_DATE,
         end_date=DUMMY_END_DATE,
-        user_group_id=user_group_id,
+        user_group=user_group,
     )
     assert isinstance(sla, ItemID)
-    assert isinstance(sla, Creation)
-    assert isinstance(sla, Editable)
+    assert isinstance(sla, CreationTime)
+    assert isinstance(sla, UpdateTime)
     assert isinstance(sla, SLABase)
     assert sla.id == id_
     assert sla.created_at == now
-    assert sla.created_by == id_
+    assert sla.created_by == creator
     assert sla.updated_at == now
-    assert sla.updated_by == id_
+    assert sla.updated_by == creator
     assert isinstance(sla.url, str)
     assert AnyHttpUrl(sla.url) == AnyHttpUrl(DUMMY_URL)
     assert sla.name == DUMMY_NAME
     assert sla.description == DUMMY_DESC
     assert sla.start_date == DUMMY_START_DATE
     assert sla.end_date == DUMMY_END_DATE
-    assert sla.user_group_id == user_group_id
+    assert sla.user_group == user_group
 
 
 def test_sla_base_fields():
@@ -114,15 +118,16 @@ def test_sla_links_fields():
 
 def test_sla_read_inheritance():
     """Test SLARead inherits from SLA and adds links."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         url=DUMMY_URL,
@@ -131,23 +136,24 @@ def test_sla_read_inheritance():
         links=links,
     )
     assert isinstance(sla_read, ItemID)
-    assert isinstance(sla_read, Creation)
-    assert isinstance(sla_read, Editable)
+    assert isinstance(sla_read, CreationRead)
+    assert isinstance(sla_read, EditableRead)
     assert isinstance(sla_read, SLABase)
     assert sla_read.links == links
 
 
 def test_sla_list():
     """Test SLAList data field contains list of SLARead."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         url=DUMMY_URL,

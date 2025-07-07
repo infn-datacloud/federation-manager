@@ -190,7 +190,9 @@ def retrieve_slas(
     new_slas = []
     for sla in slas:
         new_sla = SLARead(
-            **sla.model_dump(),
+            **sla.model_dump(),  # Does not return created_by and updated_by
+            created_by=sla.created_by_id,
+            updated_by=sla.created_by_id,
             links={
                 "projects": urllib.parse.urljoin(
                     str(request.url), f"{sla.id}{PROJECTS_PREFIX}"
@@ -243,7 +245,9 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
     request.state.logger.info("SLA with ID '%s' found: %s", str(sla_id), repr(sla))
     sla = SLARead(
-        **sla.model_dump(),
+        **sla.model_dump(),  # Does not return created_by and updated_by
+        created_by=sla.created_by_id,
+        updated_by=sla.created_by_id,
         links={
             "projects": urllib.parse.urljoin(
                 str(request.url), f"{sla_id}{PROJECTS_PREFIX}"

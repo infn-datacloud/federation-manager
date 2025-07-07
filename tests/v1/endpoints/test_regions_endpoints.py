@@ -242,9 +242,9 @@ def test_get_region_success(client):
         description = DUMMY_DESC
         location_id = DUMMY_LOCATION_ID
         created_at = DUMMY_CREATED_AT
-        created_by = fake_id
+        created_by_id = fake_id
         updated_at = DUMMY_CREATED_AT
-        updated_by = fake_id
+        updated_by_id = fake_id
 
         def model_dump(self):
             return {
@@ -253,9 +253,9 @@ def test_get_region_success(client):
                 "description": self.description,
                 "location_id": self.location_id,
                 "created_at": self.created_at,
-                "created_by": self.created_by,
+                "created_by_id": self.created_by_id,
                 "updated_at": self.updated_at,
-                "updated_by": self.updated_by,
+                "updated_by_id": self.updated_by_id,
             }
 
     def fake_get_region(region_id, session=None):

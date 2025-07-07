@@ -11,6 +11,7 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
@@ -24,15 +25,17 @@ from fed_mgr.v1.identity_providers.schemas import (
 )
 from fed_mgr.v1.models import IdentityProvider
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 DUMMY_ENDPOINT = "https://example.com"
@@ -45,14 +48,15 @@ DUMMY_DESC = "A test identity provider."
 
 def test_identity_provider_model():
     """Test IdentityProvider model fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
     idp = IdentityProvider(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         description=DUMMY_DESC,
         endpoint=DUMMY_ENDPOINT,
         name=DUMMY_NAME,
@@ -61,14 +65,14 @@ def test_identity_provider_model():
         audience=DUMMY_AUDIENCE,
     )
     assert isinstance(idp, ItemID)
-    assert isinstance(idp, Creation)
-    assert isinstance(idp, Editable)
+    assert isinstance(idp, CreationTime)
+    assert isinstance(idp, UpdateTime)
     assert isinstance(idp, IdentityProviderBase)
     assert idp.id == id_
     assert idp.created_at == now
-    assert idp.created_by == id_
+    assert idp.created_by == creator
     assert idp.updated_at == now
-    assert idp.updated_by == id_
+    assert idp.updated_by == creator
     assert isinstance(idp.endpoint, str)
     assert AnyHttpUrl(idp.endpoint) == AnyHttpUrl(DUMMY_ENDPOINT)
     assert idp.name == DUMMY_NAME
@@ -117,15 +121,16 @@ def test_identity_provider_links_fields():
 
 def test_identity_provider_read_inheritance():
     """Test IdentityProviderRead inheritance and adds links."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = IdentityProviderLinks(user_groups=DUMMY_ENDPOINT)
     idp_read = IdentityProviderRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         description=DUMMY_DESC,
         endpoint=DUMMY_ENDPOINT,
         name=DUMMY_NAME,
@@ -135,23 +140,24 @@ def test_identity_provider_read_inheritance():
         links=links,
     )
     assert isinstance(idp_read, ItemID)
-    assert isinstance(idp_read, Creation)
-    assert isinstance(idp_read, Editable)
+    assert isinstance(idp_read, CreationRead)
+    assert isinstance(idp_read, EditableRead)
     assert isinstance(idp_read, IdentityProviderBase)
     assert idp_read.links == links
 
 
 def test_identity_provider_list():
     """Test IdentityProviderList data field contains list of IdentityProvider."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = IdentityProviderLinks(user_groups=DUMMY_ENDPOINT)
     idp_read = IdentityProviderRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         description=DUMMY_DESC,
         endpoint=DUMMY_ENDPOINT,
         name=DUMMY_NAME,

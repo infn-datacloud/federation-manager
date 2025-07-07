@@ -13,6 +13,7 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
@@ -26,15 +27,17 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import (
 )
 from fed_mgr.v1.models import UserGroup
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
+    CreationTime,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginationQuery,
     SortQuery,
+    UpdateTime,
 )
 
 DUMMY_DESC = "desc"
@@ -44,31 +47,32 @@ DUMMY_ENDPOINT = "https://example.com"
 
 def test_user_group_model():
     """Test UserGroup model fields."""
+    creator = MagicMock()
     id_ = uuid.uuid4()
     now = datetime.now()
-    idp_id = uuid.uuid4()
+    idp = MagicMock()
     group = UserGroup(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
-        idp_id=idp_id,
+        idp=idp,
     )
     assert isinstance(group, ItemID)
-    assert isinstance(group, Creation)
-    assert isinstance(group, Editable)
+    assert isinstance(group, CreationTime)
+    assert isinstance(group, UpdateTime)
     assert isinstance(group, UserGroupBase)
     assert group.id == id_
     assert group.created_at == now
-    assert group.created_by == id_
+    assert group.created_by == creator
     assert group.updated_at == now
-    assert group.updated_by == id_
+    assert group.updated_by == creator
     assert group.name == DUMMY_NAME
     assert group.description == DUMMY_DESC
-    assert group.idp_id == idp_id
+    assert group.idp == idp
 
 
 def test_user_group_base_fields():
@@ -92,40 +96,43 @@ def test_user_group_links_fields():
 
 def test_user_group_read_inheritance():
     """Test UserGroupRead inherits from UserGroup and adds links."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
     links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
         created_at=now,
-        created_by=id_,
+        created_by=creator,
         updated_at=now,
-        updated_by=id_,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         links=links,
     )
     assert isinstance(group_read, ItemID)
-    assert isinstance(group_read, Creation)
-    assert isinstance(group_read, Editable)
+    assert isinstance(group_read, CreationRead)
+    assert isinstance(group_read, EditableRead)
     assert isinstance(group_read, UserGroupBase)
     assert group_read.links == links
 
 
 def test_user_group_list():
     """Test UserGroupList data field contains list of UserGroupRead."""
+    creator = uuid.uuid4()
     id_ = uuid.uuid4()
-    idp_id = uuid.uuid4()
+    now = datetime.now()
+    idp = MagicMock()
     links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
-        created_at=1,
-        created_by=id_,
-        updated_at=2,
-        updated_by=id_,
+        created_at=now,
+        created_by=creator,
+        updated_at=now,
+        updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
-        idp=idp_id,
+        idp=idp,
         links=links,
     )
     group_list = UserGroupList(

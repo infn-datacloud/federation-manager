@@ -8,11 +8,11 @@ from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -77,7 +77,7 @@ class IdentityProviderLinks(SQLModel):
     ]
 
 
-class IdentityProviderRead(ItemID, Creation, Editable, IdentityProviderBase):
+class IdentityProviderRead(ItemID, CreationRead, EditableRead, IdentityProviderBase):
     """Schema used to read an Identity Provider."""
 
     links: Annotated[

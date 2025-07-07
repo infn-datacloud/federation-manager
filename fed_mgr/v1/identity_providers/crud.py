@@ -26,7 +26,7 @@ def get_idp(*, session: SessionDep, idp_id: uuid.UUID) -> IdentityProvider | Non
         IdentityProvider instance if found, otherwise None.
 
     """
-    return get_item(session=session, entity=IdentityProvider, item_id=idp_id)
+    return get_item(session=session, entity=IdentityProvider, id=idp_id)
 
 
 def get_idps(
@@ -76,8 +76,8 @@ def add_idp(
     return add_item(
         session=session,
         entity=IdentityProvider,
-        created_by=created_by.id,
-        updated_by=created_by.id,
+        created_by=created_by,
+        updated_by=created_by,
         **idp.model_dump(),
     )
 
@@ -103,8 +103,8 @@ def update_idp(
     return update_item(
         session=session,
         entity=IdentityProvider,
-        item_id=idp_id,
-        updated_by=updated_by.id,
+        id=idp_id,
+        updated_by=updated_by,
         **new_idp.model_dump(),
     )
 
@@ -117,4 +117,4 @@ def delete_idp(*, session: Session, idp_id: uuid.UUID) -> None:
         idp_id: The UUID of the identity provider to delete.
 
     """
-    delete_item(session=session, entity=IdentityProvider, item_id=idp_id)
+    delete_item(session=session, entity=IdentityProvider, id=idp_id)

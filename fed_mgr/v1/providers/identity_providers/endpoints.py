@@ -188,7 +188,9 @@ def retrieve_prov_idp_connections(
     new_links = []
     for link in links:
         new_link = ProviderIdPConnectionRead(
-            **link.model_dump(),
+            **link.model_dump(),  # Does not return created_by and updated_by
+            created_by=link.created_by_id,
+            updated_by=link.created_by_id,
             links={
                 "idp": urllib.parse.urljoin(
                     str(request.base_url), f"{IDPS_PREFIX}{link.idp_id}"
@@ -255,7 +257,9 @@ def retrieve_prov_idp_connection(
     message += f"found: {overrides!r}"
     request.state.logger.info(message)
     overrides = ProviderIdPConnectionRead(
-        **overrides.model_dump(),
+        **overrides.model_dump(),  # Does not return created_by and updated_by
+        created_by=overrides.created_by_id,
+        updated_by=overrides.created_by_id,
         links={
             "idp": urllib.parse.urljoin(
                 str(request.base_url), f"{IDPS_PREFIX}/{idp_id}"

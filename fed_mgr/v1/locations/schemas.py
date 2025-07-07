@@ -6,11 +6,11 @@ from fastapi import Query
 from sqlmodel import Field
 
 from fed_mgr.v1.schemas import (
-    Creation,
     CreationQuery,
+    CreationRead,
     DescriptionQuery,
-    Editable,
     EditableQuery,
+    EditableRead,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -43,7 +43,7 @@ class LocationCreate(LocationBase):
     """Schema used to create an Location."""
 
 
-class LocationRead(ItemID, Creation, Editable, LocationBase):
+class LocationRead(ItemID, CreationRead, EditableRead, LocationBase):
     """Schema used to read an Location."""
 
 
