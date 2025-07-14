@@ -40,14 +40,14 @@ def raise_from_integrity_error(
     session.rollback()
     element_str = split_camel_case(entity.__name__)
 
-    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).*", error.args[0])
+    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
         attr = match.group(0).split(".")[1]
         raise NotNullError(
             f"Attribute '{attr}' of {element_str} can't be NULL"
         ) from error
 
-    match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).*", error.args[0])
+    match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
         attr = match.group(0).split(".")[1]
         raise ConflictError(
