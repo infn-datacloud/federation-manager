@@ -280,13 +280,14 @@ def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
             update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
         )
         result = session.exec(statement)
-        if result.rowcount == 0:
-            element_str = split_camel_case(entity.__name__)
-            message = f"{element_str} with given keys does not exist"
-            raise NoItemToUpdateError(message)
-        session.commit()
     except sqlalchemy.exc.IntegrityError as e:
         raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
+    if result.rowcount == 0:
+        session.rollback()
+        element_str = split_camel_case(entity.__name__)
+        message = f"{element_str} with given keys does not exist"
+        raise NoItemToUpdateError(message)
+    session.commit()
 
 
 def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
