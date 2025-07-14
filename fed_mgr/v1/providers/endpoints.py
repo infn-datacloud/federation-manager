@@ -9,6 +9,7 @@ from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
+    DeleteFailedError,
     NoItemToUpdateError,
     NotNullError,
     ProviderStateChangeError,
@@ -371,7 +372,13 @@ def remove_provider(
 
     """
     request.state.logger.info("Delete resource provider with ID '%s'", str(provider_id))
-    delete_provider(session=session, provider_id=provider_id)
+    try:
+        delete_provider(session=session, provider_id=provider_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info(
         "Resource Provider with ID '%s' deleted", str(provider_id)
     )

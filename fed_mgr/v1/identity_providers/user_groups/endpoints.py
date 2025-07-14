@@ -15,7 +15,12 @@ from fastapi import (
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
@@ -342,5 +347,11 @@ def remove_user_group(
 
     """
     request.state.logger.info("Delete user group with ID '%s'", str(user_group_id))
-    delete_user_group(session=session, user_group_id=user_group_id)
+    try:
+        delete_user_group(session=session, user_group_id=user_group_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info("User Group with ID '%s' deleted", str(user_group_id))

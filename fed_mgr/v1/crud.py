@@ -7,7 +7,12 @@ from typing import TypeVar
 import sqlalchemy
 from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.utils import split_camel_case
 from fed_mgr.v1.schemas import ItemID
 
@@ -292,6 +297,9 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         session: The SQLModel session for database access.
         **kwargs: Additional arguments used to filter entities.
 
+    Raises:
+        DeleteFailedError: If the item with the given ID can't be deleted.
+
     """
     if "item_id" in kwargs.keys():
         kwargs["id"] = kwargs.pop("item_id")
@@ -301,5 +309,11 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         conditions.append(entity.__table__.c.get(k) == v)
 
     statement = delete(entity).where(sqlalchemy.and_(True, *conditions))
-    session.exec(statement)
+    result = session.exec(statement)
+    if result.rowcount == 0:
+        session.rollback()
+        element_str = split_camel_case(entity.__name__)
+        message = f"{element_str} with given key can't be deleted. "
+        message += f"Check target {element_str} has no children entities."
+        raise DeleteFailedError(message)
     session.commit()

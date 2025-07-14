@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException, Request, Response, Security, statu
 
 from fed_mgr.auth import AuthenticationDep, check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import USERS_PREFIX
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -278,5 +283,11 @@ def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> No
 
     """
     request.state.logger.info("Delete user with ID '%s'", str(user_id))
-    delete_user(session=session, user_id=user_id)
+    try:
+        delete_user(session=session, user_id=user_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info("User with ID '%s' deleted", str(user_id))

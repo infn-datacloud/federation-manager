@@ -7,7 +7,12 @@ from fastapi import APIRouter, HTTPException, Request, Response, Security, statu
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
@@ -312,5 +317,11 @@ def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None
 
     """
     request.state.logger.info("Delete identity provider with ID '%s'", str(idp_id))
-    delete_idp(session=session, idp_id=idp_id)
+    try:
+        delete_idp(session=session, idp_id=idp_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info("Identity Provider with ID '%s' deleted", str(idp_id))

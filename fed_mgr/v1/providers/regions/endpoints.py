@@ -17,6 +17,7 @@ from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
+    DeleteFailedError,
     LocationNotFoundError,
     NoItemToUpdateError,
     NotNullError,
@@ -353,5 +354,11 @@ def remove_region(request: Request, region_id: uuid.UUID, session: SessionDep) -
 
     """
     request.state.logger.info("Delete region with ID '%s'", str(region_id))
-    delete_region(session=session, region_id=region_id)
+    try:
+        delete_region(session=session, region_id=region_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info("Region with ID '%s' deleted", str(region_id))

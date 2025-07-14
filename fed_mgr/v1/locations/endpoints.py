@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException, Request, Response, Security, statu
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import LOCATIONS_PREFIX
 from fed_mgr.v1.locations.crud import (
@@ -164,7 +169,7 @@ def retrieve_locations(
             )
         )
     return LocationList(
-        data=locations,
+        data=new_locations,
         resource_url=str(request.url),
         page_number=params.page,
         page_size=params.size,
@@ -307,5 +312,11 @@ def remove_location(
 
     """
     request.state.logger.info("Delete location with ID '%s'", str(location_id))
-    delete_location(session=session, location_id=location_id)
+    try:
+        delete_location(session=session, location_id=location_id)
+    except DeleteFailedError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     request.state.logger.info("Location with ID '%s' deleted", str(location_id))
