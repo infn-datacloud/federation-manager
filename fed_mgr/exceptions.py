@@ -53,3 +53,12 @@ class LocationNotFoundError(Exception):
         """Initialize LocationNotFoundError with a specific error message."""
         self.message = message
         super().__init__(self.message)
+
+
+class DeleteFailedError(Exception):
+    """Exception raised when the delete operations has no effect."""
+
+    def __init__(self, message):
+        """Initialize DeleteFailedError with a specific error message."""
+        self.message = message
+        super().__init__(self.message)
