@@ -10,7 +10,6 @@ from sqlmodel import AutoString, Field, SQLModel
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    DescriptionQuery,
     EditableQuery,
     EditableRead,
     PaginatedList,
@@ -100,7 +99,7 @@ class ProviderIdPConnectionList(PaginatedList):
 
 
 class ProviderIdPConnectionQuery(
-    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+    CreationQuery, EditableQuery, PaginationQuery, SortQuery
 ):
     """Schema used to define request's body parameters."""
 

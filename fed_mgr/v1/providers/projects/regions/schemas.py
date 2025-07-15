@@ -10,10 +10,8 @@ from sqlmodel import AutoString, Field, SQLModel
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    DescriptionQuery,
     EditableQuery,
     EditableRead,
-    ItemDescription,
     ItemID,
     PaginatedList,
     PaginationQuery,
@@ -21,7 +19,7 @@ from fed_mgr.v1.schemas import (
 )
 
 
-class ProjRegConfigBase(ItemDescription):
+class ProjRegConfigBase(SQLModel):
     """Schema with the basic parameters of the ProjRegConfig entity."""
 
     default_public_net: Annotated[
@@ -82,9 +80,7 @@ class ProjRegConfigList(PaginatedList):
     ]
 
 
-class ProjRegConfigQuery(
-    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
-):
+class ProjRegConfigQuery(CreationQuery, EditableQuery, PaginationQuery, SortQuery):
     """Schema used to define request's body parameters."""
 
     region_id: Annotated[
