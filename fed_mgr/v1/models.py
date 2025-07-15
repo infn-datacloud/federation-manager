@@ -13,6 +13,7 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
 from fed_mgr.v1.locations.schemas import LocationBase
 from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionBase
+from fed_mgr.v1.providers.projects.schemas import ProjectBase
 from fed_mgr.v1.providers.regions.schemas import RegionBase
 from fed_mgr.v1.providers.schemas import ProviderBase, ProviderInternal
 from fed_mgr.v1.schemas import (
@@ -110,6 +111,15 @@ class User(ItemID, CreationTime, UserBase, table=True):
     updated_regions: list["Region"] = Relationship(
         back_populates="updated_by",
         sa_relationship_kwargs={"foreign_keys": "Region.updated_by_id"},
+    )
+
+    created_projects: list["Project"] = Relationship(
+        back_populates="created_by",
+        sa_relationship_kwargs={"foreign_keys": "Project.created_by_id"},
+    )
+    updated_projects: list["Project"] = Relationship(
+        back_populates="updated_by",
+        sa_relationship_kwargs={"foreign_keys": "Project.updated_by_id"},
     )
 
     owned_providers: list["Provider"] = Relationship(
@@ -334,6 +344,9 @@ class Provider(
     regions: list["Region"] = Relationship(
         back_populates="provider", passive_deletes="all"
     )
+    projects: list["Project"] = Relationship(
+        back_populates="provider", passive_deletes="all"
+    )
 
 
 class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
@@ -376,3 +389,35 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
         ),
     ]
     location: Location = Relationship(back_populates="regions")
+
+
+class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
+    """Schema used to return Project's data to clients."""
+
+    created_by_id: Annotated[
+        uuid.UUID,
+        Field(foreign_key="user.id", description="User who created this item."),
+    ]
+    created_by: User = Relationship(
+        back_populates="created_projects",
+        sa_relationship_kwargs={"foreign_keys": "Project.created_by_id"},
+    )
+
+    updated_by_id: Annotated[
+        uuid.UUID,
+        Field(foreign_key="user.id", description="User who last updated this item."),
+    ]
+    updated_by: User = Relationship(
+        back_populates="updated_projects",
+        sa_relationship_kwargs={"foreign_keys": "Project.updated_by_id"},
+    )
+
+    provider_id: Annotated[
+        uuid.UUID,
+        Field(
+            foreign_key="provider.id",
+            ondelete="RESTRICT",  # Avoid on cascade deletion
+            description="Parent provider",
+        ),
+    ]
+    provider: Provider = Relationship(back_populates="projects")

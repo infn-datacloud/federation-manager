@@ -8,6 +8,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.endpoints import sla_router
 from fed_mgr.v1.locations.endpoints import location_router
 from fed_mgr.v1.providers.endpoints import provider_router
 from fed_mgr.v1.providers.identity_providers.endpoints import prov_idp_link_router
+from fed_mgr.v1.providers.projects.endpoints import project_router
 from fed_mgr.v1.providers.regions.endpoints import region_router
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.endpoints import user_router
@@ -26,5 +27,6 @@ secured_router_v1.include_router(location_router)
 secured_router_v1.include_router(provider_router)
 secured_router_v1.include_router(prov_idp_link_router)
 secured_router_v1.include_router(region_router)
+secured_router_v1.include_router(project_router)
 
 public_router_v1 = APIRouter()

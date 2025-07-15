@@ -1,0 +1,102 @@
+"""Projects schemas returned by the endpoints."""
+
+from typing import Annotated
+
+from fastapi import Query
+from pydantic import AnyHttpUrl
+from sqlmodel import AutoString, Field, SQLModel
+
+from fed_mgr.v1.schemas import (
+    CreationQuery,
+    CreationRead,
+    DescriptionQuery,
+    EditableQuery,
+    EditableRead,
+    ItemDescription,
+    ItemID,
+    PaginatedList,
+    PaginationQuery,
+    SortQuery,
+)
+
+
+class ProjectBase(ItemDescription):
+    """Schema with the basic parameters of the Project entity."""
+
+    name: Annotated[str, Field(description="Friendly name of the resource project")]
+    iaas_project_id: Annotated[
+        str,
+        Field(
+            description="Tenant/Namespace/Project ID in the IaaS (resource provider)."
+        ),
+    ]
+    is_root: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Define if the project it the IaaS root project. "
+            "Used to perform federation tests.",
+        ),
+    ]
+
+
+class ProjectCreate(ProjectBase):
+    """Schema used to create a Project."""
+
+
+class ProjectLinks(SQLModel):
+    """Schema containing links related to the Project."""
+
+    regions: Annotated[
+        AnyHttpUrl,
+        Field(description="Link to retrieve the region's specific configuration."),
+    ]
+
+
+class ProjectRead(ItemID, CreationRead, EditableRead, ProjectBase):
+    """Schema used to read an Project."""
+
+    links: Annotated[
+        ProjectLinks,
+        Field(
+            sa_type=AutoString,
+            description="Dict with the links of the resource project related entities",
+        ),
+    ]
+
+
+class ProjectList(PaginatedList):
+    """Schema used to return paginated list of Projects' data to clients."""
+
+    data: Annotated[
+        list[ProjectRead],
+        Field(default_factory=list, description="List of resource projects"),
+    ]
+
+
+class ProjectQuery(
+    DescriptionQuery, CreationQuery, EditableQuery, PaginationQuery, SortQuery
+):
+    """Schema used to define request's body parameters."""
+
+    name: Annotated[
+        str | None,
+        Field(
+            default=None, description="Resource project name must contain this string"
+        ),
+    ]
+    iaas_project_id: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Tenant/Namespace/Project ID in the IaaS (resource provider) "
+            "must contain this string",
+        ),
+    ]
+    is_root: Annotated[
+        bool | None,
+        Field(default=None, description="The project must be or not be root"),
+    ]
+
+
+ProjectQueryDep = Annotated[ProjectQuery, Query()]
