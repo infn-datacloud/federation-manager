@@ -152,7 +152,6 @@ def test_update_region_success(session):
             id=region_id,
             updated_by=updated_by,
             foo="bar",
-            location=location,
         )
 
 

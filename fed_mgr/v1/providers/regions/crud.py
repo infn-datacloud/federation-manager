@@ -13,7 +13,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import LocationNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.locations.crud import get_location
-from fed_mgr.v1.models import Provider, Region, User
+from fed_mgr.v1.models import Location, Provider, Region, User
 from fed_mgr.v1.providers.regions.schemas import RegionCreate
 
 
@@ -108,13 +108,12 @@ def update_region(
         None
 
     """
-    location = check_location_exist(session=session, region=new_region)
+    check_location_exist(session=session, region=new_region)
     return update_item(
         session=session,
         entity=Region,
         id=region_id,
         updated_by=updated_by,
-        location=location,
         **new_region.model_dump(exclude_none=True),
     )
 
@@ -133,7 +132,7 @@ def delete_region(*, session: Session, region_id: uuid.UUID) -> None:
     delete_item(session=session, entity=Region, id=region_id)
 
 
-def check_location_exist(session: Session, region: RegionCreate) -> list[User]:
+def check_location_exist(session: Session, region: RegionCreate) -> Location:
     """Check if location ID exists in the database.
 
     Args:
