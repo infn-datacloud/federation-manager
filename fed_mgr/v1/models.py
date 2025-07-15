@@ -13,16 +13,11 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
 from fed_mgr.v1.locations.schemas import LocationBase
 from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionBase
+from fed_mgr.v1.providers.projects.regions.schemas import ProjRegConfigBase
 from fed_mgr.v1.providers.projects.schemas import ProjectBase
 from fed_mgr.v1.providers.regions.schemas import RegionBase
 from fed_mgr.v1.providers.schemas import ProviderBase, ProviderInternal
-from fed_mgr.v1.schemas import (
-    CreationRead,
-    CreationTime,
-    EditableRead,
-    ItemID,
-    UpdateTime,
-)
+from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 from fed_mgr.v1.users.schemas import UserBase
 
 
@@ -122,6 +117,15 @@ class User(ItemID, CreationTime, UserBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "Project.updated_by_id"},
     )
 
+    created_proj_reg_configs: list["ProjRegConfig"] = Relationship(
+        back_populates="created_by",
+        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.created_by_id"},
+    )
+    updated_proj_reg_configs: list["ProjRegConfig"] = Relationship(
+        back_populates="updated_by",
+        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.updated_by_id"},
+    )
+
     owned_providers: list["Provider"] = Relationship(
         back_populates="site_admins", link_model=Administrates
     )
@@ -161,9 +165,9 @@ class Location(ItemID, CreationTime, UpdateTime, LocationBase, table=True):
 
 
 class ProviderIdPConnection(
-    CreationRead, EditableRead, ProviderIdPConnectionBase, table=True
+    CreationTime, UpdateTime, ProviderIdPConnectionBase, table=True
 ):
-    """Association table linking users to providers they administrate."""
+    """Association table linking providers to trusted identity providers."""
 
     created_by_id: Annotated[
         uuid.UUID,
@@ -349,6 +353,48 @@ class Provider(
     )
 
 
+class ProjRegConfig(CreationTime, UpdateTime, ProjRegConfigBase, table=True):
+    """Association table linking projects to regions."""
+
+    created_by_id: Annotated[
+        uuid.UUID,
+        Field(foreign_key="user.id", description="User who created this item."),
+    ]
+    created_by: User = Relationship(
+        back_populates="created_proj_reg_configs",
+        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.created_by_id"},
+    )
+
+    updated_by_id: Annotated[
+        uuid.UUID,
+        Field(foreign_key="user.id", description="User who last updated this item."),
+    ]
+    updated_by: User = Relationship(
+        back_populates="updated_proj_reg_configs",
+        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.updated_by_id"},
+    )
+
+    region_id: Annotated[
+        uuid.UUID,
+        Field(
+            foreign_key="region.id",
+            primary_key=True,
+            description="FK pointing to the region's ID",
+        ),
+    ]
+    region: "Region" = Relationship(back_populates="linked_projects")
+
+    project_id: Annotated[
+        uuid.UUID,
+        Field(
+            foreign_key="project.id",
+            primary_key=True,
+            description="FK pointing to the project's ID",
+        ),
+    ]
+    project: "Project" = Relationship(back_populates="regions")
+
+
 class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     """Schema used to return Region's data to clients."""
 
@@ -390,6 +436,10 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     ]
     location: Location = Relationship(back_populates="regions")
 
+    linked_projects: list[ProjRegConfig] = Relationship(
+        back_populates="region", passive_deletes="all"
+    )
+
 
 class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
     """Schema used to return Project's data to clients."""
@@ -421,3 +471,7 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         ),
     ]
     provider: Provider = Relationship(back_populates="projects")
+
+    regions: list[ProjRegConfig] = Relationship(
+        back_populates="project", cascade_delete=True
+    )

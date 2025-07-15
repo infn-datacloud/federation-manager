@@ -105,8 +105,7 @@ def create_prov_idp_connection(
         idp (IdentityProvider): The identity provider instance to connect.
 
     Returns:
-        ItemID: A dictionary containing the ID of the created identity provider on
-        success.
+        None
 
     Raises:
         401 Unauthorized: If the user is not authenticated (handled by dependencies).
@@ -198,7 +197,7 @@ def retrieve_prov_idp_connections(
             updated_by=link.created_by_id,
             links={
                 "idp": urllib.parse.urljoin(
-                    str(request.base_url), f"{IDPS_PREFIX}{link.idp_id}"
+                    str(request.base_url), f"{IDPS_PREFIX}/{link.idp_id}"
                 )
             },
         )
