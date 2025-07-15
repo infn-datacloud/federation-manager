@@ -14,6 +14,7 @@ from fed_mgr.exceptions import (
     NotNullError,
 )
 from fed_mgr.utils import split_camel_case
+from fed_mgr.v1.models import User
 from fed_mgr.v1.schemas import ItemID
 
 Entity = TypeVar("Entity", bound=ItemID)
@@ -256,12 +257,15 @@ def add_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity:
         raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
 
 
-def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
+def update_item(
+    *, entity: type[Entity], session: Session, updated_by: User | None = None, **kwargs
+) -> None:
     """Update an existing item in the database with new data.
 
     Args:
         entity: The SQLModel entity class to update.
         session: The SQLModel session for database access.
+        updated_by: The User who issued the operation.
         **kwargs: Pydantic/SQLModel model updated fields and additional keyword
             arguments to pass to the entity constructor.
 
@@ -275,6 +279,10 @@ def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
     for k, v in kwargs.items():
         if isinstance(v, uuid.UUID):
             conditions.append(entity.__table__.c.get(k) == v)
+
+    if updated_by is not None:
+        kwargs["updated_by_id"] = updated_by.id
+
     try:
         statement = (
             update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
@@ -282,6 +290,7 @@ def update_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         result = session.exec(statement)
     except sqlalchemy.exc.IntegrityError as e:
         raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
+
     if result.rowcount == 0:
         session.rollback()
         element_str = split_camel_case(entity.__name__)
