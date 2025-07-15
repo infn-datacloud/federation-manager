@@ -5,7 +5,12 @@ import uuid
 from pydantic import AnyHttpUrl
 
 from fed_mgr.auth import check_authentication
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.users.crud import get_user
 
@@ -248,3 +253,16 @@ def test_delete_user_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_user_fail(client, monkeypatch):
+    """Test DELETE /users/{user_id} returns 400 on fail."""
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_user(session, user_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr("fed_mgr.v1.users.endpoints.delete_user", fake_delete_user)
+
+    resp = client.delete(f"/api/v1/users/{fake_id}")
+    assert resp.status_code == 400

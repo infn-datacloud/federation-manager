@@ -17,7 +17,12 @@ Tests in this file:
 
 import uuid
 
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.identity_providers.crud import get_idp
 
@@ -283,3 +288,18 @@ def test_delete_idp_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/idps/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_idp_fail(client, monkeypatch):
+    """Test DELETE /idps/{idp_id} returns 400 on fail."""
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_idp(session, idp_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.endpoints.delete_idp", fake_delete_idp
+    )
+
+    resp = client.delete(f"/api/v1/idps/{fake_id}")
+    assert resp.status_code == 400

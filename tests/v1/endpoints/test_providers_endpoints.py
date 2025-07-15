@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 
 from fed_mgr.exceptions import (
     ConflictError,
+    DeleteFailedError,
     NoItemToUpdateError,
     NotNullError,
     ProviderStateChangeError,
@@ -296,6 +297,21 @@ def test_delete_provider_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/providers/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_provider_fail(client, monkeypatch):
+    """Test DELETE /providers/{provider_id} returns 400 on fail."""
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_provider(session, provider_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.providers.endpoints.delete_provider", fake_delete_provider
+    )
+
+    resp = client.delete(f"/api/v1/providers/{fake_id}")
+    assert resp.status_code == 400
 
 
 def test_update_provider_state_success(client, monkeypatch):

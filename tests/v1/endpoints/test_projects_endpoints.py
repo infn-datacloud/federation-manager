@@ -21,6 +21,7 @@ import uuid
 
 from fed_mgr.exceptions import (
     ConflictError,
+    DeleteFailedError,
     NoItemToUpdateError,
     NotNullError,
 )
@@ -390,3 +391,19 @@ def test_delete_project_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_project_fail(client, monkeypatch):
+    """Test DELETE /projects/{project_id} returns 400 on fail."""
+    fake_provider_id = get_fake_provider_id()
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_project(session, project_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.providers.projects.endpoints.delete_project", fake_delete_project
+    )
+
+    resp = client.delete(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
+    assert resp.status_code == 400

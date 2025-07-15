@@ -21,6 +21,7 @@ import uuid
 
 from fed_mgr.exceptions import (
     ConflictError,
+    DeleteFailedError,
     LocationNotFoundError,
     NoItemToUpdateError,
     NotNullError,
@@ -436,3 +437,19 @@ def test_delete_region_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_region_fail(client, monkeypatch):
+    """Test DELETE /regions/{region_id} returns 400 on fail."""
+    fake_provider_id = get_fake_provider_id()
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_region(session, region_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.providers.regions.endpoints.delete_region", fake_delete_region
+    )
+
+    resp = client.delete(f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}")
+    assert resp.status_code == 400

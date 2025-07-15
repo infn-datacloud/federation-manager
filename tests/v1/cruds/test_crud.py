@@ -17,7 +17,12 @@ import pytest
 import sqlalchemy
 from sqlmodel import Field, SQLModel
 
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.v1.crud import (
     add_item,
     delete_item,
@@ -393,3 +398,15 @@ def test_delete_item_executes_and_commits(session):
     delete_item(entity=DummyEntity, session=session, id=item_id)
     session.exec.assert_called()
     session.commit.assert_called()
+
+
+def test_delete_item_fails(session):
+    """Test delete_item executes the delete statement and commits."""
+    item_id = uuid.uuid4()
+    result = MagicMock()
+    result.rowcount = 0
+    session.exec.return_value = result
+    with pytest.raises(DeleteFailedError):
+        delete_item(entity=DummyEntity, session=session, id=item_id)
+    session.exec.assert_called()
+    session.commit.assert_not_called()

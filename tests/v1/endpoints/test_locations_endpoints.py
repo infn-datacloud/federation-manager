@@ -17,7 +17,12 @@ Tests in this file:
 
 import uuid
 
-from fed_mgr.exceptions import ConflictError, NoItemToUpdateError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    NoItemToUpdateError,
+    NotNullError,
+)
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.locations.crud import get_location
 
@@ -268,3 +273,18 @@ def test_delete_location_success(client, monkeypatch):
     )
     resp = client.delete(f"/api/v1/locations/{fake_id}")
     assert resp.status_code == 204
+
+
+def test_delete_location_fail(client, monkeypatch):
+    """Test DELETE /locations/{location_id} returns 400 on fail."""
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_location(session, location_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.locations.endpoints.delete_location", fake_delete_location
+    )
+
+    resp = client.delete(f"/api/v1/locations/{fake_id}")
+    assert resp.status_code == 400
