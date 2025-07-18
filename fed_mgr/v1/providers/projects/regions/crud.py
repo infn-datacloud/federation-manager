@@ -129,7 +129,7 @@ def update_project_config(
         project_id=project_id,
         region_id=region_id,
         updated_by=updated_by,
-        **new_overrides.model_dump(exclude_none=True),
+        **new_overrides.model_dump(),
     )
 
 

@@ -114,7 +114,7 @@ def update_region(
         entity=Region,
         id=region_id,
         updated_by=updated_by,
-        **new_region.model_dump(exclude_none=True),
+        **new_region.model_dump(),
     )
 
 

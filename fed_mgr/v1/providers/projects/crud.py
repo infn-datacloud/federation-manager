@@ -109,7 +109,7 @@ def update_project(
         entity=Project,
         id=project_id,
         updated_by=updated_by,
-        **new_project.model_dump(exclude_none=True),
+        **new_project.model_dump(),
     )
 
 
