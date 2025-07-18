@@ -151,7 +151,10 @@ def create_prov_idp_connection(
     description="Retrieve a paginated list of identity providers.",
 )
 def retrieve_prov_idp_connections(
-    request: Request, params: ProviderIdPConnectionQueryDep, session: SessionDep
+    request: Request,
+    params: ProviderIdPConnectionQueryDep,
+    session: SessionDep,
+    provider_id: uuid.UUID,
 ) -> ProviderIdPConnectionList:
     """Retrieve a paginated list of identity providers based on query parameters.
 
@@ -165,6 +168,7 @@ def retrieve_prov_idp_connections(
         params (IdentityProviderQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
+        provider_id: Parent provider ID
 
     Returns:
         IdentityProviderList: A paginated list of identity providers matching the query
@@ -184,6 +188,7 @@ def retrieve_prov_idp_connections(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
+        provider_id=provider_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     request.state.logger.info(

@@ -155,7 +155,7 @@ def create_sla(
     description="Retrieve a paginated list of slas.",
 )
 def retrieve_slas(
-    request: Request, params: SLAQueryDep, session: SessionDep
+    request: Request, params: SLAQueryDep, session: SessionDep, user_group_id: uuid.UUID
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 
@@ -169,6 +169,7 @@ def retrieve_slas(
         params (SLAQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
+        user_group_id: Parent user group ID
 
     Returns:
         SLAList: A paginated list of slas matching the query
@@ -189,6 +190,7 @@ def retrieve_slas(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
+        user_group_id=user_group_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     request.state.logger.info("%d retrieved slas: %s", tot_items, repr(slas))

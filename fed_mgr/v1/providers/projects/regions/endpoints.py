@@ -165,6 +165,7 @@ def retrieve_project_configs(
     params: ProjRegConfigQueryDep,
     session: SessionDep,
     provider_id: uuid.UUID,
+    project_id: uuid.UUID,
 ) -> ProjRegConfigList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -179,6 +180,7 @@ def retrieve_project_configs(
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         provider_id (uuid.UUID): Parent provider ID.
+        project_id (uuid.UUID): Parent project ID.
 
     Returns:
         ProjRegConfigList: A paginated list of projects matching the query
@@ -198,6 +200,7 @@ def retrieve_project_configs(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
+        project_id=project_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     request.state.logger.info(

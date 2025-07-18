@@ -119,6 +119,8 @@ def _handle_generic_field(entity, k, v):
     """
     if isinstance(v, str):
         return entity.__table__.c.get(k).icontains(v)
+    elif isinstance(v, uuid.UUID):
+        return entity.__table__.c.get(k) == v
     elif isinstance(v, (int, float)):
         if k.endswith("_lte"):
             k = k[:-4]

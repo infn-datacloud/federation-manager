@@ -144,7 +144,10 @@ def create_project(
     description="Retrieve a paginated list of projects.",
 )
 def retrieve_projects(
-    request: Request, params: ProjectQueryDep, session: SessionDep
+    request: Request,
+    params: ProjectQueryDep,
+    session: SessionDep,
+    provider_id: uuid.UUID,
 ) -> ProjectList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -158,6 +161,7 @@ def retrieve_projects(
         params (ProjectQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
+        provider_id: Parent provider ID
 
     Returns:
         ProjectList: A paginated list of projects matching the query
@@ -177,6 +181,7 @@ def retrieve_projects(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
+        provider_id=provider_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     request.state.logger.info("%d retrieved projects: %s", tot_items, repr(projects))
