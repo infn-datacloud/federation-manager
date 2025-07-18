@@ -1,6 +1,6 @@
 """SLAs schemas returned by the endpoints."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated
 
 from fastapi import Query
@@ -98,28 +98,28 @@ class SLAQuery(
         str | None, Field(default=None, description="SLA url must contain this string")
     ]
     start_before: Annotated[
-        datetime | None,
+        date | None,
         Field(
             default=None,
             description="Item's start date must be lower than or equal to this value",
         ),
     ]
     start_after: Annotated[
-        datetime | None,
+        date | None,
         Field(
             default=None,
             description="Item's start date must be greater than or equal to this value",
         ),
     ]
     end_before: Annotated[
-        datetime | None,
+        date | None,
         Field(
             default=None,
             description="Item's end date must be lower than or equal to this value",
         ),
     ]
     end_after: Annotated[
-        datetime | None,
+        date | None,
         Field(
             default=None,
             description="Item's end date must be greater than or equal to this value",

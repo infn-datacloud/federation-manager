@@ -6,8 +6,26 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi.datastructures import URL
-from pydantic import AnyHttpUrl, computed_field
+from pydantic import AnyHttpUrl, BeforeValidator, computed_field
 from sqlmodel import TIMESTAMP, Field, SQLModel
+
+
+def isoformat(d: datetime) -> str:
+    """Convert a datetime or date object to an ISO 8601 format.
+
+    UTC with millisecond precision.
+
+    Args:
+        d (datetime | date): The datetime or date object to format.
+
+    Returns:
+        str: The ISO 8601 formatted string representation of the input.
+
+    Raises:
+        AttributeError: If the input object does not have an 'astimezone' method.
+
+    """
+    return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
 
 
 class ItemID(SQLModel):
@@ -196,6 +214,18 @@ class CreationTimeQuery(SQLModel):
     ]
 
 
+class CreationTimeRead(SQLModel):
+    """Schema used to format creation time."""
+
+    created_at: Annotated[
+        str,
+        Field(
+            description="Date time of when the entity has been created in ISO format"
+        ),
+        BeforeValidator(isoformat),
+    ]
+
+
 class Creator(SQLModel):
     """Schema for tracking the user who created an entity."""
 
@@ -214,7 +244,7 @@ class CreatorQuery(SQLModel):
     ]
 
 
-class CreationRead(CreationTime, Creator):
+class CreationRead(CreationTimeRead, Creator):
     """Schema for reading creation time and creator's user ID."""
 
 
@@ -230,9 +260,7 @@ class UpdateTime(SQLModel):
         Field(
             description="Datetime of when the entity has been updated",
             default_factory=lambda: datetime.now(timezone.utc),
-            sa_column_kwargs={
-                "onupdate": lambda: datetime.now(timezone.utc),
-            },
+            sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
             sa_type=TIMESTAMP(timezone=True),
         ),
     ]
@@ -259,6 +287,18 @@ class UpdateQuery(SQLModel):
     ]
 
 
+class UpdateTimeRead(SQLModel):
+    """Schema used to format creation time."""
+
+    updated_at: Annotated[
+        str,
+        Field(
+            description="Date time of the last change made to the entity in ISO format"
+        ),
+        BeforeValidator(isoformat),
+    ]
+
+
 class Editor(SQLModel):
     """Schema for tracking the user who last edit an entity."""
 
@@ -276,7 +316,7 @@ class EditorQuery(SQLModel):
     ]
 
 
-class EditableRead(UpdateTime, Editor):
+class EditableRead(UpdateTimeRead, Editor):
     """Schema for reading update time and editor's user ID."""
 
 

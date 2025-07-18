@@ -8,8 +8,8 @@ from sqlmodel import AutoString, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
-    CreationTime,
     CreationTimeQuery,
+    CreationTimeRead,
     ItemID,
     PaginatedList,
     PaginationQuery,
@@ -32,7 +32,7 @@ class UserCreate(UserBase):
     """Schema used to define request's body parameters of a POST on 'users' endpoint."""
 
 
-class UserRead(ItemID, CreationTime, UserBase):
+class UserRead(ItemID, CreationTimeRead, UserBase):
     """Schema used to return User's data to clients."""
 
 
