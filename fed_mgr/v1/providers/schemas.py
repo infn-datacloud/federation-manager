@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AfterValidator, AnyHttpUrl, EmailStr
+from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType, check_list_not_empty
@@ -232,6 +232,12 @@ class ProviderRead(ItemID, CreationRead, EditableRead, ProviderBase, ProviderInt
             description="Dict with the links of the resource provider related entities",
         ),
     ]
+
+    @computed_field
+    @property
+    def status_name(self) -> str:
+        """Status name for human readability."""
+        return self.status.name
 
 
 class ProviderList(PaginatedList):
