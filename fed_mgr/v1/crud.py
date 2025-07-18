@@ -225,7 +225,11 @@ def get_items(
     )
     items = session.exec(statement).all()
 
-    statement = select(func.count()).filter(sqlalchemy.and_(True, *conditions))
+    statement = (
+        select(func.count())
+        .select_from(entity)
+        .filter(sqlalchemy.and_(True, *conditions))
+    )
     tot_items = session.exec(statement).first()
 
     return items, tot_items
