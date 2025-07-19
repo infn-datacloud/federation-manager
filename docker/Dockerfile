@@ -12,15 +12,12 @@ RUN poetry export \
     -f requirements.txt \
     --output requirements.txt \
     --without-hashes \
-    --without dev
+    --without dev \
+    --with rest-api,mysql
 
 
 # Stage used in production with no kubernetes
 FROM python:${PYTHON_VERSION}-slim AS production
-
-# Updating packages and installing libraries
-RUN apt-get update \
-    && apt-get clean
 
 WORKDIR /app/
 
