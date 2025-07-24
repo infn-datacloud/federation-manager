@@ -327,5 +327,6 @@ class EditableQuery(UpdateQuery, EditorQuery):
 class ErrorMessage(SQLModel):
     """Schema returned when raising an HTTP exception such as 404."""
 
+    status: Annotated[int, Field(description="Error code")]
     # title: Annotated[str, Field(description="Error title")]
     detail: Annotated[str, Field(description="Error detailed description")]
