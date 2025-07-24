@@ -384,6 +384,49 @@ def remove_provider(
     )
 
 
+@provider_router.post(
+    "/{provider_id}/submit",
+    summary="Change the provider state from ready to submit",
+    description="Provider is ready to be tested. Submit federation request",
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+)
+def submit_request(
+    request: Request,
+    session: SessionDep,
+    provider: ProviderDep,
+    current_user: CurrenUserDep,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    return update_provider_state(
+        request=request,
+        session=session,
+        provider=provider,
+        current_user=current_user,
+        next_state="submit",
+    )
+
+
 @provider_router.put(
     "/{provider_id}/change_state/{next_state}",
     summary="Change the provider state",
@@ -427,7 +470,7 @@ def update_provider_state(
         )
         change_provider_state(
             session=session,
-            provider=provider,
+            provider_id=provider.id,
             next_state=next_state,
             updated_by=current_user,
         )

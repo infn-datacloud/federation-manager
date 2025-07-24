@@ -17,9 +17,9 @@ from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, Provide
 from fed_mgr.v1.users.crud import get_user
 
 AVAILABLE_STATE_TRANSITIONS = {
-    ProviderStatus.draft: [ProviderStatus.submitted],
-    ProviderStatus.submitted: [ProviderStatus.ready, ProviderStatus.draft],
-    ProviderStatus.ready: [ProviderStatus.evaluation, ProviderStatus.removed],
+    ProviderStatus.draft: [ProviderStatus.ready],
+    ProviderStatus.ready: [ProviderStatus.submitted, ProviderStatus.draft],
+    ProviderStatus.submitted: [ProviderStatus.evaluation, ProviderStatus.removed],
     ProviderStatus.evaluation: [ProviderStatus.pre_production, ProviderStatus.removed],
     ProviderStatus.pre_production: [
         ProviderStatus.active,
