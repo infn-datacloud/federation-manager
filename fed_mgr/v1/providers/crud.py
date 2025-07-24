@@ -183,6 +183,55 @@ def check_site_admins_exist(session: Session, provider: ProviderCreate) -> list[
     return site_admins
 
 
+def add_site_tester(*, session: Session, provider: Provider, user: User) -> None:
+    """Add a user to the list of site testers for a given provider.
+
+    Args:
+        session (Session): The SQLAlchemy session used to interact with the database.
+        provider (Provider): The provider object whose site testers list will be
+            updated.
+        user (User): The user to be added as a site tester.
+
+    Returns:
+        None
+
+    Raises:
+        Any exceptions raised by the session commit will propagate.
+
+    """
+    new_site_testers = set(provider.site_testers)
+    new_site_testers = new_site_testers.add(user)
+    provider.site_testers = list(new_site_testers)
+    session.add(provider)
+    session.commit()
+
+
+def remove_site_tester(*, session: Session, provider: Provider, user: User) -> None:
+    """Remove a specified user from the list of site testers associated with a provider.
+
+    Args:
+        session (Session): The database session used to commit changes.
+        provider (Provider): The provider object from which the site tester will be
+            removed.
+        user (User): The user to be removed from the provider's site testers.
+
+    Returns:
+        None
+
+    Raises:
+        IndexError: If the user is not found in the provider's site testers list.
+
+    """
+    i = 0
+    for site_tester in provider.site_testers:
+        if user.id == site_tester.id:
+            break
+        i += 1
+    provider.site_testers.pop(i)
+    session.add(provider)
+    session.commit()
+
+
 def change_provider_state(
     *,
     session: Session,

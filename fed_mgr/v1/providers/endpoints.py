@@ -19,9 +19,11 @@ from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.providers.crud import (
     add_provider,
+    add_site_tester,
     change_provider_state,
     delete_provider,
     get_providers,
+    remove_site_tester,
     update_provider,
 )
 from fed_mgr.v1.providers.dependencies import ProviderDep
@@ -418,13 +420,103 @@ def submit_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
+    request.state.logger.info("User submitted request")
     return update_provider_state(
         request=request,
         session=session,
         provider=provider,
         current_user=current_user,
-        next_state="submit",
+        next_state=ProviderStatus.submitted,
     )
+
+
+@provider_router.post(
+    "/{provider_id}/assign",
+    summary="Change the provider state from submitted to evaluation",
+    description="Site tester assign the provied to himself.",
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+)
+def assign_to_request(
+    request: Request,
+    session: SessionDep,
+    provider: ProviderDep,
+    current_user: CurrenUserDep,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    request.state.logger.info(
+        "Assign site tester '%s' to provider '%s'", current_user.id, provider.id
+    )
+    first_tester = not len(provider.site_testers)
+    if first_tester:
+        update_provider_state(
+            request=request,
+            session=session,
+            provider=provider,
+            current_user=current_user,
+            next_state=ProviderStatus.evaluation,
+        )
+    add_site_tester(session=session, provider=provider, user=current_user)
+
+
+@provider_router.post(
+    "/{provider_id}/retract",
+    summary="Change the provider state from submitted to evaluation",
+    description="Site tester retract himself from the provider.",
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+)
+def retract_from_request(
+    request: Request,
+    session: SessionDep,
+    provider: ProviderDep,
+    current_user: CurrenUserDep,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    request.state.logger.info(
+        "Retract site tester '%s' from provider '%s'", current_user.id, provider.id
+    )
+    remove_site_tester(session=session, provider=provider, user=current_user)
 
 
 @provider_router.put(
@@ -432,7 +524,6 @@ def submit_request(
     summary="Change the provider state",
     description="Receive the next status the provider should go. If it is a valid one, "
     "following the status FSM, go into that state. Otherwise reject the request.",
-    status_code=status.HTTP_200_OK,
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def update_provider_state(

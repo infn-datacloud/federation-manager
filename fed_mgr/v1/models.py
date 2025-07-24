@@ -41,6 +41,27 @@ class Administrates(SQLModel, table=True):
     ]
 
 
+class Evaluates(SQLModel, table=True):
+    """Association table linking users to providers they evaulates."""
+
+    user_id: Annotated[
+        uuid.UUID,
+        Field(
+            foreign_key="user.id",
+            primary_key=True,
+            description="FK pointing to the user's ID",
+        ),
+    ]
+    provider_id: Annotated[
+        uuid.UUID,
+        Field(
+            foreign_key="provider.id",
+            primary_key=True,
+            description="FK pointing to the resource provider's ID",
+        ),
+    ]
+
+
 class User(ItemID, CreationTime, UserBase, table=True):
     """Schema used to return User's data to clients."""
 
@@ -127,6 +148,9 @@ class User(ItemID, CreationTime, UserBase, table=True):
 
     owned_providers: list["Provider"] = Relationship(
         back_populates="site_admins", link_model=Administrates
+    )
+    assigned_providers: list["Provider"] = Relationship(
+        back_populates="site_testers", link_model=Evaluates
     )
 
     __table_args__ = (
@@ -340,6 +364,9 @@ class Provider(
 
     site_admins: list[User] = Relationship(
         back_populates="owned_providers", link_model=Administrates
+    )
+    site_testers: list[User] = Relationship(
+        back_populates="assigned_providers", link_model=Evaluates
     )
     idps: list[ProviderIdPConnection] = Relationship(
         back_populates="provider", cascade_delete=True

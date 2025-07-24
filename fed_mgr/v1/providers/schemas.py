@@ -187,6 +187,14 @@ class ProviderUpdate(SQLModel):
         ),
         AfterValidator(check_list_not_empty),
     ]
+    site_testers: Annotated[
+        list[uuid.UUID] | None,
+        Field(
+            default=None,
+            sa_type=AutoString,
+            description="List of the provider/site testers IDs",
+        ),
+    ]
 
 
 class ProviderLinks(SQLModel):
@@ -223,6 +231,14 @@ class ProviderRead(ItemID, CreationRead, EditableRead, ProviderBase, ProviderInt
         Field(
             sa_type=AutoString,
             description="List of the provider/site administrator IDs",
+        ),
+    ]
+    site_testers: Annotated[
+        list[uuid.UUID] | None,
+        Field(
+            default=None,
+            sa_type=AutoString,
+            description="List of the provider/site testers IDs",
         ),
     ]
     links: Annotated[
@@ -310,6 +326,13 @@ class ProviderQuery(
             default=None,
             description="Any of the provider/site administrators IDs must contain this "
             "string",
+        ),
+    ]
+    site_testers: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Any of the provider/site testers IDs must contain this string",
         ),
     ]
 
