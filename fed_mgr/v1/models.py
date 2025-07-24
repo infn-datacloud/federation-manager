@@ -11,7 +11,6 @@ from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
-from fed_mgr.v1.locations.schemas import LocationBase
 from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionBase
 from fed_mgr.v1.providers.projects.regions.schemas import ProjRegConfigBase
 from fed_mgr.v1.providers.projects.schemas import ProjectBase
@@ -45,14 +44,14 @@ class Administrates(SQLModel, table=True):
 class User(ItemID, CreationTime, UserBase, table=True):
     """Schema used to return User's data to clients."""
 
-    created_locations: list["Location"] = Relationship(
-        back_populates="created_by",
-        sa_relationship_kwargs={"foreign_keys": "Location.created_by_id"},
-    )
-    updated_locations: list["Location"] = Relationship(
-        back_populates="updated_by",
-        sa_relationship_kwargs={"foreign_keys": "Location.updated_by_id"},
-    )
+    # created_locations: list["Location"] = Relationship(
+    #     back_populates="created_by",
+    #     sa_relationship_kwargs={"foreign_keys": "Location.created_by_id"},
+    # )
+    # updated_locations: list["Location"] = Relationship(
+    #     back_populates="updated_by",
+    #     sa_relationship_kwargs={"foreign_keys": "Location.updated_by_id"},
+    # )
 
     created_prov_idp_conns: list["ProviderIdPConnection"] = Relationship(
         back_populates="created_by",
@@ -135,33 +134,33 @@ class User(ItemID, CreationTime, UserBase, table=True):
     )
 
 
-class Location(ItemID, CreationTime, UpdateTime, LocationBase, table=True):
-    """Physical site hosting one or multiple resource providers.
+# class Location(ItemID, CreationTime, UpdateTime, LocationBase, table=True):
+#     """Physical site hosting one or multiple resource providers.
 
-    Avoid deletion if there is at least one linked region.
-    """
+#     Avoid deletion if there is at least one linked region.
+#     """
 
-    created_by_id: Annotated[
-        uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
-    ]
-    created_by: User = Relationship(
-        back_populates="created_locations",
-        sa_relationship_kwargs={"foreign_keys": "Location.created_by_id"},
-    )
+#     created_by_id: Annotated[
+#         uuid.UUID,
+#         Field(foreign_key="user.id", description="User who created this item."),
+#     ]
+#     created_by: User = Relationship(
+#         back_populates="created_locations",
+#         sa_relationship_kwargs={"foreign_keys": "Location.created_by_id"},
+#     )
 
-    updated_by_id: Annotated[
-        uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
-    ]
-    updated_by: User = Relationship(
-        back_populates="updated_locations",
-        sa_relationship_kwargs={"foreign_keys": "Location.updated_by_id"},
-    )
+#     updated_by_id: Annotated[
+#         uuid.UUID,
+#         Field(foreign_key="user.id", description="User who last updated this item."),
+#     ]
+#     updated_by: User = Relationship(
+#         back_populates="updated_locations",
+#         sa_relationship_kwargs={"foreign_keys": "Location.updated_by_id"},
+#     )
 
-    regions: list["Region"] = Relationship(
-        back_populates="location", passive_deletes="all"
-    )
+#     regions: list["Region"] = Relationship(
+#         back_populates="location", passive_deletes="all"
+#     )
 
 
 class ProviderIdPConnection(
@@ -426,15 +425,15 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     ]
     provider: Provider = Relationship(back_populates="regions")
 
-    location_id: Annotated[
-        uuid.UUID,
-        Field(
-            foreign_key="location.id",
-            ondelete="RESTRICT",  # Avoid on cascade deletion
-            description="Parent location",
-        ),
-    ]
-    location: Location = Relationship(back_populates="regions")
+    # location_id: Annotated[
+    #     uuid.UUID,
+    #     Field(
+    #         foreign_key="location.id",
+    #         ondelete="RESTRICT",  # Avoid on cascade deletion
+    #         description="Parent location",
+    #     ),
+    # ]
+    # location: Location = Relationship(back_populates="regions")
 
     linked_projects: list[ProjRegConfig] = Relationship(
         back_populates="region", passive_deletes="all"

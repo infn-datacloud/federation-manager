@@ -10,10 +10,8 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import LocationNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
-from fed_mgr.v1.locations.crud import get_location
-from fed_mgr.v1.models import Location, Provider, Region, User
+from fed_mgr.v1.models import Provider, Region, User
 from fed_mgr.v1.providers.regions.schemas import RegionCreate
 
 
@@ -75,14 +73,14 @@ def add_region(
         Region: The identifier of the newly created region.
 
     """
-    location = check_location_exist(session=session, region=region)
+    # location = check_location_exist(session=session, region=region)
     return add_item(
         session=session,
         entity=Region,
         created_by=created_by,
         updated_by=created_by,
         provider=provider,
-        location=location,
+        # location=location,
         **region.model_dump(),
     )
 
@@ -108,7 +106,7 @@ def update_region(
         None
 
     """
-    check_location_exist(session=session, region=new_region)
+    # check_location_exist(session=session, region=new_region)
     return update_item(
         session=session,
         entity=Region,
@@ -132,23 +130,23 @@ def delete_region(*, session: Session, region_id: uuid.UUID) -> None:
     delete_item(session=session, entity=Region, id=region_id)
 
 
-def check_location_exist(session: Session, region: RegionCreate) -> Location:
-    """Check if location ID exists in the database.
+# def check_location_exist(session: Session, region: RegionCreate) -> Location:
+#     """Check if location ID exists in the database.
 
-    Args:
-        session (Session): The database session used to query users.
-        region (RegionCreate): The region object containing the location ID.
+#     Args:
+#         session (Session): The database session used to query users.
+#         region (RegionCreate): The region object containing the location ID.
 
-    Returns:
-        Location: the location DB object.
+#     Returns:
+#         Location: the location DB object.
 
-    Raises:
-        LocationNotFoundError: If the location ID does not exist in the database.
+#     Raises:
+#         LocationNotFoundError: If the location ID does not exist in the database.
 
-    """
-    location = get_location(session=session, location_id=region.location_id)
-    if location is None:
-        raise LocationNotFoundError(
-            f"Location with ID '{region.location_id!s}' does not exist"
-        )
-    return location
+#     """
+#     location = get_location(session=session, location_id=region.location_id)
+#     if location is None:
+#         raise LocationNotFoundError(
+#             f"Location with ID '{region.location_id!s}' does not exist"
+#         )
+#     return location

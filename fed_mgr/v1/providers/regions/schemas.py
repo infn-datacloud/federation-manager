@@ -1,11 +1,9 @@
 """Regions schemas returned by the endpoints."""
 
-import uuid
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from sqlmodel import Field
 
 from fed_mgr.v1.schemas import (
     CreationQuery,
@@ -37,33 +35,33 @@ class RegionBase(ItemDescription):
 class RegionCreate(RegionBase):
     """Schema used to create a Region."""
 
-    location_id: Annotated[
-        uuid.UUID,
-        Field(description="ID of the physical site hosting the region's resources."),
-    ]
+    # location_id: Annotated[
+    #     uuid.UUID,
+    #     Field(description="ID of the physical site hosting the region's resources."),
+    # ]
 
 
-class RegionLinks(SQLModel):
-    """Schema containing links related to the Region."""
+# class RegionLinks(SQLModel):
+#     """Schema containing links related to the Region."""
 
-    location: Annotated[
-        AnyHttpUrl,
-        Field(
-            description="Link to retrieve the location hosting the region's resources."
-        ),
-    ]
+#     location: Annotated[
+#         AnyHttpUrl,
+#         Field(
+#             description="Link to retrieve the location hosting region's resources."
+#         ),
+#     ]
 
 
 class RegionRead(ItemID, CreationRead, EditableRead, RegionBase):
     """Schema used to read an Region."""
 
-    links: Annotated[
-        RegionLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the resource project related entities",
-        ),
-    ]
+    # links: Annotated[
+    #     RegionLinks,
+    #     Field(
+    #         sa_type=AutoString,
+    #         description="Dict with the links of the project related entities",
+    #     ),
+    # ]
 
 
 class RegionList(PaginatedList):

@@ -1,6 +1,5 @@
 """Endpoints to manage region details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -18,12 +17,11 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    LocationNotFoundError,
     NoItemToUpdateError,
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import LOCATIONS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
 from fed_mgr.v1.providers.regions.crud import (
     add_region,
@@ -130,11 +128,11 @@ def create_region(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    except LocationNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    # except LocationNotFoundError as e:
+    #     request.state.logger.error(e.message)
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+    #     ) from e
 
 
 @region_router.get(
@@ -189,12 +187,12 @@ def retrieve_regions(
             **region.model_dump(),  # Does not return created_by and updated_by
             created_by=region.created_by_id,
             updated_by=region.created_by_id,
-            links={
-                "location": urllib.parse.urljoin(
-                    str(request.url),
-                    f"{region.id}{LOCATIONS_PREFIX}/{region.location_id}",
-                ),
-            },
+            # links={
+            #     "location": urllib.parse.urljoin(
+            #         str(request.url),
+            #         f"{region.id}{LOCATIONS_PREFIX}/{region.location_id}",
+            #     ),
+            # },
         )
         new_regions.append(new_region)
     return RegionList(
@@ -251,11 +249,12 @@ def retrieve_region(
         **region.model_dump(),  # Does not return created_by and updated_by
         created_by=region.created_by_id,
         updated_by=region.created_by_id,
-        links={
-            "location": urllib.parse.urljoin(
-                str(request.url), f"{region.id}{LOCATIONS_PREFIX}/{region.location_id}"
-            ),
-        },
+        # links={
+        #     "location": urllib.parse.urljoin(
+        #         str(request.url),
+        #         f"{region.id}{LOCATIONS_PREFIX}/{region.location_id}",
+        #     ),
+        # },
     )
     return region
 
@@ -322,11 +321,11 @@ def edit_region(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    except LocationNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    # except LocationNotFoundError as e:
+    #     request.state.logger.error(e.message)
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+    #     ) from e
     request.state.logger.info("Region with ID '%s' updated", str(region_id))
 
 
