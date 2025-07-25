@@ -334,6 +334,10 @@ class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
     ]
     user_group: UserGroup = Relationship(back_populates="slas")
 
+    projects: list["Project"] = Relationship(
+        back_populates="sla", passive_deletes="all"
+    )
+
 
 class Provider(
     ItemID, CreationTime, UpdateTime, ProviderBase, ProviderInternal, table=True
@@ -497,6 +501,16 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         ),
     ]
     provider: Provider = Relationship(back_populates="projects")
+
+    sla_id: Annotated[
+        uuid.UUID | None,
+        Field(
+            foreign_key="sla.id",
+            ondelete="RESTRICT",  # Avoid on cascade deletion
+            description="Linked SLA",
+        ),
+    ]
+    sla: SLA = Relationship(back_populates="projects")
 
     regions: list[ProjRegConfig] = Relationship(
         back_populates="project", cascade_delete=True
