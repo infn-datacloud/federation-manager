@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Body, Depends, HTTPException, Request, status
 
 from fed_mgr.v1.models import Project
 from fed_mgr.v1.providers.projects.crud import get_project
@@ -32,3 +32,9 @@ def project_required(
         message = f"Project with ID '{project_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return project
+
+
+ProjectRequiredDep = Annotated[Project, Depends(project_required)]
+
+ProjectRequiredBodyDep = Annotated[Project, Depends(project_required), Body()]

@@ -30,3 +30,7 @@ def region_required(request: Request, region_id: uuid.UUID, region: RegionDep) -
         message = f"Region with ID '{region_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return region
+
+
+RegionRequiredDep = Annotated[Region, Depends(region_required)]

@@ -32,3 +32,7 @@ def provider_required(
         message = f"Resource provider with ID '{provider_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return provider
+
+
+ProviderRequiredDep = Annotated[Provider, Depends(provider_required)]

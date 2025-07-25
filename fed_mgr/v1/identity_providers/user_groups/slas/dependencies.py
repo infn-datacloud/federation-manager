@@ -30,3 +30,7 @@ def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> None:
         message = f"SLA with ID '{sla_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return sla
+
+
+SLARequiredDep = Annotated[SLA, Depends(sla_required)]

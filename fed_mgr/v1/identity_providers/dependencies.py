@@ -34,3 +34,7 @@ def idp_required(
         message = f"Identity Provider with ID '{idp_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return idp
+
+
+IdentityProviderRequiredDep = Annotated[IdentityProvider, Depends(idp_required)]

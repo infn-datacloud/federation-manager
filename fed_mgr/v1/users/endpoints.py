@@ -2,9 +2,9 @@
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, Response, Security, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from fed_mgr.auth import AuthenticationDep, check_authorization
+from fed_mgr.auth import AuthenticationDep
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -19,11 +19,7 @@ from fed_mgr.v1.users.crud import add_user, delete_user, get_users, update_user
 from fed_mgr.v1.users.dependencies import UserDep
 from fed_mgr.v1.users.schemas import UserCreate, UserList, UserQueryDep, UserRead
 
-user_router = APIRouter(
-    prefix=USERS_PREFIX,
-    tags=["users"],
-    dependencies=[Security(check_authorization)],
-)
+user_router = APIRouter(prefix=USERS_PREFIX, tags=["users"])
 
 
 @user_router.options(

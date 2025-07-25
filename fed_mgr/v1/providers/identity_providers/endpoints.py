@@ -9,11 +9,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -46,7 +44,7 @@ from fed_mgr.v1.users.dependencies import CurrenUserDep
 prov_idp_link_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + IDPS_PREFIX,
     tags=["idp overrides"],
-    dependencies=[Security(check_authorization), Depends(provider_required)],
+    dependencies=[Depends(provider_required)],
 )
 
 

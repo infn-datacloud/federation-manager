@@ -9,11 +9,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -24,14 +22,17 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
-from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
+from fed_mgr.v1.providers.dependencies import (
+    ProviderRequiredDep,
+    provider_required,
+)
 from fed_mgr.v1.providers.projects.crud import (
     add_project,
     delete_project,
     get_projects,
     update_project,
 )
-from fed_mgr.v1.providers.projects.dependencies import ProjectDep, project_required
+from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
 from fed_mgr.v1.providers.projects.schemas import (
     ProjectCreate,
     ProjectList,
@@ -44,7 +45,7 @@ from fed_mgr.v1.users.dependencies import CurrenUserDep
 project_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + PROJECTS_PREFIX,
     tags=["projects"],
-    dependencies=[Security(check_authorization), Depends(provider_required)],
+    dependencies=[Depends(provider_required)],
 )
 
 
@@ -85,7 +86,7 @@ def create_project(
     session: SessionDep,
     current_user: CurrenUserDep,
     project: ProjectCreate,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
 ) -> ItemID:
     """Create a new project in the system.
 
@@ -213,9 +214,8 @@ def retrieve_projects(
     "and return it. If the project does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(project_required)],
 )
-def retrieve_project(request: Request, project: ProjectDep) -> ProjectRead:
+def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRead:
     """Retrieve a project by their unique identifier.
 
     Logs the retrieval attempt, checks if the project exists, and returns the

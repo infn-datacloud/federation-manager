@@ -34,3 +34,7 @@ def user_group_required(
         message = f"User group with ID '{user_group_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+    return user_group
+
+
+UserGroupRequiredDep = Annotated[UserGroup, Depends(user_group_required)]

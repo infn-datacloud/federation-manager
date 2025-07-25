@@ -6,11 +6,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -22,7 +20,7 @@ from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PR
 from fed_mgr.v1.identity_providers.dependencies import idp_required
 from fed_mgr.v1.identity_providers.user_groups.dependencies import user_group_required
 from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import (
-    SLADep,
+    SLARequiredDep,
     sla_required,
 )
 from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
@@ -30,7 +28,10 @@ from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
     disconnect_proj_from_sla,
 )
 from fed_mgr.v1.providers.endpoints import update_provider_state
-from fed_mgr.v1.providers.projects.dependencies import ProjectDep, project_required
+from fed_mgr.v1.providers.projects.dependencies import (
+    ProjectRequiredBodyDep,
+    ProjectRequiredDep,
+)
 from fed_mgr.v1.providers.schemas import ProviderStatus
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.dependencies import CurrenUserDep
@@ -45,7 +46,6 @@ sla_proj_conn_router = APIRouter(
     + PROJECTS_PREFIX,
     tags=["sla's projects"],
     dependencies=[
-        Security(check_authorization),
         Depends(idp_required),
         Depends(user_group_required),
         Depends(sla_required),
@@ -78,7 +78,7 @@ def available_methods(response: Response) -> None:
 
 
 @sla_proj_conn_router.post(
-    "/{project_id}",
+    "/",
     summary="Create a new sla",
     description="Add a new sla to the DB. Check if a sla's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
@@ -88,14 +88,13 @@ def available_methods(response: Response) -> None:
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
     },
-    dependencies=[Depends(project_required)],
 )
 def connect_sla_to_proj(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    sla: SLADep,
-    project: ProjectDep,
+    sla: SLARequiredDep,
+    project: ProjectRequiredBodyDep,
 ) -> None:
     """Create a new sla in the system.
 
@@ -154,14 +153,13 @@ def connect_sla_to_proj(
     summary="Delete sla with given sub",
     description="Delete a sla with the given subject, for this issuer, from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(project_required)],
 )
 def disconnect_sla_from_project(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    sla: SLADep,
-    project: ProjectDep,
+    sla: SLARequiredDep,
+    project: ProjectRequiredDep,
 ) -> None:
     """Remove a sla from the system by their unique identifier.
 

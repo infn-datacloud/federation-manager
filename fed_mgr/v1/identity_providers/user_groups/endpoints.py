@@ -9,11 +9,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -30,10 +28,7 @@ from fed_mgr.v1.identity_providers.user_groups.crud import (
     get_user_groups,
     update_user_group,
 )
-from fed_mgr.v1.identity_providers.user_groups.dependencies import (
-    UserGroupDep,
-    user_group_required,
-)
+from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupRequiredDep
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupCreate,
     UserGroupList,
@@ -46,10 +41,8 @@ from fed_mgr.v1.users.dependencies import CurrenUserDep
 user_group_router = APIRouter(
     prefix=IDPS_PREFIX + "/{idp_id}" + USER_GROUPS_PREFIX,
     tags=["user groups"],
-    dependencies=[Security(check_authorization), Depends(idp_required)],
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
+    dependencies=[Depends(idp_required)],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
@@ -215,9 +208,10 @@ def retrieve_user_groups(
     "and return it. If the user group does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(user_group_required)],
 )
-def retrieve_user_group(request: Request, user_group: UserGroupDep) -> UserGroupRead:
+def retrieve_user_group(
+    request: Request, user_group: UserGroupRequiredDep
+) -> UserGroupRead:
     """Retrieve a user group by their unique identifier.
 
     Logs the retrieval attempt, checks if the user group exists, and returns the

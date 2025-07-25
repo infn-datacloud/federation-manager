@@ -5,15 +5,12 @@ import uuid
 
 from fastapi import (
     APIRouter,
-    Depends,
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -34,7 +31,7 @@ from fed_mgr.v1.providers.crud import (
     remove_site_tester,
     update_provider,
 )
-from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
+from fed_mgr.v1.providers.dependencies import ProviderRequiredDep
 from fed_mgr.v1.providers.schemas import (
     ProviderCreate,
     ProviderList,
@@ -46,11 +43,7 @@ from fed_mgr.v1.providers.schemas import (
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
-provider_router = APIRouter(
-    prefix=PROVIDERS_PREFIX,
-    tags=["resource providers"],
-    dependencies=[Security(check_authorization)],
-)
+provider_router = APIRouter(prefix=PROVIDERS_PREFIX, tags=["resource providers"])
 
 
 @provider_router.options(
@@ -219,9 +212,8 @@ def retrieve_providers(
     "and return it. If the resource provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(provider_required)],
 )
-def retrieve_provider(request: Request, provider: ProviderDep) -> ProviderRead:
+def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> ProviderRead:
     """Retrieve a resource provider by their unique identifier.
 
     Logs the retrieval attempt, checks if the resource provider exists, and returns the
@@ -388,13 +380,12 @@ def remove_provider(
     summary="Change the provider state from ready to submit",
     description="Provider is ready to be tested. Submit federation request",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
-    dependencies=[Depends(provider_required)],
 )
 def submit_request(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
 ) -> None:
     """Change provider state.
 
@@ -435,13 +426,12 @@ def submit_request(
     summary="Change the provider state from submitted to evaluation",
     description="Site tester assign the provied to himself.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
-    dependencies=[Depends(provider_required)],
 )
 def assign_to_request(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
 ) -> None:
     """Change provider state.
 
@@ -492,13 +482,12 @@ def assign_to_request(
     summary="Change the provider state from submitted to evaluation",
     description="Site tester retract himself from the provider.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
-    dependencies=[Depends(provider_required)],
 )
 def retract_from_request(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
 ) -> None:
     """Change provider state.
 
@@ -537,13 +526,12 @@ def retract_from_request(
     description="Receive the next status the provider should go. If it is a valid one, "
     "following the status FSM, go into that state. Otherwise reject the request.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
-    dependencies=[Depends(provider_required)],
 )
 def update_provider_state(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
     next_state: ProviderStatus,
 ) -> None:
     """Change provider state.

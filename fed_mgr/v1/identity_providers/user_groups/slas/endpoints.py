@@ -9,11 +9,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -34,10 +32,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
     get_slas,
     update_sla,
 )
-from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import (
-    SLADep,
-    sla_required,
-)
+from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLARequiredDep
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLACreate,
     SLAList,
@@ -54,11 +49,7 @@ sla_router = APIRouter(
     + "/{user_group_id}"
     + SLAS_PREFIX,
     tags=["slas"],
-    dependencies=[
-        Security(check_authorization),
-        Depends(idp_required),
-        Depends(user_group_required),
-    ],
+    dependencies=[Depends(idp_required), Depends(user_group_required)],
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
@@ -224,9 +215,8 @@ def retrieve_slas(
     "and return it. If the sla does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(sla_required)],
 )
-def retrieve_sla(request: Request, sla: SLADep) -> SLARead:
+def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     """Retrieve a sla by their unique identifier.
 
     Logs the retrieval attempt, checks if the sla exists, and returns the

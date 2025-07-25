@@ -5,15 +5,12 @@ import uuid
 
 from fastapi import (
     APIRouter,
-    Depends,
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -24,7 +21,7 @@ from fed_mgr.exceptions import (
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
-from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderRequiredDep
 from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderCreate,
     IdentityProviderList,
@@ -34,11 +31,7 @@ from fed_mgr.v1.identity_providers.schemas import (
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
-idp_router = APIRouter(
-    prefix=IDPS_PREFIX,
-    tags=["identity providers"],
-    dependencies=[Security(check_authorization)],
-)
+idp_router = APIRouter(prefix=IDPS_PREFIX, tags=["identity providers"])
 
 
 @idp_router.options(
@@ -192,9 +185,10 @@ def retrieve_idps(
     "and return it. If the identity provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(idp_required)],
 )
-def retrieve_idp(request: Request, idp: IdentityProviderDep) -> IdentityProviderRead:
+def retrieve_idp(
+    request: Request, idp: IdentityProviderRequiredDep
+) -> IdentityProviderRead:
     """Retrieve a identity provider by their unique identifier.
 
     Logs the retrieval attempt, checks if the identity provider exists, and returns the

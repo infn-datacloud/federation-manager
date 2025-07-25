@@ -2,9 +2,8 @@
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, Response, Security, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -30,11 +29,7 @@ from fed_mgr.v1.locations.schemas import (
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
-location_router = APIRouter(
-    prefix=LOCATIONS_PREFIX,
-    tags=["locations"],
-    dependencies=[Security(check_authorization)],
-)
+location_router = APIRouter(prefix=LOCATIONS_PREFIX, tags=["locations"])
 
 
 @location_router.options(

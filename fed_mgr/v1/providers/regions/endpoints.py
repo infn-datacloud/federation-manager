@@ -8,11 +8,9 @@ from fastapi import (
     HTTPException,
     Request,
     Response,
-    Security,
     status,
 )
 
-from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -22,14 +20,17 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
-from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
+from fed_mgr.v1.providers.dependencies import (
+    ProviderRequiredDep,
+    provider_required,
+)
 from fed_mgr.v1.providers.regions.crud import (
     add_region,
     delete_region,
     get_regions,
     update_region,
 )
-from fed_mgr.v1.providers.regions.dependencies import RegionDep, region_required
+from fed_mgr.v1.providers.regions.dependencies import RegionRequiredDep
 from fed_mgr.v1.providers.regions.schemas import (
     RegionCreate,
     RegionList,
@@ -42,7 +43,7 @@ from fed_mgr.v1.users.dependencies import CurrenUserDep
 region_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + REGIONS_PREFIX,
     tags=["regions"],
-    dependencies=[Security(check_authorization), Depends(provider_required)],
+    dependencies=[Depends(provider_required)],
 )
 
 
@@ -83,7 +84,7 @@ def create_region(
     session: SessionDep,
     current_user: CurrenUserDep,
     region: RegionCreate,
-    provider: ProviderDep,
+    provider: ProviderRequiredDep,
 ) -> ItemID:
     """Create a new resource region in the system.
 
@@ -212,9 +213,8 @@ def retrieve_regions(
     "and return it. If the resource region does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(region_required)],
 )
-def retrieve_region(request: Request, region: RegionDep) -> RegionRead:
+def retrieve_region(request: Request, region: RegionRequiredDep) -> RegionRead:
     """Retrieve a resource region by their unique identifier.
 
     Logs the retrieval attempt, checks if the resource region exists, and returns the
