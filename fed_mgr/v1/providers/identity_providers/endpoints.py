@@ -153,7 +153,7 @@ def create_prov_idp_connection(
 def retrieve_prov_idp_connections(
     request: Request,
     session: SessionDep,
-    provider_id: uuid.UUID,
+    provider: ProviderRequiredDep,
     params: ProviderIdPConnectionQueryDep,
 ) -> ProviderIdPConnectionList:
     """Retrieve a paginated list of identity providers based on query parameters.
@@ -168,7 +168,7 @@ def retrieve_prov_idp_connections(
         params (IdentityProviderQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
-        provider_id: Parent provider ID
+        provider: Parent provider ID
 
     Returns:
         IdentityProviderList: A paginated list of identity providers matching the query
@@ -180,18 +180,18 @@ def retrieve_prov_idp_connections(
 
     """
     msg = "Retrieve identity provider configurations details overwritten by provider "
-    msg += f"with ID '{provider_id!s}'. Query params: {params.model_dump_json()}"
+    msg += f"with ID '{provider.id!s}'. Query params: {params.model_dump_json()}"
     request.state.logger.info(msg)
     links, tot_items = get_prov_idp_links(
         session=session,
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
-        provider_id=provider_id,
+        provider_id=provider.id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     msg = f"{tot_items} retrieved identity provider configurations details overwritten "
-    msg += f"by provider with ID '{provider_id!s}': "
+    msg += f"by provider with ID '{provider.id!s}': "
     msg += f"{[link.model_dump_json() for link in links]}"
     request.state.logger.info(msg)
     new_links = []

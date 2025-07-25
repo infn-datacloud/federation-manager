@@ -144,8 +144,8 @@ def create_region(
 def retrieve_regions(
     request: Request,
     session: SessionDep,
+    provider: ProviderRequiredDep,
     params: RegionQueryDep,
-    provider_id: uuid.UUID,
 ) -> RegionList:
     """Retrieve a paginated list of regions based on query parameters.
 
@@ -159,7 +159,7 @@ def retrieve_regions(
         params (RegionQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
-        provider_id: Parent provider ID
+        provider: Parent provider ID
 
     Returns:
         RegionList: A paginated list of resource regions matching the query
@@ -177,7 +177,7 @@ def retrieve_regions(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
-        provider_id=provider_id,
+        provider_id=provider.id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     msg = f"{tot_items} retrieved regions: "

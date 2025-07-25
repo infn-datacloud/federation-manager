@@ -143,7 +143,10 @@ def create_user_group(
     description="Retrieve a paginated list of user groups.",
 )
 def retrieve_user_groups(
-    request: Request, session: SessionDep, idp_id: uuid.UUID, params: UserGroupQueryDep
+    request: Request,
+    session: SessionDep,
+    idp: IdentityProviderRequiredDep,
+    params: UserGroupQueryDep,
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 
@@ -157,7 +160,7 @@ def retrieve_user_groups(
         params (UserGroupQueryDep): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
-        idp_id: Parent identity Provider ID
+        idp: Parent identity Provider ID
 
     Returns:
         UserGroupList: A paginated list of user groups matching the query
@@ -176,7 +179,7 @@ def retrieve_user_groups(
         skip=(params.page - 1) * params.size,
         limit=params.size,
         sort=params.sort,
-        idp_id=idp_id,
+        idp_id=idp.id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     msg = f"{tot_items} retrieved user groups: "
