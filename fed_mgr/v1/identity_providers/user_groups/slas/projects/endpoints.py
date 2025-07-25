@@ -29,7 +29,9 @@ from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
     connect_proj_to_sla,
     disconnect_proj_from_sla,
 )
+from fed_mgr.v1.providers.endpoints import update_provider_state
 from fed_mgr.v1.providers.projects.dependencies import ProjectDep, project_required
+from fed_mgr.v1.providers.schemas import ProviderStatus
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
@@ -129,6 +131,13 @@ def connect_sla_to_proj(
             sla=sla,
         )
         request.state.logger.info("SLA and project connected")
+        update_provider_state(
+            request=request,
+            session=session,
+            provider=project.provider,
+            current_user=current_user,
+            next_state=ProviderStatus.ready,
+        )
         return None
     except ConflictError as e:
         request.state.logger.error(e.message)

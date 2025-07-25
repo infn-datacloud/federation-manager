@@ -468,6 +468,8 @@ def assign_to_request(
         "Assign site tester '%s' to provider '%s'", current_user.id, provider.id
     )
     first_tester = not len(provider.site_testers)
+    add_site_tester(session=session, provider=provider, user=current_user)
+    request.state.logger.info("Site tester assigned")
     if first_tester:
         update_provider_state(
             request=request,
@@ -476,7 +478,6 @@ def assign_to_request(
             current_user=current_user,
             next_state=ProviderStatus.evaluation,
         )
-    add_site_tester(session=session, provider=provider, user=current_user)
 
 
 @provider_router.post(
@@ -517,6 +518,7 @@ def retract_from_request(
         "Retract site tester '%s' from provider '%s'", current_user.id, provider.id
     )
     remove_site_tester(session=session, provider=provider, user=current_user)
+    request.state.logger.info("Site tester removed from provider")
 
 
 @provider_router.put(
