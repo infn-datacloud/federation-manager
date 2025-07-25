@@ -88,8 +88,8 @@ def available_methods(response: Response) -> None:
 def create_user_group(
     request: Request,
     session: SessionDep,
-    user_group: UserGroupCreate,
     current_user: CurrenUserDep,
+    user_group: UserGroupCreate,
     idp: IdentityProviderDep,
 ) -> ItemID:
     """Create a new user group in the system.
@@ -144,7 +144,7 @@ def create_user_group(
     description="Retrieve a paginated list of user groups.",
 )
 def retrieve_user_groups(
-    request: Request, params: UserGroupQueryDep, session: SessionDep, idp_id: uuid.UUID
+    request: Request, session: SessionDep, params: UserGroupQueryDep, idp_id: uuid.UUID
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 
@@ -271,10 +271,10 @@ def retrieve_user_group(
 )
 def edit_user_group(
     request: Request,
-    user_group_id: uuid.UUID,
-    new_user_group: UserGroupCreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    user_group_id: uuid.UUID,
+    new_user_group: UserGroupCreate,
 ) -> None:
     """Update an existing user group in the database with the given user_group ID.
 
@@ -327,7 +327,7 @@ def edit_user_group(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_user_group(
-    request: Request, user_group_id: uuid.UUID, session: SessionDep
+    request: Request, session: SessionDep, user_group_id: uuid.UUID
 ) -> None:
     """Remove a user group from the system by their unique identifier.
 

@@ -98,8 +98,8 @@ def available_methods(response: Response) -> None:
 def create_sla(
     request: Request,
     session: SessionDep,
-    sla: SLACreate,
     current_user: CurrenUserDep,
+    sla: SLACreate,
     user_group: UserGroupDep,
 ) -> ItemID:
     """Create a new sla in the system.
@@ -154,7 +154,7 @@ def create_sla(
     description="Retrieve a paginated list of slas.",
 )
 def retrieve_slas(
-    request: Request, params: SLAQueryDep, session: SessionDep, user_group_id: uuid.UUID
+    request: Request, session: SessionDep, params: SLAQueryDep, user_group_id: uuid.UUID
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 
@@ -276,10 +276,10 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
 )
 def edit_sla(
     request: Request,
-    sla_id: uuid.UUID,
-    new_sla: SLACreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    sla_id: uuid.UUID,
+    new_sla: SLACreate,
 ) -> None:
     """Update an existing sla in the database with the given sla ID.
 
@@ -330,7 +330,7 @@ def edit_sla(
     description="Delete a sla with the given subject, for this issuer, from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_sla(request: Request, sla_id: uuid.UUID, session: SessionDep) -> None:
+def remove_sla(request: Request, session: SessionDep, sla_id: uuid.UUID) -> None:
     """Remove a sla from the system by their unique identifier.
 
     Logs the deletion process and delegates the actual removal to the

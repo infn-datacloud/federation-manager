@@ -88,8 +88,8 @@ def available_methods(response: Response) -> None:
 def create_provider(
     request: Request,
     session: SessionDep,
-    provider: ProviderCreate,
     current_user: CurrenUserDep,
+    provider: ProviderCreate,
 ) -> ItemID:
     """Create a new resource provider in the system.
 
@@ -146,7 +146,7 @@ def create_provider(
     description="Retrieve a paginated list of resource providers.",
 )
 def retrieve_providers(
-    request: Request, params: ProviderQueryDep, session: SessionDep
+    request: Request, session: SessionDep, params: ProviderQueryDep
 ) -> ProviderList:
     """Retrieve a paginated list of resource providers based on query parameters.
 
@@ -290,10 +290,10 @@ def retrieve_provider(
 )
 def edit_provider(
     request: Request,
-    provider_id: uuid.UUID,
-    new_provider: ProviderUpdate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    provider_id: uuid.UUID,
+    new_provider: ProviderUpdate,
 ) -> None:
     """Update an existing resource provider in the database with the given provider ID.
 
@@ -355,7 +355,7 @@ def edit_provider(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_provider(
-    request: Request, provider_id: uuid.UUID, session: SessionDep
+    request: Request, session: SessionDep, provider_id: uuid.UUID
 ) -> None:
     """Remove a resource provider from the system by their unique identifier.
 
@@ -400,8 +400,8 @@ def remove_provider(
 def submit_request(
     request: Request,
     session: SessionDep,
-    provider: ProviderDep,
     current_user: CurrenUserDep,
+    provider: ProviderDep,
 ) -> None:
     """Change provider state.
 
@@ -447,8 +447,8 @@ def submit_request(
 def assign_to_request(
     request: Request,
     session: SessionDep,
-    provider: ProviderDep,
     current_user: CurrenUserDep,
+    provider: ProviderDep,
 ) -> None:
     """Change provider state.
 
@@ -504,8 +504,8 @@ def assign_to_request(
 def retract_from_request(
     request: Request,
     session: SessionDep,
-    provider: ProviderDep,
     current_user: CurrenUserDep,
+    provider: ProviderDep,
 ) -> None:
     """Change provider state.
 
@@ -549,8 +549,8 @@ def retract_from_request(
 def update_provider_state(
     request: Request,
     session: SessionDep,
-    provider: ProviderDep,
     current_user: CurrenUserDep,
+    provider: ProviderDep,
     next_state: ProviderStatus,
 ) -> None:
     """Change provider state.

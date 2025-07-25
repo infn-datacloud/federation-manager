@@ -81,8 +81,8 @@ def available_methods(response: Response) -> None:
 def create_region(
     request: Request,
     session: SessionDep,
-    region: RegionCreate,
     current_user: CurrenUserDep,
+    region: RegionCreate,
     provider: ProviderDep,
 ) -> ItemID:
     """Create a new resource region in the system.
@@ -142,8 +142,8 @@ def create_region(
 )
 def retrieve_regions(
     request: Request,
-    params: RegionQueryDep,
     session: SessionDep,
+    params: RegionQueryDep,
     provider_id: uuid.UUID,
 ) -> RegionList:
     """Retrieve a paginated list of regions based on query parameters.
@@ -275,10 +275,10 @@ def retrieve_region(
 )
 def edit_region(
     request: Request,
-    region_id: uuid.UUID,
-    new_region: RegionCreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    region_id: uuid.UUID,
+    new_region: RegionCreate,
 ) -> None:
     """Update an existing resource region in the database with the given region ID.
 
@@ -339,7 +339,7 @@ def edit_region(
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_region(request: Request, region_id: uuid.UUID, session: SessionDep) -> None:
+def remove_region(request: Request, session: SessionDep, region_id: uuid.UUID) -> None:
     """Remove a resource region from the system by their unique identifier.
 
     Logs the deletion process and delegates the actual removal to the `delete_region`

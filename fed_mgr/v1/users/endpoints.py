@@ -59,7 +59,7 @@ def available_methods(response: Response) -> None:
     },
 )
 def create_user(
-    request: Request, current_user_infos: AuthenticationDep, session: SessionDep
+    request: Request, session: SessionDep, current_user_infos: AuthenticationDep
 ) -> ItemID:
     """Create a new user in the system.
 
@@ -114,7 +114,7 @@ def create_user(
     description="Retrieve a paginated list of users.",
 )
 def retrieve_users(
-    request: Request, params: UserQueryDep, session: SessionDep
+    request: Request, session: SessionDep, params: UserQueryDep
 ) -> UserList:
     """Retrieve a paginated list of users based on query parameters.
 
@@ -208,9 +208,9 @@ def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> UserRe
 )
 def edit_user(
     request: Request,
+    session: SessionDep,
     user_id: uuid.UUID,
     new_user: UserCreate,
-    session: SessionDep,
 ) -> None:
     """Update an existing user in the database with the given user ID.
 
@@ -253,7 +253,7 @@ def edit_user(
     description="Delete a user with the given id from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> None:
+def remove_user(request: Request, session: SessionDep, user_id: uuid.UUID) -> None:
     """Remove a user from the system by their unique identifier.
 
     Logs the deletion process and delegates the actual removal to the `delete_user`

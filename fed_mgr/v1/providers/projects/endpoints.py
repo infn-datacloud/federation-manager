@@ -83,8 +83,8 @@ def available_methods(response: Response) -> None:
 def create_project(
     request: Request,
     session: SessionDep,
-    project: ProjectCreate,
     current_user: CurrenUserDep,
+    project: ProjectCreate,
     provider: ProviderDep,
 ) -> ItemID:
     """Create a new project in the system.
@@ -144,8 +144,8 @@ def create_project(
 )
 def retrieve_projects(
     request: Request,
-    params: ProjectQueryDep,
     session: SessionDep,
+    params: ProjectQueryDep,
     provider_id: uuid.UUID,
 ) -> ProjectList:
     """Retrieve a paginated list of projects based on query parameters.
@@ -275,10 +275,10 @@ def retrieve_project(
 )
 def edit_project(
     request: Request,
-    project_id: uuid.UUID,
-    new_project: ProjectCreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    project_id: uuid.UUID,
+    new_project: ProjectCreate,
 ) -> None:
     """Update an existing project in the database with the given project ID.
 
@@ -340,7 +340,7 @@ def edit_project(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def remove_project(
-    request: Request, project_id: uuid.UUID, session: SessionDep
+    request: Request, session: SessionDep, project_id: uuid.UUID
 ) -> None:
     """Remove a project from the system by their unique identifier.
 

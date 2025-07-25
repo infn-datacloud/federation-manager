@@ -68,8 +68,8 @@ def available_methods(response: Response) -> None:
 def create_idp(
     request: Request,
     session: SessionDep,
-    idp: IdentityProviderCreate,
     current_user: CurrenUserDep,
+    idp: IdentityProviderCreate,
 ) -> ItemID:
     """Create a new identity provider in the system.
 
@@ -119,7 +119,7 @@ def create_idp(
     description="Retrieve a paginated list of identity providers.",
 )
 def retrieve_idps(
-    request: Request, params: IdentityProviderQueryDep, session: SessionDep
+    request: Request, session: SessionDep, params: IdentityProviderQueryDep
 ) -> IdentityProviderList:
     """Retrieve a paginated list of identity providers based on query parameters.
 
@@ -243,10 +243,10 @@ def retrieve_idp(
 )
 def edit_idp(
     request: Request,
-    idp_id: uuid.UUID,
-    new_idp: IdentityProviderCreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    idp_id: uuid.UUID,
+    new_idp: IdentityProviderCreate,
 ) -> None:
     """Update an existing identity provider in the database with the given idp ID.
 
@@ -295,7 +295,7 @@ def edit_idp(
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None:
+def remove_idp(request: Request, session: SessionDep, idp_id: uuid.UUID) -> None:
     """Remove a identity provider from the system by their unique identifier.
 
     Logs the deletion process and delegates the actual removal to the `delete_idp`
