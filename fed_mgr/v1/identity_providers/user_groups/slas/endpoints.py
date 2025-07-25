@@ -127,16 +127,12 @@ def create_sla(
         409 Conflict: If the user already exists (handled below).
 
     """
-    request.state.logger.info(
-        "Creating sla with params: %s",
-        sla.model_dump(exclude_none=True),
-    )
+    msg = f"Creating SLA with params: {sla.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
         db_sla = add_sla(
             session=session, sla=sla, created_by=current_user, user_group=user_group
         )
-        request.state.logger.info("SLA created: %s", repr(db_sla))
-        return {"id": db_sla.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -147,6 +143,9 @@ def create_sla(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = f"User created: {db_sla.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_sla.id}
 
 
 @sla_router.get(
@@ -181,10 +180,8 @@ def retrieve_slas(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    request.state.logger.info(
-        "Retrieve slas. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = f"Retrieve SLAs. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     slas, tot_items = get_slas(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -193,7 +190,8 @@ def retrieve_slas(
         user_group_id=user_group_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info("%d retrieved slas: %s", tot_items, repr(slas))
+    msg = f"{tot_items} retrieved SLAs: {[sla.model_dump_json() for sla in slas]}"
+    request.state.logger.info(msg)
     new_slas = []
     for sla in slas:
         new_sla = SLARead(
@@ -245,12 +243,14 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve sla with ID '%s'", str(sla_id))
+    msg = f"Retrieve SLA with ID '{sla_id!s}'"
+    request.state.logger.info(msg)
     if sla is None:
-        message = f"SLA with ID '{sla_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info("SLA with ID '%s' found: %s", str(sla_id), repr(sla))
+        msg = f"SLA with ID '{sla_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"SLA with ID '{sla_id!s}' found: {sla.model_dump_json()}"
+    request.state.logger.info(msg)
     sla = SLARead(
         **sla.model_dump(),  # Does not return created_by and updated_by
         created_by=sla.created_by_id,
@@ -296,7 +296,8 @@ def edit_sla(
             group is not found
 
     """
-    request.state.logger.info("Update sla with ID '%s'", str(sla_id))
+    msg = f"Update SLA with ID '{sla_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_sla(
             session=session,
@@ -319,7 +320,8 @@ def edit_sla(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("sla with ID '%s' updated", str(sla_id))
+    msg = f"SLA with ID '{sla_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @sla_router.delete(
@@ -349,7 +351,8 @@ def remove_sla(request: Request, sla_id: uuid.UUID, session: SessionDep) -> None
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    request.state.logger.info("Delete sla with ID '%s'", str(sla_id))
+    msg = f"Delete SLA with ID '{sla_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_sla(session=session, sla_id=sla_id)
     except DeleteFailedError as e:
@@ -357,4 +360,5 @@ def remove_sla(request: Request, sla_id: uuid.UUID, session: SessionDep) -> None
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("sla with ID '%s' deleted", str(sla_id))
+    msg = f"SLA with ID '{sla_id!s}' deleted"
+    request.state.logger.info(msg)

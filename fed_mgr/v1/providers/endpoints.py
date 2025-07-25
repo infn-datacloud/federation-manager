@@ -3,7 +3,15 @@
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, Response, Security, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    Security,
+    status,
+)
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
@@ -26,7 +34,7 @@ from fed_mgr.v1.providers.crud import (
     remove_site_tester,
     update_provider,
 )
-from fed_mgr.v1.providers.dependencies import ProviderDep
+from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
 from fed_mgr.v1.providers.schemas import (
     ProviderCreate,
     ProviderList,
@@ -106,16 +114,12 @@ def create_provider(
         409 Conflict: If the user already exists (handled below).
 
     """
+    msg = f"Creating resource provider with params: {provider.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Creating resource provider with params: %s",
-            provider.model_dump(exclude_none=True),
-        )
         db_provider = add_provider(
             session=session, provider=provider, created_by=current_user
         )
-        request.state.logger.info("Resource Provider created: %s", repr(db_provider))
-        return {"id": db_provider.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -131,6 +135,9 @@ def create_provider(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
+    msg = f"Resource provider created: {db_provider.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_provider.id}
 
 
 @provider_router.get(
@@ -163,10 +170,8 @@ def retrieve_providers(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve resource providers. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = f"Retrieve resource providers. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     providers, tot_items = get_providers(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -174,9 +179,9 @@ def retrieve_providers(
         sort=params.sort,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info(
-        "%d retrieved resource providers: %s", tot_items, repr(providers)
-    )
+    msg = f"{tot_items} retrieved resource providers: "
+    msg += f"{[provider.model_dump_json() for provider in providers]}"
+    request.state.logger.info(msg)
     new_providers = []
     for provider in providers:
         new_provider = ProviderRead(
@@ -240,16 +245,15 @@ def retrieve_provider(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info(
-        "Retrieve resource provider with ID '%s'", str(provider_id)
-    )
+    msg = f"Retrieve resource provider with ID '{provider_id!s}'"
+    request.state.logger.info(msg)
     if provider is None:
-        message = f"Resource Provider with ID '{provider_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "Resource Provider with ID '%s' found: %s", str(provider_id), repr(provider)
-    )
+        msg = f"Resource Provider with ID '{provider_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"Resource provider with ID '{provider_id!s}' found: "
+    msg += f"{provider.model_dump_json()}"
+    request.state.logger.info(msg)
     provider = ProviderRead(
         **provider.model_dump(),
         # model_dump does not return created_by, updated_by and  site_admins
@@ -310,7 +314,8 @@ def edit_provider(
         409 Conflict: If the user already exists (handled below).
 
     """
-    request.state.logger.info("Update resource provider with ID '%s'", str(provider_id))
+    msg = f"Update resource provider with ID '{provider_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_provider(
             session=session,
@@ -338,9 +343,8 @@ def edit_provider(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info(
-        "Resource Provider with ID '%s' updated", str(provider_id)
-    )
+    msg = f"Resource provider with ID '{provider_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @provider_router.delete(
@@ -373,7 +377,8 @@ def remove_provider(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete resource provider with ID '%s'", str(provider_id))
+    msg = f"Delete resource provider with ID '{provider_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_provider(session=session, provider_id=provider_id)
     except DeleteFailedError as e:
@@ -381,9 +386,8 @@ def remove_provider(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info(
-        "Resource Provider with ID '%s' deleted", str(provider_id)
-    )
+    msg = f"Resource provider with ID '{provider_id!s}' deleted"
+    request.state.logger.info(msg)
 
 
 @provider_router.post(
@@ -391,6 +395,7 @@ def remove_provider(
     summary="Change the provider state from ready to submit",
     description="Provider is ready to be tested. Submit federation request",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    dependencies=[Depends(provider_required)],
 )
 def submit_request(
     request: Request,
@@ -420,7 +425,9 @@ def submit_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("User submitted request")
+    msg = f"User {current_user.id} submitted federation request for resource provider "
+    msg += f"with ID: {provider.id!s}"
+    request.state.logger.info(msg)
     return update_provider_state(
         request=request,
         session=session,
@@ -435,6 +442,7 @@ def submit_request(
     summary="Change the provider state from submitted to evaluation",
     description="Site tester assign the provied to himself.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    dependencies=[Depends(provider_required)],
 )
 def assign_to_request(
     request: Request,
@@ -464,13 +472,19 @@ def assign_to_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Assign site tester '%s' to provider '%s'", current_user.id, provider.id
+    msg = (
+        f"Assigning tester with ID '{current_user.id!s}' to resource provider with ID "
     )
+    msg += f"'{provider.id!s}'"
+    request.state.logger.info(msg)
     first_tester = not len(provider.site_testers)
     add_site_tester(session=session, provider=provider, user=current_user)
-    request.state.logger.info("Site tester assigned")
-    if first_tester:
+    msg = f"Tester with ID '{current_user.id!s}' assigned to resource provider with ID "
+    msg += f"'{provider.id!s}'"
+    request.state.logger.info(msg)
+
+    # Site tester assigned for the first time and provider not yet evaluated
+    if first_tester and provider.status == ProviderStatus.submitted:
         update_provider_state(
             request=request,
             session=session,
@@ -485,6 +499,7 @@ def assign_to_request(
     summary="Change the provider state from submitted to evaluation",
     description="Site tester retract himself from the provider.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    dependencies=[Depends(provider_required)],
 )
 def retract_from_request(
     request: Request,
@@ -514,11 +529,13 @@ def retract_from_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retract site tester '%s' from provider '%s'", current_user.id, provider.id
-    )
+    msg = f"Retract tester with ID '{current_user.id!s}' from resource provider with "
+    msg += f"ID '{provider.id!s}'"
+    request.state.logger.info(msg)
     remove_site_tester(session=session, provider=provider, user=current_user)
-    request.state.logger.info("Site tester removed from provider")
+    msg = f"Tester with ID '{current_user.id!s}' retracted from resource provider with "
+    msg += f"ID '{provider.id!s}'"
+    request.state.logger.info(msg)
 
 
 @provider_router.put(
@@ -527,6 +544,7 @@ def retract_from_request(
     description="Receive the next status the provider should go. If it is a valid one, "
     "following the status FSM, go into that state. Otherwise reject the request.",
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    dependencies=[Depends(provider_required)],
 )
 def update_provider_state(
     request: Request,
@@ -557,19 +575,21 @@ def update_provider_state(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
+    msg = f"Changing provider state of provider with ID '{provider.id!s}' from "
+    msg += f"'{provider.status.name}' to '{next_state.name}'"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Changing provider state from '%s' to '%s'", provider.status, next_state
-        )
         change_provider_state(
             session=session,
             provider_id=provider.id,
             next_state=next_state,
             updated_by=current_user,
         )
-        request.state.logger.info("Resource provider state changed")
     except ProviderStateChangeError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
+    msg = f"The state of resource provider with ID '{provider.id!s}' is "
+    msg += f"'{provider.status.name}'"
+    request.state.logger.info(msg)

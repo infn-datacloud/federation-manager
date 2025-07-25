@@ -109,15 +109,12 @@ def create_region(
         409 Conflict: If the user already exists (handled below).
 
     """
+    msg = f"Creating region with params: {region.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Creating region with params: %s", region.model_dump(exclude_none=True)
-        )
         db_region = add_region(
             session=session, region=region, created_by=current_user, provider=provider
         )
-        request.state.logger.info("Region created: %s", repr(db_region))
-        return {"id": db_region.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -133,6 +130,9 @@ def create_region(
     #     raise HTTPException(
     #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
     #     ) from e
+    msg = f"Region created: {db_region.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_region.id}
 
 
 @region_router.get(
@@ -169,9 +169,8 @@ def retrieve_regions(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve regions. Query params: %s", params.model_dump(exclude_none=True)
-    )
+    msg = f"Retrieve regions. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     regions, tot_items = get_regions(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -180,7 +179,9 @@ def retrieve_regions(
         provider_id=provider_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info("%d retrieved regions: %s", tot_items, repr(regions))
+    msg = f"{tot_items} retrieved regions: "
+    msg += f"{[region.model_dump_json() for region in regions]}"
+    request.state.logger.info(msg)
     new_regions = []
     for region in regions:
         new_region = RegionRead(
@@ -237,14 +238,14 @@ def retrieve_region(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve region with ID '%s'", str(region_id))
+    msg = f"Retrieve region with ID '{region_id!s}'"
+    request.state.logger.info(msg)
     if region is None:
         message = f"Region with ID '{region_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "Region with ID '%s' found: %s", str(region_id), repr(region)
-    )
+    msg = f"Region with ID '{region_id!s}' found: {region.model_dump_json()}"
+    request.state.logger.info(msg)
     region = RegionRead(
         **region.model_dump(),  # Does not return created_by and updated_by
         created_by=region.created_by_id,
@@ -298,7 +299,8 @@ def edit_region(
         409 Conflict: If the user already exists (handled below).
 
     """
-    request.state.logger.info("Update region with ID '%s'", str(region_id))
+    msg = f"Update region with ID '{region_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_region(
             session=session,
@@ -326,7 +328,8 @@ def edit_region(
     #     raise HTTPException(
     #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
     #     ) from e
-    request.state.logger.info("Region with ID '%s' updated", str(region_id))
+    msg = f"Region with ID '{region_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @region_router.delete(
@@ -357,7 +360,8 @@ def remove_region(request: Request, region_id: uuid.UUID, session: SessionDep) -
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete region with ID '%s'", str(region_id))
+    msg = f"Delete region with ID '{region_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_region(session=session, region_id=region_id)
     except DeleteFailedError as e:
@@ -365,4 +369,5 @@ def remove_region(request: Request, region_id: uuid.UUID, session: SessionDep) -
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("Region with ID '%s' deleted", str(region_id))
+    msg = f"Region with ID '{region_id!s}' deleted"
+    request.state.logger.info(msg)

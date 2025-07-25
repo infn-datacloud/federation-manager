@@ -94,14 +94,10 @@ def create_idp(
         409 Conflict: If the user already exists (handled below).
 
     """
+    msg = f"Creating identity provider with params: {idp.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Creating identity provider with params: %s",
-            idp.model_dump(exclude_none=True),
-        )
         db_idp = add_idp(session=session, idp=idp, created_by=current_user)
-        request.state.logger.info("Identity Provider created: %s", repr(db_idp))
-        return {"id": db_idp.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -112,6 +108,9 @@ def create_idp(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = f"Identity Provider created: {db_idp.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_idp.id}
 
 
 @idp_router.get(
@@ -144,10 +143,8 @@ def retrieve_idps(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve identity providers. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = f"Retrieve identity providers. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     idps, tot_items = get_idps(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -155,9 +152,9 @@ def retrieve_idps(
         sort=params.sort,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info(
-        "%d retrieved identity providers: %s", tot_items, repr(idps)
-    )
+    msg = f"{tot_items} retrieved identity providers: "
+    msg += f"{[idp.model_dmp_json() for idp in idps]}"
+    request.state.logger.info(msg)
     new_idps = []
     for idp in idps:
         new_idp = IdentityProviderRead(
@@ -212,14 +209,14 @@ def retrieve_idp(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve identity provider with ID '%s'", str(idp_id))
+    msg = f"Retrieve identity provider with ID '{idp_id!s}'"
+    request.state.logger.info(msg)
     if idp is None:
-        message = f"Identity Provider with ID '{idp_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "Identity Provider with ID '%s' found: %s", str(idp_id), repr(idp)
-    )
+        msg = f"Identity Provider with ID '{idp_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"Identity Provider with ID '{idp_id!s}' found: {idp.model_dump_json()}"
+    request.state.logger.info(msg)
     idp = IdentityProviderRead(
         **idp.model_dump(),  # Does not return created_by and updated_by
         created_by=idp.created_by_id,
@@ -266,7 +263,8 @@ def edit_idp(
         occurs.
 
     """
-    request.state.logger.info("Update identity provider with ID '%s'", str(idp_id))
+    msg = f"Update identity provider with ID '{idp_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_idp(
             session=session, idp_id=idp_id, new_idp=new_idp, updated_by=current_user
@@ -286,7 +284,8 @@ def edit_idp(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("Identity Provider with ID '%s' updated", str(idp_id))
+    msg = f"Identity Provider with ID '{idp_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @idp_router.delete(
@@ -316,7 +315,8 @@ def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete identity provider with ID '%s'", str(idp_id))
+    msg = f"Delete identity provider with ID '{idp_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_idp(session=session, idp_id=idp_id)
     except DeleteFailedError as e:
@@ -324,4 +324,5 @@ def remove_idp(request: Request, idp_id: uuid.UUID, session: SessionDep) -> None
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("Identity Provider with ID '%s' deleted", str(idp_id))
+    msg = f"Identity Provider with ID '{idp_id!s}' deleted"
+    request.state.logger.info(msg)

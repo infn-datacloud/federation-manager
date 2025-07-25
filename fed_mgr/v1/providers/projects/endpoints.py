@@ -111,16 +111,12 @@ def create_project(
         409 Conflict: If the user already exists (handled below).
 
     """
+    msg = f"Creating project with params: {project.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Creating project with params: %s",
-            project.model_dump(exclude_none=True),
-        )
         db_project = add_project(
             session=session, project=project, created_by=current_user, provider=provider
         )
-        request.state.logger.info("Project created: %s", repr(db_project))
-        return {"id": db_project.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -136,6 +132,9 @@ def create_project(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
+    msg = f"Project created: {db_project.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_project.id}
 
 
 @project_router.get(
@@ -172,10 +171,8 @@ def retrieve_projects(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve projects. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = f"Retrieve projects. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     projects, tot_items = get_projects(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -184,7 +181,9 @@ def retrieve_projects(
         provider_id=provider_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info("%d retrieved projects: %s", tot_items, repr(projects))
+    msg = f"{tot_items} retrieved projects: "
+    msg += f"{[project.model_dump_json() for project in projects]}"
+    request.state.logger.info(msg)
     new_projects = []
     for project in projects:
         new_project = ProjectRead(
@@ -240,14 +239,14 @@ def retrieve_project(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve project with ID '%s'", str(project_id))
+    msg = f"Retrieve project with ID '{project_id!s}'"
+    request.state.logger.info(msg)
     if project is None:
-        message = f"Resource Project with ID '{project_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "Resource Project with ID '%s' found: %s", str(project_id), repr(project)
-    )
+        msg = f"Project with ID '{project_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"Project with ID '{project_id!s}' found: {project.model_dump_json()}"
+    request.state.logger.info(msg)
     project = ProjectRead(
         **project.model_dump(),  # Does not return created_by and updated_by
         created_by=project.created_by_id,
@@ -300,7 +299,8 @@ def edit_project(
         409 Conflict: If the user already exists (handled below).
 
     """
-    request.state.logger.info("Update project with ID '%s'", str(project_id))
+    msg = f"Update project with ID '{project_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_project(
             session=session,
@@ -328,7 +328,8 @@ def edit_project(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("Resource Project with ID '%s' updated", str(project_id))
+    msg = f"Project with ID '{project_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @project_router.delete(
@@ -361,7 +362,8 @@ def remove_project(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete project with ID '%s'", str(project_id))
+    msg = f"Delete project with ID '{project_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_project(session=session, project_id=project_id)
     except DeleteFailedError as e:
@@ -369,4 +371,5 @@ def remove_project(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("Resource Project with ID '%s' deleted", str(project_id))
+    msg = f"Project with ID '{project_id!s}' deleted"
+    request.state.logger.info(msg)

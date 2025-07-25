@@ -59,10 +59,7 @@ def available_methods(response: Response) -> None:
     },
 )
 def create_user(
-    request: Request,
-    current_user_infos: AuthenticationDep,
-    session: SessionDep,
-    user: UserCreate | None = None,
+    request: Request, current_user_infos: AuthenticationDep, session: SessionDep
 ) -> ItemID:
     """Create a new user in the system.
 
@@ -86,34 +83,29 @@ def create_user(
         409 Conflict: If the user already exists (handled below).
 
     """
+    user = UserCreate(
+        sub=current_user_infos.subject,
+        issuer=current_user_infos.issuer,
+        name=current_user_infos.user_info["name"],
+        email=current_user_infos.user_info["email"],
+    )
+    msg = f"Creating user with params: {user.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        if user is None:
-            user = UserCreate(
-                sub=current_user_infos.subject,
-                issuer=current_user_infos.issuer,
-                name=current_user_infos.user_info["name"],
-                email=current_user_infos.user_info["email"],
-            )
-        request.state.logger.info(
-            "Creating user with params: %s", user.model_dump(exclude_none=True)
-        )
         db_user = add_user(session=session, user=user)
-        request.state.logger.info("User created: %s", repr(db_user))
-        return {"id": db_user.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=e.message
         ) from e
-        # return JSONResponse(
-        #     status_code=status.HTTP_409_CONFLICT,
-        #     content={"title": "User already exists", "detail": e.message},
-        # )
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = f"User created: {db_user.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_user.id}
 
 
 @user_router.get(
@@ -144,9 +136,8 @@ def retrieve_users(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve users. Query params: %s", params.model_dump(exclude_none=True)
-    )
+    msg = f"Retrieve users. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     users, tot_items = get_users(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -154,7 +145,8 @@ def retrieve_users(
         sort=params.sort,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info("%d retrieved users: %s", tot_items, repr(users))
+    msg = f"{tot_items} retrieved users: {[user.model_dump_json() for user in users]}"
+    request.state.logger.info(msg)
     return UserList(
         data=users,
         resource_url=str(request.url),
@@ -185,7 +177,6 @@ def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> UserRe
 
     Returns:
         User: The user object if found.
-        JSONResponse: A 404 response if the user does not exist.
 
     Raises:
         401 Unauthorized: If the user is not authenticated (handled by dependencies).
@@ -193,16 +184,14 @@ def retrieve_user(request: Request, user_id: uuid.UUID, user: UserDep) -> UserRe
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve user with ID '%s'", str(user_id))
+    msg = f"Retrieve user with ID '{user_id!s}'"
+    request.state.logger.info(msg)
     if user is None:
-        message = f"User with ID '{user_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-        # return JSONResponse(
-        #     status_code=status.HTTP_404_NOT_FOUND,
-        #     content={"title": "User not found", "detail": message},
-        # )
-    request.state.logger.info("User with ID '%s' found: %s", str(user_id), repr(user))
+        msg = f"User with ID '{user_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"User with ID '{user_id!s}' found: {user.model_dump_json()}"
+    request.state.logger.info(msg)
     return user
 
 
@@ -235,7 +224,8 @@ def edit_user(
         HTTPException: If the user is not found or another update error occurs.
 
     """
-    request.state.logger.info("Update user with ID '%s'", str(user_id))
+    msg = f"Update user with ID '{user_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_user(session=session, user_id=user_id, new_user=new_user)
     except NoItemToUpdateError as e:
@@ -253,7 +243,8 @@ def edit_user(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("User with ID '%s' updated", str(user_id))
+    msg = f"User with ID '{user_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @user_router.delete(
@@ -282,7 +273,8 @@ def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> No
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete user with ID '%s'", str(user_id))
+    msg = f"Delete user with ID '{user_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_user(session=session, user_id=user_id)
     except DeleteFailedError as e:
@@ -290,4 +282,5 @@ def remove_user(request: Request, user_id: uuid.UUID, session: SessionDep) -> No
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("User with ID '%s' deleted", str(user_id))
+    msg = f"User with ID '{user_id!s}' deleted"
+    request.state.logger.info(msg)

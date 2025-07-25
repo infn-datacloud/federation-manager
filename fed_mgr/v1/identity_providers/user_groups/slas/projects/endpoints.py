@@ -121,24 +121,12 @@ def connect_sla_to_proj(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = "Connecting SLA with ID '{sla.id!s}' with Project with ID '{project.id!s}'"
+    msg = f"Connecting SLA with ID '{sla.id!s}' to Project with ID '{project.id!s}'"
     request.state.logger.info(msg)
     try:
         connect_proj_to_sla(
-            session=session,
-            updated_by=current_user,
-            project=project,
-            sla=sla,
+            session=session, updated_by=current_user, project=project, sla=sla
         )
-        request.state.logger.info("SLA and project connected")
-        update_provider_state(
-            request=request,
-            session=session,
-            provider=project.provider,
-            current_user=current_user,
-            next_state=ProviderStatus.ready,
-        )
-        return None
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -149,6 +137,16 @@ def connect_sla_to_proj(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = f"SLA with ID '{sla.id!s}' connected to Project with ID '{project.id!s}'"
+    request.state.logger.info(msg)
+
+    update_provider_state(
+        request=request,
+        session=session,
+        provider=project.provider,
+        current_user=current_user,
+        next_state=ProviderStatus.ready,
+    )
 
 
 @sla_proj_conn_router.delete(
@@ -187,7 +185,7 @@ def disconnect_sla_from_project(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    msg = "Disconnect project with ID '{project.id!s}' from SLA with ID '{sla.id!s}"
+    msg = f"Disconnect project with ID '{project.id!s}' from SLA with ID '{sla.id!s}"
     request.state.logger.info(msg)
     try:
         disconnect_proj_from_sla(
@@ -198,5 +196,5 @@ def disconnect_sla_from_project(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    msg = "Project with ID '{project.id!s}' disconnected from SLA with ID '{sla.id!s}"
+    msg = f"Project with ID '{project.id!s}' disconnected from SLA with ID '{sla.id!s}"
     request.state.logger.info(msg)

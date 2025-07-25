@@ -117,16 +117,12 @@ def create_user_group(
         409 Conflict: If the user already exists (handled below).
 
     """
-    request.state.logger.info(
-        "Creating user group with params: %s",
-        user_group.model_dump(exclude_none=True),
-    )
+    msg = f"Creating user group with params: {user_group.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
         db_user_group = add_user_group(
             session=session, user_group=user_group, created_by=current_user, idp=idp
         )
-        request.state.logger.info("User Group created: %s", repr(db_user_group))
-        return {"id": db_user_group.id}
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -137,6 +133,9 @@ def create_user_group(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = f"User group created: {db_user_group.model_dump_json()}"
+    request.state.logger.info(msg)
+    return {"id": db_user_group.id}
 
 
 @user_group_router.get(
@@ -171,10 +170,8 @@ def retrieve_user_groups(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    request.state.logger.info(
-        "Retrieve user groups. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = f"Retrieve user groups. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     user_groups, tot_items = get_user_groups(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -183,9 +180,9 @@ def retrieve_user_groups(
         idp_id=idp_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info(
-        "%d retrieved user groups: %s", tot_items, repr(user_groups)
-    )
+    msg = f"{tot_items} retrieved user groups: "
+    msg += f"{[group.model_dump_json() for group in user_groups]}"
+    request.state.logger.info(msg)
     new_user_groups = []
     for user_group in user_groups:
         new_user_group = UserGroupRead(
@@ -239,14 +236,16 @@ def retrieve_user_group(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    request.state.logger.info("Retrieve user group with ID '%s'", str(user_group_id))
+    msg = f"Retrieve user group with ID '{user_group_id!s}'"
+    request.state.logger.info(msg)
     if user_group is None:
-        message = f"User Group with ID '{user_group_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    request.state.logger.info(
-        "User Group with ID '%s' found: %s", str(user_group_id), repr(user_group)
+        msg = f"User Group with ID '{user_group_id!s}' does not exist"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = (
+        f"User group with ID '{user_group_id!s}' found: {user_group.model_dump_json()}"
     )
+    request.state.logger.info(msg)
     user_group = UserGroupRead(
         **user_group.model_dump(),  # Does not return created_by and updated_by
         created_by=user_group.created_by_id,
@@ -292,7 +291,8 @@ def edit_user_group(
             group is not found
 
     """
-    request.state.logger.info("Update user group with ID '%s'", str(user_group_id))
+    msg = f"Update user group with ID '{user_group_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_user_group(
             session=session,
@@ -315,7 +315,8 @@ def edit_user_group(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("User Group with ID '%s' updated", str(user_group_id))
+    msg = f"User group with ID '{user_group_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @user_group_router.delete(
@@ -348,7 +349,8 @@ def remove_user_group(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    request.state.logger.info("Delete user group with ID '%s'", str(user_group_id))
+    msg = f"Delete user group with ID '{user_group_id!s}'"
+    request.state.logger.info(msg)
     try:
         delete_user_group(session=session, user_group_id=user_group_id)
     except DeleteFailedError as e:
@@ -356,4 +358,5 @@ def remove_user_group(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("User Group with ID '%s' deleted", str(user_group_id))
+    msg = f"User group with ID '{user_group_id!s}' deleted"
+    request.state.logger.info(msg)
