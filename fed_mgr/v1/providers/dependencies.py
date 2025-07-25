@@ -12,7 +12,7 @@ ProviderDep = Annotated[Provider | None, Depends(get_provider)]
 
 
 def provider_required(
-    request: Request, provider_id: uuid.UUID, parent_provider: ProviderDep
+    request: Request, provider_id: uuid.UUID, provider: ProviderDep
 ) -> None:
     """Dependency to ensure the specified resource provider exists.
 
@@ -22,13 +22,13 @@ def provider_required(
     Args:
         request: The current FastAPI request object.
         provider_id: The UUID of the resource provider to check.
-        parent_provider: The Provider instance if found, otherwise None.
+        provider: The Provider instance if found, otherwise None.
 
     Raises:
         HTTPException: If the resource provider does not exist.
 
     """
-    if parent_provider is None:
-        message = f"Resource Provider with ID '{provider_id!s}' does not exist"
+    if provider is None:
+        message = f"Resource provider with ID '{provider_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)

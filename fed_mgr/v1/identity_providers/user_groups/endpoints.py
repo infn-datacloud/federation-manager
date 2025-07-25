@@ -30,7 +30,10 @@ from fed_mgr.v1.identity_providers.user_groups.crud import (
     get_user_groups,
     update_user_group,
 )
-from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupDep
+from fed_mgr.v1.identity_providers.user_groups.dependencies import (
+    UserGroupDep,
+    user_group_required,
+)
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupCreate,
     UserGroupList,
@@ -211,10 +214,10 @@ def retrieve_user_groups(
     description="Check if the given user group's ID already exists in the DB "
     "and return it. If the user group does not exist in the DB, the endpoint "
     "raises a 404 error.",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(user_group_required)],
 )
-def retrieve_user_group(
-    request: Request, user_group_id: uuid.UUID, user_group: UserGroupDep
-) -> UserGroupRead:
+def retrieve_user_group(request: Request, user_group: UserGroupDep) -> UserGroupRead:
     """Retrieve a user group by their unique identifier.
 
     Logs the retrieval attempt, checks if the user group exists, and returns the
@@ -236,14 +239,8 @@ def retrieve_user_group(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve user group with ID '{user_group_id!s}'"
-    request.state.logger.info(msg)
-    if user_group is None:
-        msg = f"User Group with ID '{user_group_id!s}' does not exist"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
     msg = (
-        f"User group with ID '{user_group_id!s}' found: {user_group.model_dump_json()}"
+        f"User group with ID '{user_group.id!s}' found: {user_group.model_dump_json()}"
     )
     request.state.logger.info(msg)
     user_group = UserGroupRead(
@@ -252,7 +249,7 @@ def retrieve_user_group(
         updated_by=user_group.created_by_id,
         links={
             "slas": urllib.parse.urljoin(
-                str(request.url), f"{user_group_id}{SLAS_PREFIX}"
+                str(request.url), f"{user_group.id}{SLAS_PREFIX}"
             )
         },
     )

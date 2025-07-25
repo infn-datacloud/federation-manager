@@ -34,7 +34,10 @@ from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
     get_slas,
     update_sla,
 )
-from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLADep
+from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import (
+    SLADep,
+    sla_required,
+)
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLACreate,
     SLAList,
@@ -220,8 +223,10 @@ def retrieve_slas(
     description="Check if the given sla's ID already exists in the DB "
     "and return it. If the sla does not exist in the DB, the endpoint "
     "raises a 404 error.",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(sla_required)],
 )
-def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
+def retrieve_sla(request: Request, sla: SLADep) -> SLARead:
     """Retrieve a sla by their unique identifier.
 
     Logs the retrieval attempt, checks if the sla exists, and returns the
@@ -243,13 +248,7 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve SLA with ID '{sla_id!s}'"
-    request.state.logger.info(msg)
-    if sla is None:
-        msg = f"SLA with ID '{sla_id!s}' does not exist"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    msg = f"SLA with ID '{sla_id!s}' found: {sla.model_dump_json()}"
+    msg = f"SLA with ID '{sla.id!s}' found: {sla.model_dump_json()}"
     request.state.logger.info(msg)
     sla = SLARead(
         **sla.model_dump(),  # Does not return created_by and updated_by
@@ -257,7 +256,7 @@ def retrieve_sla(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLARead:
         updated_by=sla.created_by_id,
         links={
             "projects": urllib.parse.urljoin(
-                str(request.url), f"{sla_id}{PROJECTS_PREFIX}"
+                str(request.url), f"{sla.id}{PROJECTS_PREFIX}"
             )
         },
     )

@@ -31,7 +31,7 @@ from fed_mgr.v1.providers.projects.crud import (
     get_projects,
     update_project,
 )
-from fed_mgr.v1.providers.projects.dependencies import ProjectDep
+from fed_mgr.v1.providers.projects.dependencies import ProjectDep, project_required
 from fed_mgr.v1.providers.projects.schemas import (
     ProjectCreate,
     ProjectList,
@@ -213,10 +213,9 @@ def retrieve_projects(
     "and return it. If the project does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(project_required)],
 )
-def retrieve_project(
-    request: Request, project_id: uuid.UUID, project: ProjectDep
-) -> ProjectRead:
+def retrieve_project(request: Request, project: ProjectDep) -> ProjectRead:
     """Retrieve a project by their unique identifier.
 
     Logs the retrieval attempt, checks if the project exists, and returns the
@@ -239,13 +238,7 @@ def retrieve_project(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve project with ID '{project_id!s}'"
-    request.state.logger.info(msg)
-    if project is None:
-        msg = f"Project with ID '{project_id!s}' does not exist"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    msg = f"Project with ID '{project_id!s}' found: {project.model_dump_json()}"
+    msg = f"Project with ID '{project.id!s}' found: {project.model_dump_json()}"
     request.state.logger.info(msg)
     project = ProjectRead(
         **project.model_dump(),  # Does not return created_by and updated_by

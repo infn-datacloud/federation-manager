@@ -219,10 +219,9 @@ def retrieve_providers(
     "and return it. If the resource provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(provider_required)],
 )
-def retrieve_provider(
-    request: Request, provider_id: uuid.UUID, provider: ProviderDep
-) -> ProviderRead:
+def retrieve_provider(request: Request, provider: ProviderDep) -> ProviderRead:
     """Retrieve a resource provider by their unique identifier.
 
     Logs the retrieval attempt, checks if the resource provider exists, and returns the
@@ -245,13 +244,7 @@ def retrieve_provider(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve resource provider with ID '{provider_id!s}'"
-    request.state.logger.info(msg)
-    if provider is None:
-        msg = f"Resource Provider with ID '{provider_id!s}' does not exist"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    msg = f"Resource provider with ID '{provider_id!s}' found: "
+    msg = f"Resource provider with ID '{provider.id!s}' found: "
     msg += f"{provider.model_dump_json()}"
     request.state.logger.info(msg)
     provider = ProviderRead(

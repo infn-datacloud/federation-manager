@@ -14,7 +14,7 @@ IdentityProviderDep = Annotated[IdentityProvider | None, Depends(get_idp)]
 def idp_required(
     request: Request,
     idp_id: uuid.UUID,
-    parent_idp: IdentityProviderDep,
+    idp: IdentityProviderDep,
 ) -> None:
     """Dependency to ensure the specified identity provider exists.
 
@@ -24,13 +24,13 @@ def idp_required(
     Args:
         request: The current FastAPI request object.
         idp_id: The UUID of the identity provider to check.
-        parent_idp: The IdentityProvider instance if found, otherwise None.
+        idp: The IdentityProvider instance if found, otherwise None.
 
     Raises:
         HTTPException: If the identity provider does not exist.
 
     """
-    if parent_idp is None:
+    if idp is None:
         message = f"Identity Provider with ID '{idp_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)

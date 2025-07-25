@@ -12,7 +12,7 @@ ProjectDep = Annotated[Project | None, Depends(get_project)]
 
 
 def project_required(
-    request: Request, project_id: uuid.UUID, parent_project: ProjectDep
+    request: Request, project_id: uuid.UUID, project: ProjectDep
 ) -> None:
     """Dependency to ensure the specified resource project exists.
 
@@ -22,13 +22,13 @@ def project_required(
     Args:
         request: The current FastAPI request object.
         project_id: The UUID of the resource project to check.
-        parent_project: The Project instance if found, otherwise None.
+        project: The Project instance if found, otherwise None.
 
     Raises:
         HTTPException: If the resource project does not exist.
 
     """
-    if parent_project is None:
+    if project is None:
         message = f"Project with ID '{project_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)

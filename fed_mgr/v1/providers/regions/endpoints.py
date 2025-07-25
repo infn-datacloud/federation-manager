@@ -29,7 +29,7 @@ from fed_mgr.v1.providers.regions.crud import (
     get_regions,
     update_region,
 )
-from fed_mgr.v1.providers.regions.dependencies import RegionDep
+from fed_mgr.v1.providers.regions.dependencies import RegionDep, region_required
 from fed_mgr.v1.providers.regions.schemas import (
     RegionCreate,
     RegionList,
@@ -212,10 +212,9 @@ def retrieve_regions(
     "and return it. If the resource region does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(region_required)],
 )
-def retrieve_region(
-    request: Request, region_id: uuid.UUID, region: RegionDep
-) -> RegionRead:
+def retrieve_region(request: Request, region: RegionDep) -> RegionRead:
     """Retrieve a resource region by their unique identifier.
 
     Logs the retrieval attempt, checks if the resource region exists, and returns the
@@ -238,13 +237,7 @@ def retrieve_region(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve region with ID '{region_id!s}'"
-    request.state.logger.info(msg)
-    if region is None:
-        message = f"Region with ID '{region_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    msg = f"Region with ID '{region_id!s}' found: {region.model_dump_json()}"
+    msg = f"Region with ID '{region.id!s}' found: {region.model_dump_json()}"
     request.state.logger.info(msg)
     region = RegionRead(
         **region.model_dump(),  # Does not return created_by and updated_by

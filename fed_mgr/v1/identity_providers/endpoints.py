@@ -3,7 +3,15 @@
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, Response, Security, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    Security,
+    status,
+)
 
 from fed_mgr.auth import check_authorization
 from fed_mgr.db import SessionDep
@@ -16,7 +24,7 @@ from fed_mgr.exceptions import (
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
-from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
 from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderCreate,
     IdentityProviderList,
@@ -184,10 +192,9 @@ def retrieve_idps(
     "and return it. If the identity provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    dependencies=[Depends(idp_required)],
 )
-def retrieve_idp(
-    request: Request, idp_id: uuid.UUID, idp: IdentityProviderDep
-) -> IdentityProviderRead:
+def retrieve_idp(request: Request, idp: IdentityProviderDep) -> IdentityProviderRead:
     """Retrieve a identity provider by their unique identifier.
 
     Logs the retrieval attempt, checks if the identity provider exists, and returns the
@@ -209,13 +216,7 @@ def retrieve_idp(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Retrieve identity provider with ID '{idp_id!s}'"
-    request.state.logger.info(msg)
-    if idp is None:
-        msg = f"Identity Provider with ID '{idp_id!s}' does not exist"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    msg = f"Identity Provider with ID '{idp_id!s}' found: {idp.model_dump_json()}"
+    msg = f"Identity Provider with ID '{idp.id!s}' found: {idp.model_dump_json()}"
     request.state.logger.info(msg)
     idp = IdentityProviderRead(
         **idp.model_dump(),  # Does not return created_by and updated_by
@@ -223,7 +224,7 @@ def retrieve_idp(
         updated_by=idp.created_by_id,
         links={
             "user_groups": urllib.parse.urljoin(
-                str(request.url), f"{idp_id}{USER_GROUPS_PREFIX}"
+                str(request.url), f"{idp.id}{USER_GROUPS_PREFIX}"
             )
         },
     )

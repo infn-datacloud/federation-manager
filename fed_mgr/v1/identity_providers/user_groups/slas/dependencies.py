@@ -11,22 +11,22 @@ from fed_mgr.v1.models import SLA
 SLADep = Annotated[SLA | None, Depends(get_sla)]
 
 
-def sla_required(request: Request, idp_id: uuid.UUID, parent_sla: SLADep) -> None:
-    """Dependency to ensure the specified user group exists.
+def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> None:
+    """Dependency to ensure the specified SLA exists.
 
-    Raises an HTTP 404 error if the user group with the given idp_id does not
+    Raises an HTTP 404 error if the SLA with the given sla_id does not
     exist.
 
     Args:
         request: The current FastAPI request object.
-        idp_id: The UUID of the user group to check.
-        parent_sla: The SLA instance if found, otherwise None.
+        sla_id: The UUID of the user group to check.
+        sla: The SLA instance if found, otherwise None.
 
     Raises:
         HTTPException: If the user group does not exist.
 
     """
-    if parent_sla is None:
-        message = f"Identity Provider with ID '{idp_id!s}' does not exist"
+    if sla is None:
+        message = f"SLA with ID '{sla_id!s}' does not exist"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
