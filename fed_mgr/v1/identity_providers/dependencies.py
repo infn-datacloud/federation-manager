@@ -12,10 +12,8 @@ IdentityProviderDep = Annotated[IdentityProvider | None, Depends(get_idp)]
 
 
 def idp_required(
-    request: Request,
-    idp_id: uuid.UUID,
-    idp: IdentityProviderDep,
-) -> None:
+    request: Request, idp_id: uuid.UUID, idp: IdentityProviderDep
+) -> IdentityProvider:
     """Dependency to ensure the specified identity provider exists.
 
     Raises an HTTP 404 error if the identity provider with the given idp_id does not

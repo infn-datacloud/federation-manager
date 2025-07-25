@@ -13,7 +13,7 @@ ProjectDep = Annotated[Project | None, Depends(get_project)]
 
 def project_required(
     request: Request, project_id: uuid.UUID, project: ProjectDep
-) -> None:
+) -> Project:
     """Dependency to ensure the specified resource project exists.
 
     Raises an HTTP 404 error if the resource project with the given project_id does

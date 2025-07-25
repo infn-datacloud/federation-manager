@@ -154,7 +154,7 @@ def retrieve_idps(
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
     msg = f"{tot_items} retrieved identity providers: "
-    msg += f"{[idp.model_dmp_json() for idp in idps]}"
+    msg += f"{[idp.model_dump_json() for idp in idps]}"
     request.state.logger.info(msg)
     new_idps = []
     for idp in idps:

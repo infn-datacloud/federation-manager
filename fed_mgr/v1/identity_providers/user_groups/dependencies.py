@@ -15,7 +15,7 @@ def user_group_required(
     request: Request,
     user_group_id: uuid.UUID,
     user_group: UserGroupDep,
-) -> None:
+) -> UserGroup:
     """Dependency to ensure the specified user group exists.
 
     Raises an HTTP 404 error if the user group with the given user_group_id does not

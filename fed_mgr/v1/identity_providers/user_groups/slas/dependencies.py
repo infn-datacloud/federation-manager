@@ -11,7 +11,7 @@ from fed_mgr.v1.models import SLA
 SLADep = Annotated[SLA | None, Depends(get_sla)]
 
 
-def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> None:
+def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLA:
     """Dependency to ensure the specified SLA exists.
 
     Raises an HTTP 404 error if the SLA with the given sla_id does not

@@ -13,7 +13,7 @@ ProviderDep = Annotated[Provider | None, Depends(get_provider)]
 
 def provider_required(
     request: Request, provider_id: uuid.UUID, provider: ProviderDep
-) -> None:
+) -> Provider:
     """Dependency to ensure the specified resource provider exists.
 
     Raises an HTTP 404 error if the resource provider with the given provider_id does
