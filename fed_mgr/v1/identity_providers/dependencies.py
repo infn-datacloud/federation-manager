@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Body, Depends, HTTPException, Request, status
 
 from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.models import IdentityProvider
@@ -38,3 +38,7 @@ def idp_required(
 
 
 IdentityProviderRequiredDep = Annotated[IdentityProvider, Depends(idp_required)]
+
+IdentityProviderRequiredBodyDep = Annotated[
+    IdentityProvider, Depends(idp_required), Body()
+]

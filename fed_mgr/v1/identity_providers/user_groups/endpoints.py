@@ -21,7 +21,10 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
+from fed_mgr.v1.identity_providers.dependencies import (
+    IdentityProviderRequiredDep,
+    idp_required,
+)
 from fed_mgr.v1.identity_providers.user_groups.crud import (
     add_user_group,
     delete_user_group,
@@ -85,8 +88,8 @@ def create_user_group(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    idp: IdentityProviderRequiredDep,
     user_group: UserGroupCreate,
-    idp: IdentityProviderDep,
 ) -> ItemID:
     """Create a new user group in the system.
 
@@ -140,7 +143,7 @@ def create_user_group(
     description="Retrieve a paginated list of user groups.",
 )
 def retrieve_user_groups(
-    request: Request, session: SessionDep, params: UserGroupQueryDep, idp_id: uuid.UUID
+    request: Request, session: SessionDep, idp_id: uuid.UUID, params: UserGroupQueryDep
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 

@@ -23,7 +23,7 @@ from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
 from fed_mgr.v1.identity_providers.user_groups.dependencies import (
-    UserGroupDep,
+    UserGroupRequiredDep,
     user_group_required,
 )
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
@@ -93,8 +93,8 @@ def create_sla(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    user_group: UserGroupRequiredDep,
     sla: SLACreate,
-    user_group: UserGroupDep,
 ) -> ItemID:
     """Create a new sla in the system.
 
@@ -148,7 +148,7 @@ def create_sla(
     description="Retrieve a paginated list of slas.",
 )
 def retrieve_slas(
-    request: Request, session: SessionDep, params: SLAQueryDep, user_group_id: uuid.UUID
+    request: Request, session: SessionDep, user_group_id: uuid.UUID, params: SLAQueryDep
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 

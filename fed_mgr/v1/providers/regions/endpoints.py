@@ -83,8 +83,8 @@ def create_region(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    region: RegionCreate,
     provider: ProviderRequiredDep,
+    region: RegionCreate,
 ) -> ItemID:
     """Create a new resource region in the system.
 

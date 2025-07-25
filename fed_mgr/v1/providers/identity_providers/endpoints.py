@@ -21,8 +21,12 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import IdentityProviderDep, idp_required
-from fed_mgr.v1.providers.dependencies import ProviderDep, provider_required
+from fed_mgr.v1.identity_providers.dependencies import (
+    IdentityProviderRequiredBodyDep,
+    IdentityProviderRequiredDep,
+    idp_required,
+)
+from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
 from fed_mgr.v1.providers.identity_providers.crud import (
     connect_prov_idp,
     disconnect_prov_idp,
@@ -69,7 +73,7 @@ def available_methods(response: Response) -> None:
 
 
 @prov_idp_link_router.post(
-    "/{idp_id}",
+    "/",
     summary="Connect a resource provider and an identity provider",
     description="",
     status_code=status.HTTP_201_CREATED,
@@ -77,15 +81,14 @@ def available_methods(response: Response) -> None:
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
     },
-    dependencies=[Depends(idp_required)],
 )
 def create_prov_idp_connection(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    provider: ProviderRequiredDep,
+    idp: IdentityProviderRequiredBodyDep,
     overrides: ProviderIdPConnectionCreate,
-    provider: ProviderDep,
-    idp: IdentityProviderDep,
 ) -> None:
     """Create a new identity provider in the system.
 
@@ -112,25 +115,19 @@ def create_prov_idp_connection(
         409 Conflict: If the user already exists (handled below).
 
     """
+    msg = (
+        f"Connecting resource rovider with ID '{provider.id!s}' with identity provider "
+    )
+    msg += f"with ID '{idp.id!s}' with params: {overrides.model_dump_json()}"
+    request.state.logger.info(msg)
     try:
-        request.state.logger.info(
-            "Connecting a provider with an identity provider with params: %s",
-            overrides.model_dump(exclude_none=True),
-        )
-        rel = connect_prov_idp(
+        db_overrides = connect_prov_idp(
             session=session,
             idp=idp,
             provider=provider,
             overrides=overrides,
             created_by=current_user,
         )
-        request.state.logger.info(
-            "Provider '%s' connected to Identity Provider '%s' with params: %s",
-            provider.id,
-            idp.id,
-            repr(rel),
-        )
-        return None
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -141,6 +138,11 @@ def create_prov_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
+    msg = (
+        f"Resource provider with ID '{provider.id!s}' connected with identity provider "
+    )
+    msg += f"with ID '{idp.id!s}' with params: {db_overrides.model_dump_json()}"
+    request.state.logger.info(msg)
 
 
 @prov_idp_link_router.get(
@@ -150,9 +152,9 @@ def create_prov_idp_connection(
 )
 def retrieve_prov_idp_connections(
     request: Request,
-    params: ProviderIdPConnectionQueryDep,
     session: SessionDep,
     provider_id: uuid.UUID,
+    params: ProviderIdPConnectionQueryDep,
 ) -> ProviderIdPConnectionList:
     """Retrieve a paginated list of identity providers based on query parameters.
 
@@ -177,10 +179,9 @@ def retrieve_prov_idp_connections(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info(
-        "Retrieve the list of supported identity providers. Query params: %s",
-        params.model_dump(exclude_none=True),
-    )
+    msg = "Retrieve identity provider configurations details overwritten by provider "
+    msg += f"with ID '{provider_id!s}'. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
     links, tot_items = get_prov_idp_links(
         session=session,
         skip=(params.page - 1) * params.size,
@@ -189,9 +190,10 @@ def retrieve_prov_idp_connections(
         provider_id=provider_id,
         **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
     )
-    request.state.logger.info(
-        "%d retrieved identity providers: %s", tot_items, repr(links)
-    )
+    msg = f"{tot_items} retrieved identity provider configurations details overwritten "
+    msg += f"by provider with ID '{provider_id!s}': "
+    msg += f"{[link.model_dump_json() for link in links]}"
+    request.state.logger.info(msg)
     new_links = []
     for link in links:
         new_link = ProviderIdPConnectionRead(
@@ -221,12 +223,11 @@ def retrieve_prov_idp_connections(
     "and return it. If the identity provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
-    dependencies=[Depends(idp_required)],
 )
 def retrieve_prov_idp_connection(
     request: Request,
-    idp_id: uuid.UUID,
-    provider_id: uuid.UUID,
+    provider: ProviderRequiredDep,
+    idp: IdentityProviderRequiredDep,
     overrides: ProviderIdPConnectionDep,
 ) -> ProviderIdPConnectionRead:
     """Retrieve a identity provider by their unique identifier.
@@ -237,8 +238,8 @@ def retrieve_prov_idp_connection(
 
     Args:
         request (Request): The incoming HTTP request object.
-        idp_id (uuid.UUID): The unique identifier of the identity provider to retrieve.
-        provider_id (uuid.UUID): The unique identifier of the provider to retrieve.
+        idp (uuid.UUID): The unique identifier of the identity provider to retrieve.
+        provider (uuid.UUID): The unique identifier of the provider to retrieve.
         overrides (ProviderIdPConnection | None): The identity provider object, if
             found.
 
@@ -252,24 +253,24 @@ def retrieve_prov_idp_connection(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    message = "Retrieve configuration details of identity provider with ID "
-    message += f"'{idp_id!s}' overwritten by provider with ID '{provider_id!s}'"
-    request.state.logger.info(message)
+    msg = "Retrieve configuration details for identity provider with ID "
+    msg += f"'{idp.id!s}' overwritten by provider with ID '{provider.id!s}'"
+    request.state.logger.info(msg)
     if overrides is None:
-        message = f"Identity Provider with ID '{idp_id!s}' is not trusted by provider "
-        message += f"with ID '{provider_id!s}'"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
-    message = f"Configuration details for Identity Provider with ID '{idp_id!s}' "
-    message += f"found: {overrides!r}"
-    request.state.logger.info(message)
+        msg = f"Identity Provider with ID '{idp.id!s}' is not trusted by provider "
+        msg += f"with ID '{provider.id!s}'"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    msg = f"Configuration details for Identity Provider with ID '{idp.id!s}' "
+    msg += f"overwritten by provider with ID '{provider.id!s}' found: {overrides!r}"
+    request.state.logger.info(msg)
     overrides = ProviderIdPConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by
         created_by=overrides.created_by_id,
         updated_by=overrides.created_by_id,
         links={
             "idp": urllib.parse.urljoin(
-                str(request.base_url), f"{IDPS_PREFIX}/{idp_id}"
+                str(request.base_url), f"{IDPS_PREFIX}/{idp.id}"
             )
         },
     )
@@ -290,11 +291,11 @@ def retrieve_prov_idp_connection(
 )
 def edit_prov_idp_connection(
     request: Request,
-    idp_id: uuid.UUID,
-    provider_id: uuid.UUID,
-    new_overrides: ProviderIdPConnectionCreate,
     session: SessionDep,
     current_user: CurrenUserDep,
+    provider_id: uuid.UUID,
+    idp_id: uuid.UUID,
+    new_overrides: ProviderIdPConnectionCreate,
 ) -> None:
     """Update an existing identity provider in the database with the given idp ID.
 
@@ -313,7 +314,9 @@ def edit_prov_idp_connection(
         occurs.
 
     """
-    request.state.logger.info("Update identity provider with ID '%s'", str(idp_id))
+    msg = f"Update configuration detail for identity provider with ID '{idp_id!s}' "
+    msg += f"overwritten by provider with ID '{provider_id!s}'"
+    request.state.logger.info(msg)
     try:
         update_prov_idp_link(
             session=session,
@@ -337,7 +340,9 @@ def edit_prov_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    request.state.logger.info("Identity Provider with ID '%s' updated", str(idp_id))
+    msg = f"Configuration detail for identity provider with ID '{idp_id!s}' "
+    msg += f"overwritten by provider with ID '{provider_id!s}' updated"
+    request.state.logger.info(msg)
 
 
 @prov_idp_link_router.delete(
@@ -349,7 +354,10 @@ def edit_prov_idp_connection(
     dependencies=[Depends(idp_required)],
 )
 def delete_provider_idp_connection(
-    request: Request, idp_id: uuid.UUID, provider_id: uuid.UUID, session: SessionDep
+    request: Request,
+    session: SessionDep,
+    provider_id: uuid.UUID,
+    idp_id: uuid.UUID,
 ) -> None:
     """Remove a identity provider from the system by their unique identifier.
 
@@ -373,7 +381,9 @@ def delete_provider_idp_connection(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    request.state.logger.info("Delete identity provider with ID '%s'", str(idp_id))
+    msg = f"Disconnect identity provider with ID '{idp_id}' from provider with ID "
+    msg += f"'{provider_id}'"
+    request.state.logger.info(msg)
     try:
         disconnect_prov_idp(session=session, idp_id=idp_id, provider_id=provider_id)
     except DeleteFailedError as e:
@@ -381,4 +391,6 @@ def delete_provider_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    request.state.logger.info("Identity Provider with ID '%s' deleted", str(idp_id))
+    msg = f"Identity Provider with ID '{idp_id}' disconnected from provider with ID "
+    msg += f"'{provider_id}"
+    request.state.logger.info(msg)

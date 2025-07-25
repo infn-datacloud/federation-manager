@@ -85,8 +85,8 @@ def create_project(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
-    project: ProjectCreate,
     provider: ProviderRequiredDep,
+    project: ProjectCreate,
 ) -> ItemID:
     """Create a new project in the system.
 
@@ -146,8 +146,8 @@ def create_project(
 def retrieve_projects(
     request: Request,
     session: SessionDep,
-    params: ProjectQueryDep,
     provider_id: uuid.UUID,
+    params: ProjectQueryDep,
 ) -> ProjectList:
     """Retrieve a paginated list of projects based on query parameters.
 
