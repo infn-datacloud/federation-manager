@@ -234,9 +234,8 @@ def retrieve_user_group(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = (
-        f"User group with ID '{user_group.id!s}' found: {user_group.model_dump_json()}"
-    )
+    msg = f"User group with ID '{user_group.id!s}' found: "
+    msg += f"{user_group.model_dump_json()}"
     request.state.logger.info(msg)
     user_group = UserGroupRead(
         **user_group.model_dump(),  # Does not return created_by and updated_by

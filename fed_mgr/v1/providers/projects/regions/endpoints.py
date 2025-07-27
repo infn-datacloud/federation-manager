@@ -266,7 +266,8 @@ def retrieve_project_config(
 
     """
     msg = f"Configuration details for region with ID '{region.id!s}' "
-    msg += f"overwritten by provider with ID '{project.id!s}' found: {overrides!s}"
+    msg += f"overwritten by provider with ID '{project.id!s}' found: "
+    msg += f"{overrides.model_dump_json()}"
     request.state.logger.info(msg)
     config = ProjRegConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by

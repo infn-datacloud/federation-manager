@@ -388,8 +388,8 @@ def submit_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = f"User {current_user.id} submitted federation request for resource provider "
-    msg += f"with ID: {provider.id!s}"
+    msg = f"User with ID {current_user.id!s} submitted federation request for resource "
+    msg += f"provider with ID: {provider.id!s}"
     request.state.logger.info(msg)
     return update_provider_state(
         request=request,
@@ -434,10 +434,8 @@ def assign_to_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = (
-        f"Assigning tester with ID '{current_user.id!s}' to resource provider with ID "
-    )
-    msg += f"'{provider.id!s}'"
+    msg = f"Assigning tester with ID '{current_user.id!s}' to resource provider with "
+    msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
     first_tester = not len(provider.site_testers)
     add_site_tester(session=session, provider=provider, user=current_user)
