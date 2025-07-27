@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.utils import split_camel_case
@@ -41,19 +41,19 @@ def raise_from_integrity_error(
     session.rollback()
     element_str = split_camel_case(entity.__name__)
 
+    # Search for 'NOT NULL constraint failed: ' string and catch anything till the first
+    # , or end of line
     match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
         attr = match.group(0).split(".")[1]
-        raise NotNullError(
-            f"Attribute '{attr}' of {element_str} can't be NULL"
-        ) from error
+        raise NotNullError(element_str, attr) from error
 
+    # Search for 'UNIQUE constraint failed: ' string and catch anything till the first
+    # , or end of line
     match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
         attr = match.group(0).split(".")[1]
-        raise ConflictError(
-            f"{element_str} with {attr} '{kwargs.get(attr)}' already exists"
-        ) from error
+        raise ConflictError(element_str, attr, kwargs.get(attr)) from error
 
 
 def _handle_special_date_fields(entity, k, v):
@@ -276,7 +276,6 @@ def update_item(
             arguments to pass to the entity constructor.
 
     Raises:
-        NoItemToUpdateError: If no item with the given ID exists in the database.
         NotNullError: If a NOT NULL constraint is violated.
         ConflictError: If a UNIQUE constraint is violated.
 
@@ -300,8 +299,7 @@ def update_item(
     if result.rowcount == 0:
         session.rollback()
         element_str = split_camel_case(entity.__name__)
-        message = f"{element_str} with given keys does not exist"
-        raise NoItemToUpdateError(message)
+        raise ItemNotFoundError(element_str, params=kwargs)
     session.commit()
 
 
@@ -329,7 +327,5 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
     if result.rowcount == 0:
         session.rollback()
         element_str = split_camel_case(entity.__name__)
-        message = f"{element_str} with given key can't be deleted. "
-        message += f"Check target {element_str} has no children entities."
-        raise DeleteFailedError(message)
+        raise DeleteFailedError(element_str)
     session.commit()

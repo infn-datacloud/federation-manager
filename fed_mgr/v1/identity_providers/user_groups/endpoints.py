@@ -15,7 +15,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
@@ -287,7 +287,7 @@ def edit_user_group(
             new_user_group=new_user_group,
             updated_by=current_user,
         )
-    except NoItemToUpdateError as e:
+    except ItemNotFoundError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=e.message

@@ -16,7 +16,6 @@ from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
     ItemNotFoundError,
-    NoItemToUpdateError,
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
@@ -292,11 +291,6 @@ def edit_project(
             new_project=new_project,
             updated_by=current_user,
         )
-    except NoItemToUpdateError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(

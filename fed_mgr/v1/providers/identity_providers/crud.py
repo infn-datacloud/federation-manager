@@ -101,7 +101,7 @@ def connect_prov_idp(
     """
     idp = get_idp(session=session, idp_id=config.idp_id)
     if idp is None:
-        raise ItemNotFoundError("Identity provider", config.idp_id)
+        raise ItemNotFoundError("Identity provider", id=config.idp_id)
     return add_item(
         session=session,
         entity=IdpOverrides,

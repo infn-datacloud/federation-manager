@@ -180,7 +180,7 @@ def check_users_exist(session: Session, user_ids: list[uuid.UUID]) -> list[User]
     for user_id in user_ids:
         user = get_user(session=session, user_id=user_id)
         if user is None:
-            raise ItemNotFoundError("User", user_id)
+            raise ItemNotFoundError("User", id=user_id)
         users.append(user)
     return users
 
@@ -262,10 +262,7 @@ def change_provider_state(
         next_state != db_provider.status
         and next_state not in AVAILABLE_STATE_TRANSITIONS[db_provider.status]
     ):
-        raise ProviderStateChangeError(
-            f"Transition from state '{db_provider.status}' to state '{next_state}' is "
-            "forbidden"
-        )
+        raise ProviderStateChangeError(db_provider.status, next_state)
     return update_item(
         session=session,
         entity=Provider,
