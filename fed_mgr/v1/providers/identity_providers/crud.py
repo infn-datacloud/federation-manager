@@ -17,13 +17,13 @@ from fed_mgr.v1.crud import (
     get_items,
     update_item,
 )
-from fed_mgr.v1.models import IdentityProvider, Provider, ProviderIdPConnection, User
-from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionCreate
+from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User
+from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
 
 
 def get_prov_idp_link(
     *, session: SessionDep, idp_id: uuid.UUID, provider_id: uuid.UUID
-) -> ProviderIdPConnection | None:
+) -> IdpOverrides | None:
     """Retrieve the relationship between a resource provider and an identity provider.
 
     Use the resource provider and identity provider's unique IDs from the database.
@@ -39,7 +39,7 @@ def get_prov_idp_link(
     """
     return get_item(
         session=session,
-        entity=ProviderIdPConnection,
+        entity=IdpOverrides,
         idp_id=idp_id,
         provider_id=provider_id,
     )
@@ -47,7 +47,7 @@ def get_prov_idp_link(
 
 def get_prov_idp_links(
     *, session: Session, skip: int, limit: int, sort: str, **kwargs
-) -> tuple[list[ProviderIdPConnection], int]:
+) -> tuple[list[IdpOverrides], int]:
     """Retrieve a paginated and sorted list of IdP and providers relationships.
 
     The total count corresponds to the total count of returned values which may differs
@@ -61,13 +61,13 @@ def get_prov_idp_links(
         **kwargs: Additional filter parameters for narrowing the search.
 
     Returns:
-        Tuple of (list of ProviderIdPConnection instances, total count of matching
+        Tuple of (list of IdpOverrides instances, total count of matching
         relationships).
 
     """
     return get_items(
         session=session,
-        entity=ProviderIdPConnection,
+        entity=IdpOverrides,
         skip=skip,
         limit=limit,
         sort=sort,
@@ -78,11 +78,11 @@ def get_prov_idp_links(
 def connect_prov_idp(
     *,
     session: Session,
-    overrides: ProviderIdPConnectionCreate,
+    overrides: IdpOverridesBase,
     created_by: User,
     idp: IdentityProvider,
     provider: Provider,
-) -> ProviderIdPConnection:
+) -> IdpOverrides:
     """Connect an existing resource provider to an existing identity provider.
 
     Args:
@@ -93,12 +93,12 @@ def connect_prov_idp(
         created_by: The User instance representing the creator of the identity provider.
 
     Returns:
-        ProviderIdPConnection: The relationship instance.
+        IdpOverrides: The relationship instance.
 
     """
     return add_item(
         session=session,
-        entity=ProviderIdPConnection,
+        entity=IdpOverrides,
         provider=provider,
         idp=idp,
         created_by=created_by,
@@ -112,7 +112,7 @@ def update_prov_idp_link(
     session: Session,
     idp_id: uuid.UUID,
     provider_id: uuid.UUID,
-    new_overrides: ProviderIdPConnectionCreate,
+    new_overrides: IdpOverridesBase,
     updated_by: User,
 ) -> None:
     """Update the data of a relationship between an identity provider and a provider.
@@ -129,7 +129,7 @@ def update_prov_idp_link(
     """
     return update_item(
         session=session,
-        entity=ProviderIdPConnection,
+        entity=IdpOverrides,
         idp_id=idp_id,
         provider_id=provider_id,
         updated_by=updated_by,
@@ -150,7 +150,7 @@ def disconnect_prov_idp(
     """
     delete_item(
         session=session,
-        entity=ProviderIdPConnection,
+        entity=IdpOverrides,
         idp_id=idp_id,
         provider_id=provider_id,
     )

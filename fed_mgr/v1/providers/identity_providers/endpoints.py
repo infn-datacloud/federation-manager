@@ -21,8 +21,8 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
+from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.dependencies import (
-    IdentityProviderRequiredBodyDep,
     IdentityProviderRequiredDep,
     idp_required,
 )
@@ -33,10 +33,9 @@ from fed_mgr.v1.providers.identity_providers.crud import (
     get_prov_idp_links,
     update_prov_idp_link,
 )
-from fed_mgr.v1.providers.identity_providers.dependencies import (
-    ProviderIdPConnectionDep,
-)
+from fed_mgr.v1.providers.identity_providers.dependencies import IdpOverridesRequiredDep
 from fed_mgr.v1.providers.identity_providers.schemas import (
+    IdpOverridesBase,
     ProviderIdPConnectionCreate,
     ProviderIdPConnectionList,
     ProviderIdPConnectionQueryDep,
@@ -87,8 +86,7 @@ def create_prov_idp_connection(
     session: SessionDep,
     current_user: CurrenUserDep,
     provider: ProviderRequiredDep,
-    idp: IdentityProviderRequiredBodyDep,
-    overrides: ProviderIdPConnectionCreate,
+    config: ProviderIdPConnectionCreate,
 ) -> None:
     """Create a new identity provider in the system.
 
@@ -101,9 +99,9 @@ def create_prov_idp_connection(
         session (SessionDep): The database session dependency.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
-        overrides (ProviderIdPConnectionCreate): Values overriding the IdP default ones.
         provider (Provider): The resource provider instance to connect.
         idp (IdentityProvider): The identity provider instance to connect.
+        config (ProviderIdPConnectionCreate): Values overriding the IdP default ones.
 
     Returns:
         None
@@ -115,18 +113,24 @@ def create_prov_idp_connection(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = (
-        f"Connecting resource rovider with ID '{provider.id!s}' with identity provider "
-    )
-    msg += f"with ID '{idp.id!s}' with params: {overrides.model_dump_json()}"
+    msg = f"Connecting resource rovider with ID '{provider.id!s}' with identity "
+    msg += f"provider with ID '{config.idp_id!s}' with params: "
+    msg += f"{config.overrides.model_dump_json()}"
     request.state.logger.info(msg)
+
+    idp = idp_required(
+        request=request,
+        idp_id=config.idp_id,
+        idp=get_idp(session=session, idp_id=config.idp_id),
+    )
+
     try:
         db_overrides = connect_prov_idp(
             session=session,
-            idp=idp,
-            provider=provider,
-            overrides=overrides,
             created_by=current_user,
+            provider=provider,
+            idp=idp,
+            overrides=config.overrides,
         )
     except ConflictError as e:
         request.state.logger.error(e.message)
@@ -138,10 +142,9 @@ def create_prov_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    msg = (
-        f"Resource provider with ID '{provider.id!s}' connected with identity provider "
-    )
-    msg += f"with ID '{idp.id!s}' with params: {db_overrides.model_dump_json()}"
+    msg = f"Resource provider with ID '{provider.id!s}' connected with identity "
+    msg += f"provider with ID '{config.idp_id!s}' with params: "
+    msg += f"{db_overrides.model_dump_json()}"
     request.state.logger.info(msg)
 
 
@@ -182,7 +185,7 @@ def retrieve_prov_idp_connections(
     msg = "Retrieve identity provider configurations details overwritten by provider "
     msg += f"with ID '{provider.id!s}'. Query params: {params.model_dump_json()}"
     request.state.logger.info(msg)
-    links, tot_items = get_prov_idp_links(
+    overrides, tot_items = get_prov_idp_links(
         session=session,
         skip=(params.page - 1) * params.size,
         limit=params.size,
@@ -192,23 +195,22 @@ def retrieve_prov_idp_connections(
     )
     msg = f"{tot_items} retrieved identity provider configurations details overwritten "
     msg += f"by provider with ID '{provider.id!s}': "
-    msg += f"{[link.model_dump_json() for link in links]}"
+    msg += f"{[overw.model_dump_json() for overw in overrides]}"
     request.state.logger.info(msg)
-    new_links = []
-    for link in links:
+    configs = []
+    for overw in overrides:
         new_link = ProviderIdPConnectionRead(
-            **link.model_dump(),  # Does not return created_by and updated_by
-            created_by=link.created_by_id,
-            updated_by=link.created_by_id,
+            **overw.model_dump(),  # Does not return created_by and updated_by
+            overrides=overw,
+            created_by=overw.created_by_id,
+            updated_by=overw.created_by_id,
             links={
-                "idp": urllib.parse.urljoin(
-                    str(request.base_url), f"{IDPS_PREFIX}/{link.idp_id}"
-                )
+                "idp": urllib.parse.urljoin(str(request.base_url), f"{IDPS_PREFIX}")
             },
         )
-        new_links.append(new_link)
+        configs.append(new_link)
     return ProviderIdPConnectionList(
-        data=new_links,
+        data=configs,
         resource_url=str(request.url),
         page_number=params.page,
         page_size=params.size,
@@ -228,7 +230,7 @@ def retrieve_prov_idp_connection(
     request: Request,
     provider: ProviderRequiredDep,
     idp: IdentityProviderRequiredDep,
-    overrides: ProviderIdPConnectionDep,
+    overrides: IdpOverridesRequiredDep,
 ) -> ProviderIdPConnectionRead:
     """Retrieve a identity provider by their unique identifier.
 
@@ -253,28 +255,17 @@ def retrieve_prov_idp_connection(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = "Retrieve configuration details for identity provider with ID "
-    msg += f"'{idp.id!s}' overwritten by provider with ID '{provider.id!s}'"
-    request.state.logger.info(msg)
-    if overrides is None:
-        msg = f"Identity Provider with ID '{idp.id!s}' is not trusted by provider "
-        msg += f"with ID '{provider.id!s}'"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
     msg = f"Configuration details for Identity Provider with ID '{idp.id!s}' "
     msg += f"overwritten by provider with ID '{provider.id!s}' found: {overrides!r}"
     request.state.logger.info(msg)
-    overrides = ProviderIdPConnectionRead(
+    config = ProviderIdPConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by
+        overrides=overrides,
         created_by=overrides.created_by_id,
-        updated_by=overrides.created_by_id,
-        links={
-            "idp": urllib.parse.urljoin(
-                str(request.base_url), f"{IDPS_PREFIX}/{idp.id}"
-            )
-        },
+        updated_by=overrides.updated_by_id,
+        links={"idp": urllib.parse.urljoin(str(request.base_url), f"{IDPS_PREFIX}")},
     )
-    return overrides
+    return config
 
 
 @prov_idp_link_router.put(
@@ -295,7 +286,7 @@ def edit_prov_idp_connection(
     current_user: CurrenUserDep,
     provider_id: uuid.UUID,
     idp_id: uuid.UUID,
-    new_overrides: ProviderIdPConnectionCreate,
+    new_overrides: IdpOverridesBase,
 ) -> None:
     """Update an existing identity provider in the database with the given idp ID.
 
@@ -351,7 +342,6 @@ def edit_prov_idp_connection(
     description="Delete a identity provider with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(idp_required)],
 )
 def delete_provider_idp_connection(
     request: Request,

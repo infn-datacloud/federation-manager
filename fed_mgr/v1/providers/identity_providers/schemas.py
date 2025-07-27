@@ -18,7 +18,7 @@ from fed_mgr.v1.schemas import (
 )
 
 
-class ProviderIdPConnectionBase(SQLModel):
+class IdpOverridesBase(SQLModel):
     """Schema with the parameters to overwrite when connecting Providers with IdPs."""
 
     groups_claim: Annotated[
@@ -57,8 +57,14 @@ class ProviderIdPConnectionBase(SQLModel):
     ]
 
 
-class ProviderIdPConnectionCreate(ProviderIdPConnectionBase):
+class ProviderIdPConnectionCreate(SQLModel):
     """Schema used to connect a Provider to an Identity Provider."""
+
+    idp_id: Annotated[uuid.UUID, Field(description="Identity Provider ID")]
+    overrides: Annotated[
+        IdpOverridesBase,
+        Field(description="Parameters to override for the target identity provider"),
+    ]
 
 
 class ProviderIdPConnectionLinks(SQLModel):
@@ -72,11 +78,14 @@ class ProviderIdPConnectionLinks(SQLModel):
     ]
 
 
-class ProviderIdPConnectionRead(CreationRead, EditableRead, ProviderIdPConnectionBase):
+class ProviderIdPConnectionRead(CreationRead, EditableRead):
     """Schema used to read an Identity Provider."""
 
-    provider_id: Annotated[uuid.UUID, Field(description="Resource provider ID")]
     idp_id: Annotated[uuid.UUID, Field(description="Identity Provider ID")]
+    overrides: Annotated[
+        IdpOverridesBase,
+        Field(description="Parameters to override for the target identity provider"),
+    ]
     links: Annotated[
         ProviderIdPConnectionLinks,
         Field(

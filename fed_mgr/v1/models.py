@@ -11,7 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
-from fed_mgr.v1.providers.identity_providers.schemas import ProviderIdPConnectionBase
+from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
 from fed_mgr.v1.providers.projects.regions.schemas import ProjRegConfigBase
 from fed_mgr.v1.providers.projects.schemas import ProjectBase
 from fed_mgr.v1.providers.regions.schemas import RegionBase
@@ -74,13 +74,13 @@ class User(ItemID, CreationTime, UserBase, table=True):
     #     sa_relationship_kwargs={"foreign_keys": "Location.updated_by_id"},
     # )
 
-    created_prov_idp_conns: list["ProviderIdPConnection"] = Relationship(
+    created_prov_idp_conns: list["IdpOverrides"] = Relationship(
         back_populates="created_by",
-        sa_relationship_kwargs={"foreign_keys": "ProviderIdPConnection.created_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "IdpOverrides.created_by_id"},
     )
-    updated_prov_idp_conns: list["ProviderIdPConnection"] = Relationship(
+    updated_prov_idp_conns: list["IdpOverrides"] = Relationship(
         back_populates="updated_by",
-        sa_relationship_kwargs={"foreign_keys": "ProviderIdPConnection.updated_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "IdpOverrides.updated_by_id"},
     )
 
     created_idps: list["IdentityProvider"] = Relationship(
@@ -187,9 +187,7 @@ class User(ItemID, CreationTime, UserBase, table=True):
 #     )
 
 
-class ProviderIdPConnection(
-    CreationTime, UpdateTime, ProviderIdPConnectionBase, table=True
-):
+class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
     """Association table linking providers to trusted identity providers."""
 
     created_by_id: Annotated[
@@ -198,7 +196,7 @@ class ProviderIdPConnection(
     ]
     created_by: User = Relationship(
         back_populates="created_prov_idp_conns",
-        sa_relationship_kwargs={"foreign_keys": "ProviderIdPConnection.created_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "IdpOverrides.created_by_id"},
     )
 
     updated_by_id: Annotated[
@@ -207,7 +205,7 @@ class ProviderIdPConnection(
     ]
     updated_by: User = Relationship(
         back_populates="updated_prov_idp_conns",
-        sa_relationship_kwargs={"foreign_keys": "ProviderIdPConnection.updated_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "IdpOverrides.updated_by_id"},
     )
 
     idp_id: Annotated[
@@ -258,7 +256,7 @@ class IdentityProvider(
         sa_relationship_kwargs={"foreign_keys": "IdentityProvider.updated_by_id"},
     )
 
-    linked_providers: list[ProviderIdPConnection] = Relationship(
+    linked_providers: list[IdpOverrides] = Relationship(
         back_populates="idp", passive_deletes="all"
     )
     user_groups: list["UserGroup"] = Relationship(
@@ -372,7 +370,7 @@ class Provider(
     site_testers: list[User] = Relationship(
         back_populates="assigned_providers", link_model=Evaluates
     )
-    idps: list[ProviderIdPConnection] = Relationship(
+    idps: list[IdpOverrides] = Relationship(
         back_populates="provider", cascade_delete=True
     )
     regions: list["Region"] = Relationship(
