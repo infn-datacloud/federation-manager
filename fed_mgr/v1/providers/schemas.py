@@ -1,5 +1,6 @@
 """Providers schemas returned by the endpoints."""
 
+import urllib.parse
 import uuid
 from enum import Enum
 from typing import Annotated
@@ -9,6 +10,7 @@ from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType, check_list_not_empty
+from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -241,13 +243,29 @@ class ProviderRead(ItemID, CreationRead, EditableRead, ProviderBase, ProviderInt
             description="List of the provider/site testers IDs",
         ),
     ]
-    links: Annotated[
-        ProviderLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the resource provider related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> ProviderLinks:
+        """Build the slas endpoints in the ProviderLinks object.
+
+        Returns:
+            ProviderLinks: An object with the user_groups attribute.
+
+        """
+        idps_link = urllib.parse.urljoin(str(self.base_url), f"{self.id}{IDPS_PREFIX}")
+        regions_link = urllib.parse.urljoin(
+            str(self.base_url), f"{self.id}{REGIONS_PREFIX}"
+        )
+        projects_link = urllib.parse.urljoin(
+            str(self.base_url), f"{self.id}{PROJECTS_PREFIX}"
+        )
+        return ProviderLinks(
+            idps=idps_link, regions=regions_link, projects=projects_link
+        )
 
     @computed_field
     @property

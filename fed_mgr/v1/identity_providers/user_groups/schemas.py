@@ -1,11 +1,13 @@
 """User Groups schemas returned by the endpoints."""
 
+import urllib.parse
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import Field, SQLModel
 
+from fed_mgr.v1 import SLAS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -44,13 +46,21 @@ class UserGroupLinks(SQLModel):
 class UserGroupRead(ItemID, CreationRead, EditableRead, UserGroupBase):
     """Schema used to read an Identity Provider."""
 
-    links: Annotated[
-        UserGroupLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the user groups related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> UserGroupLinks:
+        """Build the slas endpoints in the UserGroupLinks object.
+
+        Returns:
+            UserGroupLinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(str(self.base_url), f"{self.id}{SLAS_PREFIX}")
+        return UserGroupLinks(slas=link)
 
 
 class UserGroupList(PaginatedList):

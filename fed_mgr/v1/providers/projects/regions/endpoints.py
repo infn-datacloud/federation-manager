@@ -1,6 +1,5 @@
 """Endpoints to manage project-region config details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -216,12 +215,7 @@ def retrieve_project_configs(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            links={
-                "region": urllib.parse.urljoin(
-                    str(request.base_url),
-                    f"{PROVIDERS_PREFIX}/{provider.id}/{REGIONS_PREFIX}",
-                ),
-            },
+            base_url=str(request.base_url),
         )
         configs.append(config)
     return ProjRegConnectionList(
@@ -279,12 +273,7 @@ def retrieve_project_config(
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.created_by_id,
-        links={
-            "region": urllib.parse.urljoin(
-                str(request.base_url),
-                f"{PROVIDERS_PREFIX}/{provider.id}/{REGIONS_PREFIX}",
-            ),
-        },
+        base_url=str(request.base_url),
     )
     return config
 

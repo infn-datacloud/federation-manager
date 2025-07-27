@@ -1,13 +1,15 @@
 """SLAs schemas returned by the endpoints."""
 
+import urllib.parse
 from datetime import date
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import TIMESTAMP, AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import TIMESTAMP, Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
+from fed_mgr.v1 import PROJECTS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -68,13 +70,21 @@ class SLALinks(SQLModel):
 class SLARead(ItemID, CreationRead, EditableRead, SLABase):
     """Schema used to read an Identity Provider."""
 
-    links: Annotated[
-        SLALinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the user groups related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> SLALinks:
+        """Build the slas endpoints in the SLALinks object.
+
+        Returns:
+            SLALinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(str(self.base_url), f"{self.id}{PROJECTS_PREFIX}")
+        return SLALinks(projects=link)
 
 
 class SLAList(PaginatedList):

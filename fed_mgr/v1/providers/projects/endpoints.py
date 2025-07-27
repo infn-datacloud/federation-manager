@@ -1,6 +1,5 @@
 """Endpoints to manage project details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -21,7 +20,7 @@ from fed_mgr.exceptions import (
     UserNotFoundError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX
 from fed_mgr.v1.providers.dependencies import (
     ProviderRequiredDep,
     provider_required,
@@ -191,11 +190,7 @@ def retrieve_projects(
             **project.model_dump(),  # Does not return created_by and updated_by
             created_by=project.created_by_id,
             updated_by=project.created_by_id,
-            links={
-                "regions": urllib.parse.urljoin(
-                    str(request.url), f"{project.id}{REGIONS_PREFIX}"
-                ),
-            },
+            base_url=str(request.url),
         )
         new_projects.append(new_project)
     return ProjectList(
@@ -244,11 +239,7 @@ def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRe
         **project.model_dump(),  # Does not return created_by and updated_by
         created_by=project.created_by_id,
         updated_by=project.created_by_id,
-        links={
-            "regions": urllib.parse.urljoin(
-                str(request.url), f"{project.id}{REGIONS_PREFIX}"
-            ),
-        },
+        base_url=str(request.url),
     )
     return project
 

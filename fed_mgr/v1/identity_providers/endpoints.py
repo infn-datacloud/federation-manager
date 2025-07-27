@@ -1,6 +1,5 @@
 """Endpoints to manage identity provider details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -19,7 +18,7 @@ from fed_mgr.exceptions import (
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
 from fed_mgr.v1.identity_providers.dependencies import IdentityProviderRequiredDep
 from fed_mgr.v1.identity_providers.schemas import (
@@ -162,11 +161,7 @@ def retrieve_idps(
             **idp.model_dump(),  # Does not return created_by and updated_by
             created_by=idp.created_by_id,
             updated_by=idp.created_by_id,
-            links={
-                "user_groups": urllib.parse.urljoin(
-                    str(request.url), f"{idp.id}{USER_GROUPS_PREFIX}"
-                )
-            },
+            base_url=str(request.url),
         )
         new_idps.append(new_idp)
     return IdentityProviderList(
@@ -216,11 +211,7 @@ def retrieve_idp(
         **idp.model_dump(),  # Does not return created_by and updated_by
         created_by=idp.created_by_id,
         updated_by=idp.created_by_id,
-        links={
-            "user_groups": urllib.parse.urljoin(
-                str(request.url), f"{idp.id}{USER_GROUPS_PREFIX}"
-            )
-        },
+        base_url=str(request.url),
     )
     return idp
 

@@ -1,11 +1,13 @@
 """Projects schemas returned by the endpoints."""
 
+import urllib.parse
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import Field, SQLModel
 
+from fed_mgr.v1 import REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -56,13 +58,21 @@ class ProjectLinks(SQLModel):
 class ProjectRead(ItemID, CreationRead, EditableRead, ProjectBase):
     """Schema used to read an Project."""
 
-    links: Annotated[
-        ProjectLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the resource project related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> ProjectLinks:
+        """Build the slas endpoints in the ProjectLinks object.
+
+        Returns:
+            ProjectLinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(str(self.base_url), f"{self.id}{REGIONS_PREFIX}")
+        return ProjectLinks(regions=link)
 
 
 class ProjectList(PaginatedList):

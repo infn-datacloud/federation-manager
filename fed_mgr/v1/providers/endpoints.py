@@ -1,6 +1,5 @@
 """Endpoints to manage resource provider details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -21,7 +20,7 @@ from fed_mgr.exceptions import (
     UserNotFoundError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1 import PROVIDERS_PREFIX
 from fed_mgr.v1.providers.crud import (
     add_provider,
     add_site_tester,
@@ -183,17 +182,7 @@ def retrieve_providers(
             created_by=provider.created_by_id,
             updated_by=provider.created_by_id,
             site_admins=[item.id for item in provider.site_admins],
-            links={
-                "idps": urllib.parse.urljoin(
-                    str(request.url), f"{provider.id}{IDPS_PREFIX}"
-                ),
-                "regions": urllib.parse.urljoin(
-                    str(request.url), f"{provider.id}{REGIONS_PREFIX}"
-                ),
-                "projects": urllib.parse.urljoin(
-                    str(request.url), f"{provider.id}{PROJECTS_PREFIX}"
-                ),
-            },
+            base_url=str(request.url),
         )
         new_providers.append(new_provider)
     return ProviderList(
@@ -245,17 +234,7 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
         created_by=provider.created_by_id,
         updated_by=provider.created_by_id,
         site_admins=[item.id for item in provider.site_admins],
-        links={
-            "idps": urllib.parse.urljoin(
-                str(request.url), f"{provider.id}{IDPS_PREFIX}"
-            ),
-            "regions": urllib.parse.urljoin(
-                str(request.url), f"{provider.id}{REGIONS_PREFIX}"
-            ),
-            "projects": urllib.parse.urljoin(
-                str(request.url), f"{provider.id}{PROJECTS_PREFIX}"
-            ),
-        },
+        base_url=str(request.url),
     )
     return provider
 

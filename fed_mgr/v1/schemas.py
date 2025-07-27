@@ -96,6 +96,10 @@ class Pagination(SQLModel):
         """Return the ceiling value of tot_items/page size.
 
         If there are no elements, there is still one page but with no items.
+
+        Returns:
+            int: total pages
+
         """
         val = math.ceil(self.total_elements / self.size)
         return 1 if val == 0 else val

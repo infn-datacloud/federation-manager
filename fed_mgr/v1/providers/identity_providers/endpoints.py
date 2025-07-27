@@ -1,6 +1,5 @@
 """Endpoints to manage identity provider details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -204,9 +203,7 @@ def retrieve_prov_idp_connections(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            links={
-                "idp": urllib.parse.urljoin(str(request.base_url), f"{IDPS_PREFIX}")
-            },
+            base_url=str(request.base_url),
         )
         configs.append(new_link)
     return ProviderIdPConnectionList(
@@ -263,7 +260,7 @@ def retrieve_prov_idp_connection(
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.updated_by_id,
-        links={"idp": urllib.parse.urljoin(str(request.base_url), f"{IDPS_PREFIX}")},
+        base_url=str(request.base_url),
     )
     return config
 

@@ -1,12 +1,14 @@
 """Identity Providers schemas returned by the endpoints."""
 
+import urllib.parse
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import Field, SQLModel
 
 from fed_mgr.utils import HttpUrlType
+from fed_mgr.v1 import USER_GROUPS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -80,13 +82,23 @@ class IdentityProviderLinks(SQLModel):
 class IdentityProviderRead(ItemID, CreationRead, EditableRead, IdentityProviderBase):
     """Schema used to read an Identity Provider."""
 
-    links: Annotated[
-        IdentityProviderLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the identity provider related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> IdentityProviderLinks:
+        """Build the user groups endpoints in the IdentityProviderLinks object.
+
+        Returns:
+            IdentityProviderLinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(
+            str(self.base_url), f"{self.id}{USER_GROUPS_PREFIX}"
+        )
+        return IdentityProviderLinks(user_groups=link)
 
 
 class IdentityProviderList(PaginatedList):

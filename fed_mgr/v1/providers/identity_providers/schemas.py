@@ -1,12 +1,14 @@
 """Identity Providers schemas returned by the endpoints."""
 
+import urllib.parse
 import uuid
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import Field, SQLModel
 
+from fed_mgr.v1 import IDPS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -70,7 +72,7 @@ class ProviderIdPConnectionCreate(SQLModel):
 class ProviderIdPConnectionLinks(SQLModel):
     """Schema containing links related to the Provider."""
 
-    idp: Annotated[
+    idps: Annotated[
         AnyHttpUrl,
         Field(
             description="Link to retrieve the Identity Provider default configuration."
@@ -86,13 +88,21 @@ class ProviderIdPConnectionRead(CreationRead, EditableRead):
         IdpOverridesBase,
         Field(description="Parameters to override for the target identity provider"),
     ]
-    links: Annotated[
-        ProviderIdPConnectionLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the relationship related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+
+    @computed_field
+    @property
+    def links(self) -> ProviderIdPConnectionLinks:
+        """Build the slas endpoints in the ProviderIdPConnectionLinks object.
+
+        Returns:
+            ProviderIdPConnectionLinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(str(self.base_url), f"{IDPS_PREFIX}")
+        return ProviderIdPConnectionLinks(idps=link)
 
 
 class ProviderIdPConnectionList(PaginatedList):

@@ -1,12 +1,14 @@
 """ProjRegConnections's configurations schemas returned by the endpoints."""
 
+import urllib.parse
 import uuid
 from typing import Annotated
 
 from fastapi import Query
-from pydantic import AnyHttpUrl
-from sqlmodel import AutoString, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field
+from sqlmodel import Field, SQLModel
 
+from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -70,13 +72,28 @@ class ProjRegConnectionRead(CreationRead, EditableRead):
         RegionOverridesBase,
         Field(description="The project overrides for the target region"),
     ]
-    links: Annotated[
-        ProjRegConnectionLinks,
-        Field(
-            sa_type=AutoString,
-            description="Dict with the links of the related entities",
-        ),
+    base_url: Annotated[
+        AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
+    provider_id: Annotated[
+        AnyHttpUrl,
+        Field(exclude=True, description="Provider ID used to build the children URL"),
+    ]
+
+    @computed_field
+    @property
+    def links(self) -> ProjRegConnectionLinks:
+        """Build the slas endpoints in the ProjRegConnectionLinks object.
+
+        Returns:
+            ProjRegConnectionLinks: An object with the user_groups attribute.
+
+        """
+        link = urllib.parse.urljoin(
+            str(self.base_url),
+            f"{PROVIDERS_PREFIX}/{self.provider_id}/{REGIONS_PREFIX}",
+        )
+        return ProjRegConnectionLinks(regions=link)
 
 
 class ProjRegConnectionList(PaginatedList):

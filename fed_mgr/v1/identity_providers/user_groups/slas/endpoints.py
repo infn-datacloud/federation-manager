@@ -1,6 +1,5 @@
 """Endpoints to manage sla details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -20,7 +19,7 @@ from fed_mgr.exceptions import (
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
 from fed_mgr.v1.identity_providers.user_groups.dependencies import (
     UserGroupRequiredDep,
@@ -195,11 +194,7 @@ def retrieve_slas(
             **sla.model_dump(),  # Does not return created_by and updated_by
             created_by=sla.created_by_id,
             updated_by=sla.created_by_id,
-            links={
-                "projects": urllib.parse.urljoin(
-                    str(request.url), f"{sla.id}{PROJECTS_PREFIX}"
-                )
-            },
+            base_url=str(request.url),
         )
         new_slas.append(new_sla)
     return SLAList(
@@ -247,11 +242,7 @@ def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
         **sla.model_dump(),  # Does not return created_by and updated_by
         created_by=sla.created_by_id,
         updated_by=sla.created_by_id,
-        links={
-            "projects": urllib.parse.urljoin(
-                str(request.url), f"{sla.id}{PROJECTS_PREFIX}"
-            )
-        },
+        base_url=str(request.url),
     )
     return sla
 

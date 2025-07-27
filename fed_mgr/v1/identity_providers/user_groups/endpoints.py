@@ -1,6 +1,5 @@
 """Endpoints to manage user group details."""
 
-import urllib.parse
 import uuid
 
 from fastapi import (
@@ -20,7 +19,7 @@ from fed_mgr.exceptions import (
     NotNullError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
-from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import (
     IdentityProviderRequiredDep,
     idp_required,
@@ -191,11 +190,7 @@ def retrieve_user_groups(
             **user_group.model_dump(),  # Does not return created_by and updated_by
             created_by=user_group.created_by_id,
             updated_by=user_group.created_by_id,
-            links={
-                "slas": urllib.parse.urljoin(
-                    str(request.url), f"{user_group.id}{SLAS_PREFIX}"
-                )
-            },
+            base_url=str(request.url),
         )
         new_user_groups.append(new_user_group)
     return UserGroupList(
@@ -247,11 +242,7 @@ def retrieve_user_group(
         **user_group.model_dump(),  # Does not return created_by and updated_by
         created_by=user_group.created_by_id,
         updated_by=user_group.created_by_id,
-        links={
-            "slas": urllib.parse.urljoin(
-                str(request.url), f"{user_group.id}{SLAS_PREFIX}"
-            )
-        },
+        base_url=str(request.url),
     )
     return user_group
 
