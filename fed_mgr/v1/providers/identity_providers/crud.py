@@ -21,7 +21,7 @@ from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User
 from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
 
 
-def get_prov_idp_link(
+def get_idp_overrides(
     *, session: SessionDep, idp_id: uuid.UUID, provider_id: uuid.UUID
 ) -> IdpOverrides | None:
     """Retrieve the relationship between a resource provider and an identity provider.
@@ -45,7 +45,7 @@ def get_prov_idp_link(
     )
 
 
-def get_prov_idp_links(
+def get_idp_overrides_list(
     *, session: Session, skip: int, limit: int, sort: str, **kwargs
 ) -> tuple[list[IdpOverrides], int]:
     """Retrieve a paginated and sorted list of IdP and providers relationships.
@@ -107,7 +107,7 @@ def connect_prov_idp(
     )
 
 
-def update_prov_idp_link(
+def update_idp_overrides(
     *,
     session: Session,
     idp_id: uuid.UUID,

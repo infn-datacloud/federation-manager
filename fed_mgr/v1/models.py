@@ -12,7 +12,7 @@ from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
 from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
-from fed_mgr.v1.providers.projects.regions.schemas import ProjRegConfigBase
+from fed_mgr.v1.providers.projects.regions.schemas import RegionOverridesBase
 from fed_mgr.v1.providers.projects.schemas import ProjectBase
 from fed_mgr.v1.providers.regions.schemas import RegionBase
 from fed_mgr.v1.providers.schemas import ProviderBase, ProviderInternal
@@ -137,13 +137,13 @@ class User(ItemID, CreationTime, UserBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "Project.updated_by_id"},
     )
 
-    created_proj_reg_configs: list["ProjRegConfig"] = Relationship(
+    created_proj_reg_configs: list["RegionOverrides"] = Relationship(
         back_populates="created_by",
-        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.created_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "RegionOverrides.created_by_id"},
     )
-    updated_proj_reg_configs: list["ProjRegConfig"] = Relationship(
+    updated_proj_reg_configs: list["RegionOverrides"] = Relationship(
         back_populates="updated_by",
-        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.updated_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "RegionOverrides.updated_by_id"},
     )
 
     owned_providers: list["Provider"] = Relationship(
@@ -381,7 +381,7 @@ class Provider(
     )
 
 
-class ProjRegConfig(CreationTime, UpdateTime, ProjRegConfigBase, table=True):
+class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True):
     """Association table linking projects to regions."""
 
     created_by_id: Annotated[
@@ -390,7 +390,7 @@ class ProjRegConfig(CreationTime, UpdateTime, ProjRegConfigBase, table=True):
     ]
     created_by: User = Relationship(
         back_populates="created_proj_reg_configs",
-        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.created_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "RegionOverrides.created_by_id"},
     )
 
     updated_by_id: Annotated[
@@ -399,7 +399,7 @@ class ProjRegConfig(CreationTime, UpdateTime, ProjRegConfigBase, table=True):
     ]
     updated_by: User = Relationship(
         back_populates="updated_proj_reg_configs",
-        sa_relationship_kwargs={"foreign_keys": "ProjRegConfig.updated_by_id"},
+        sa_relationship_kwargs={"foreign_keys": "RegionOverrides.updated_by_id"},
     )
 
     region_id: Annotated[
@@ -464,7 +464,7 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     # ]
     # location: Location = Relationship(back_populates="regions")
 
-    linked_projects: list[ProjRegConfig] = Relationship(
+    linked_projects: list[RegionOverrides] = Relationship(
         back_populates="region", passive_deletes="all"
     )
 
@@ -510,6 +510,6 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
     ]
     sla: SLA = Relationship(back_populates="projects")
 
-    regions: list[ProjRegConfig] = Relationship(
+    regions: list[RegionOverrides] = Relationship(
         back_populates="project", cascade_delete=True
     )

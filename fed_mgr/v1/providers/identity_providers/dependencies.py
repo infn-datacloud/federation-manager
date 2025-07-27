@@ -6,9 +6,9 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 
 from fed_mgr.v1.models import IdpOverrides
-from fed_mgr.v1.providers.identity_providers.crud import get_prov_idp_link
+from fed_mgr.v1.providers.identity_providers.crud import get_idp_overrides
 
-IdpOverridesDep = Annotated[IdpOverrides | None, Depends(get_prov_idp_link)]
+IdpOverridesDep = Annotated[IdpOverrides | None, Depends(get_idp_overrides)]
 
 
 def idp_overrides_required(

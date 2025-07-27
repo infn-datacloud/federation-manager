@@ -30,8 +30,8 @@ from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_requ
 from fed_mgr.v1.providers.identity_providers.crud import (
     connect_prov_idp,
     disconnect_prov_idp,
-    get_prov_idp_links,
-    update_prov_idp_link,
+    get_idp_overrides_list,
+    update_idp_overrides,
 )
 from fed_mgr.v1.providers.identity_providers.dependencies import IdpOverridesRequiredDep
 from fed_mgr.v1.providers.identity_providers.schemas import (
@@ -113,7 +113,7 @@ def create_prov_idp_connection(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = f"Connecting resource rovider with ID '{provider.id!s}' with identity "
+    msg = f"Connecting resource provider with ID '{provider.id!s}' with identity "
     msg += f"provider with ID '{config.idp_id!s}' with params: "
     msg += f"{config.overrides.model_dump_json()}"
     request.state.logger.info(msg)
@@ -185,7 +185,7 @@ def retrieve_prov_idp_connections(
     msg = "Retrieve identity provider configurations details overwritten by provider "
     msg += f"with ID '{provider.id!s}'. Query params: {params.model_dump_json()}"
     request.state.logger.info(msg)
-    overrides, tot_items = get_prov_idp_links(
+    overrides, tot_items = get_idp_overrides_list(
         session=session,
         skip=(params.page - 1) * params.size,
         limit=params.size,
@@ -255,8 +255,8 @@ def retrieve_prov_idp_connection(
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Configuration details for Identity Provider with ID '{idp.id!s}' "
-    msg += f"overwritten by provider with ID '{provider.id!s}' found: {overrides!r}"
+    msg = f"Configuration details for identity provider with ID '{idp.id!s}' "
+    msg += f"overwritten by provider with ID '{provider.id!s}' found: {overrides!s}"
     request.state.logger.info(msg)
     config = ProviderIdPConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by
@@ -309,7 +309,7 @@ def edit_prov_idp_connection(
     msg += f"overwritten by provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
     try:
-        update_prov_idp_link(
+        update_idp_overrides(
             session=session,
             idp_id=idp_id,
             provider_id=provider_id,
@@ -344,10 +344,7 @@ def edit_prov_idp_connection(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_provider_idp_connection(
-    request: Request,
-    session: SessionDep,
-    provider_id: uuid.UUID,
-    idp_id: uuid.UUID,
+    request: Request, session: SessionDep, provider_id: uuid.UUID, idp_id: uuid.UUID
 ) -> None:
     """Remove a identity provider from the system by their unique identifier.
 
@@ -371,8 +368,8 @@ def delete_provider_idp_connection(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = f"Disconnect identity provider with ID '{idp_id}' from provider with ID "
-    msg += f"'{provider_id}'"
+    msg = f"Disconnect identity provider with ID '{idp_id!s}' from provider with ID "
+    msg += f"'{provider_id!s}'"
     request.state.logger.info(msg)
     try:
         disconnect_prov_idp(session=session, idp_id=idp_id, provider_id=provider_id)
@@ -381,6 +378,6 @@ def delete_provider_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
-    msg = f"Identity Provider with ID '{idp_id}' disconnected from provider with ID "
-    msg += f"'{provider_id}"
+    msg = f"Identity Provider with ID '{idp_id!s}' disconnected from provider with ID "
+    msg += f"'{provider_id!s}"
     request.state.logger.info(msg)
