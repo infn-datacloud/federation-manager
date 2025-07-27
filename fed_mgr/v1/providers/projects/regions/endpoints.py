@@ -15,9 +15,9 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
+    ItemNotFoundError,
     NoItemToUpdateError,
     NotNullError,
-    UserNotFoundError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
@@ -42,7 +42,6 @@ from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
-from fed_mgr.v1.providers.regions.crud import get_region
 from fed_mgr.v1.providers.regions.dependencies import (
     RegionRequiredDep,
     region_required,
@@ -128,20 +127,12 @@ def create_project_config(
     msg = f"Connecting project with ID '{project.id!s}' with region with ID "
     msg += f"'{config.region_id!s}' with params: {config.overrides.model_dump_json()}"
     request.state.logger.info(msg)
-
-    region = region_required(
-        request=request,
-        idp_id=config.region_id,
-        idp=get_region(session=session, idp_id=config.region_id),
-    )
-
     try:
         db_overrides = connect_project_region(
             session=session,
             created_by=current_user,
             project=project,
-            region=region,
-            overrides=config.overrides,
+            config=config.overrides,
         )
     except ConflictError as e:
         request.state.logger.error(e.message)
@@ -152,6 +143,11 @@ def create_project_config(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+        ) from e
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Project with ID '{project.id!s}' connected with region with ID "
     msg += f"'{config.region_id!s}' with params: {db_overrides.model_dump_json()}"
@@ -347,11 +343,6 @@ def edit_project(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except UserNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
     msg = f"Configuration detail for region with ID '{region_id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}' updated"

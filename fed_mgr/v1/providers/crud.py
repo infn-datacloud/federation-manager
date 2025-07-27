@@ -10,7 +10,7 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ProviderStateChangeError, UserNotFoundError
+from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
@@ -98,7 +98,7 @@ def add_provider(
         Provider: The identifier of the newly created provider.
 
     """
-    site_admins = check_site_admins_exist(session=session, provider=provider)
+    site_admins = check_users_exist(session=session, user_ids=provider.site_admins)
     return add_item(
         session=session,
         entity=Provider,
@@ -132,7 +132,9 @@ def update_provider(
     """
     kwargs = {}
     if new_provider.site_admins is not None:
-        site_admins = check_site_admins_exist(session=session, provider=new_provider)
+        site_admins = check_users_exist(
+            session=session, user_ids=new_provider.site_admins
+        )
         kwargs = {"site_admins": site_admins}
     return update_item(
         session=session,
@@ -158,29 +160,29 @@ def delete_provider(*, session: Session, provider_id: uuid.UUID) -> None:
     delete_item(session=session, entity=Provider, id=provider_id)
 
 
-def check_site_admins_exist(session: Session, provider: ProviderCreate) -> list[User]:
+def check_users_exist(session: Session, user_ids: list[uuid.UUID]) -> list[User]:
     """Check if all user IDs in the provider's site_admins list exist in the database.
 
     Args:
         session (Session): The database session used to query users.
-        provider (ProviderCreate): The provider object containing a list of site admin
-            user IDs.
+        user_ids (ProviderCreate): The provider object containing a list of site
+            admin user IDs.
 
     Returns:
         list: A list of user objects corresponding to the provided site admin user IDs.
 
     Raises:
-        UserNotFoundError: If any user ID in provider.site_admins does not exist in the
+        ItemNotFoundError: If any user ID in provider.site_admins does not exist in the
             database.
 
     """
-    site_admins = []
-    for user_id in provider.site_admins:
+    users = []
+    for user_id in user_ids:
         user = get_user(session=session, user_id=user_id)
         if user is None:
-            raise UserNotFoundError(f"User with ID '{user_id!s}' does not exist")
-        site_admins.append(user)
-    return site_admins
+            raise ItemNotFoundError("User", user_id)
+        users.append(user)
+    return users
 
 
 def add_site_tester(*, session: Session, provider: Provider, user: User) -> None:

@@ -14,10 +14,10 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
+    ItemNotFoundError,
     NoItemToUpdateError,
     NotNullError,
     ProviderStateChangeError,
-    UserNotFoundError,
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX
@@ -122,10 +122,10 @@ def create_provider(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    except UserNotFoundError as e:
+    except ItemNotFoundError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Resource provider created: {db_provider.model_dump_json()}"
     request.state.logger.info(msg)
@@ -302,10 +302,10 @@ def edit_provider(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    except UserNotFoundError as e:
+    except ItemNotFoundError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)

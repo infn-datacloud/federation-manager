@@ -1,5 +1,7 @@
 """Custom common exceptions."""
 
+import uuid
+
 
 class ConflictError(Exception):
     """Exception raised when there is a CONFLICT during a DB insertion."""
@@ -37,12 +39,12 @@ class ProviderStateChangeError(Exception):
         super().__init__(self.message)
 
 
-class UserNotFoundError(Exception):
+class ItemNotFoundError(Exception):
     """Exception raised when the target ID does not match a user in the DB."""
 
-    def __init__(self, message):
-        """Initialize UserNotFoundError with a specific error message."""
-        self.message = message
+    def __init__(self, entity: str, id: uuid.UUID):
+        """Initialize ItemNotFoundError with a specific error message."""
+        self.message = f"{entity} with ID '{id!s}' does not exist"
         super().__init__(self.message)
 
 
