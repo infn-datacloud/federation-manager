@@ -126,11 +126,6 @@ def create_region(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    # except LocationNotFoundError as e:
-    #     request.state.logger.error(e.message)
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-    #     ) from e
     msg = f"Region created: {db_region.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_region.id}
@@ -316,11 +311,6 @@ def edit_region(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    # except LocationNotFoundError as e:
-    #     request.state.logger.error(e.message)
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-    #     ) from e
     msg = f"Region with ID '{region_id!s}' updated"
     request.state.logger.info(msg)
 

@@ -30,6 +30,18 @@ class RegionBase(ItemDescription):
             "must match the resource provider region. Otherwise it is a placeholder.",
         ),
     ]
+    overbooking_cpu: Annotated[
+        float, Field(default=1, description="Value used to overbook RAM.")
+    ]
+    overbooking_ram: Annotated[
+        float, Field(default=1, description="Value used to overbook CPUs.")
+    ]
+    bandwidth_in: Annotated[
+        float, Field(default=10, description="Input network bandwidth.")
+    ]
+    bandwidth_out: Annotated[
+        float, Field(default=10, description="Output network bandwidth.")
+    ]
 
 
 class RegionCreate(RegionBase):
@@ -81,6 +93,50 @@ class RegionQuery(
     name: Annotated[
         str | None,
         Field(default=None, description="Region name must contain this string"),
+    ]
+    overbooking_cpu_gte: Annotated[
+        float | None,
+        Field(default=None, description="Overbook RAM must be greater than or equal."),
+    ]
+    overbooking_cpu_lte: Annotated[
+        float | None,
+        Field(default=None, description="Overbook RAM must be lower than or equal."),
+    ]
+    overbooking_ram_gte: Annotated[
+        float | None,
+        Field(default=None, description="Overbook CPUs must be greater than or equal"),
+    ]
+    overbooking_ram_lte: Annotated[
+        float | None,
+        Field(default=None, description="Overbook CPUs must be lower than or equal."),
+    ]
+    bandwidth_in_gte: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Input network bandwidth must be greater than or equal.",
+        ),
+    ]
+    bandwidth_in_lte: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Input network bandwidth must be lower than or equal.",
+        ),
+    ]
+    bandwidth_out_gte: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Output network bandwidth must be greater than or equal.",
+        ),
+    ]
+    bandwidth_out_lte: Annotated[
+        float | None,
+        Field(
+            default=None,
+            description="Output network bandwidth must be lower than or equal.",
+        ),
     ]
 
 
