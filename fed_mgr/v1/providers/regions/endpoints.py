@@ -2,14 +2,7 @@
 
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -20,10 +13,7 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
-from fed_mgr.v1.providers.dependencies import (
-    ProviderRequiredDep,
-    provider_required,
-)
+from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
 from fed_mgr.v1.providers.regions.crud import (
     add_region,
     delete_region,
@@ -44,6 +34,7 @@ region_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + REGIONS_PREFIX,
     tags=["regions"],
     dependencies=[Depends(provider_required)],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
@@ -77,6 +68,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_region(
@@ -207,7 +199,6 @@ def retrieve_regions(
     description="Check if the given resource region's ID already exists in the DB "
     "and return it. If the resource region does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_region(request: Request, region: RegionRequiredDep) -> RegionRead:
     """Retrieve a resource region by their unique identifier.
@@ -256,7 +247,6 @@ def retrieve_region(request: Request, region: RegionRequiredDep) -> RegionRead:
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -321,6 +311,7 @@ def edit_region(
     description="Delete a resource region with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_region(request: Request, session: SessionDep, region_id: uuid.UUID) -> None:
     """Remove a resource region from the system by their unique identifier.

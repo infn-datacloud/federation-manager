@@ -2,14 +2,7 @@
 
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -41,10 +34,7 @@ from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
-from fed_mgr.v1.providers.regions.dependencies import (
-    RegionRequiredDep,
-    region_required,
-)
+from fed_mgr.v1.providers.regions.dependencies import RegionRequiredDep
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.dependencies import CurrenUserDep
 
@@ -56,6 +46,7 @@ proj_reg_link_router = APIRouter(
     + REGIONS_PREFIX,
     tags=["region overrides"],
     dependencies=[Depends(provider_required), Depends(project_required)],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
@@ -80,7 +71,7 @@ def available_methods(response: Response) -> None:
 
 
 @proj_reg_link_router.post(
-    "/{region_id}",
+    "/",
     summary="Create a new project",
     description="Add a new project to the DB. Check if a project's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
@@ -89,8 +80,8 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
-    dependencies=[Depends(region_required)],
 )
 def create_project_config(
     request: Request,
@@ -133,6 +124,11 @@ def create_project_config(
             project=project,
             config=config.overrides,
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -142,11 +138,6 @@ def create_project_config(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Project with ID '{project.id!s}' connected with region with ID "
     msg += f"'{config.region_id!s}' with params: {db_overrides.model_dump_json()}"
@@ -161,7 +152,6 @@ def create_project_config(
 def retrieve_project_configs(
     request: Request,
     session: SessionDep,
-    provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
     params: ProjRegConnectionQuery,
 ) -> ProjRegConnectionList:
@@ -228,7 +218,6 @@ def retrieve_project_configs(
     description="Check if the given project's ID already exists in the DB "
     "and return it. If the project does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_project_config(
     request: Request,
@@ -282,18 +271,16 @@ def retrieve_project_config(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
-    dependencies=[Depends(region_required)],
 )
 def edit_project(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
     project_id: uuid.UUID,
-    region_id: uuid.UUID,
+    region: RegionRequiredDep,
     overrides: RegionOverridesBase,
 ) -> None:
     """Update an existing project in the database with the given project ID.
@@ -302,7 +289,7 @@ def edit_project(
         request (Request): The current request object.
         project_id (uuid.UUID): The unique identifier of the project to
             update.
-        region_id (uuid.UUID): The unique identifier of the region to
+        region (uuid.UUID): The unique identifier of the region to
             update.
         overrides (UserCreate): The new project data to update.
         session (SessionDep): The database session dependency.
@@ -317,14 +304,14 @@ def edit_project(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = f"Update configuration detail for region with ID '{region_id!s}' "
+    msg = f"Update configuration detail for region with ID '{region.id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}'"
     request.state.logger.info(msg)
     try:
         update_region_overrides(
             session=session,
             project_id=project_id,
-            region_id=region_id,
+            region_id=region.id,
             new_overrides=overrides,
             updated_by=current_user,
         )
@@ -343,7 +330,7 @@ def edit_project(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    msg = f"Configuration detail for region with ID '{region_id!s}' "
+    msg = f"Configuration detail for region with ID '{region.id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -354,7 +341,7 @@ def edit_project(
     description="Delete a project with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(region_required)],
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_project(
     request: Request, session: SessionDep, project_id: uuid.UUID, region_id: uuid.UUID

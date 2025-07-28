@@ -2,14 +2,7 @@
 
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -20,10 +13,7 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX
-from fed_mgr.v1.providers.dependencies import (
-    ProviderRequiredDep,
-    provider_required,
-)
+from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
 from fed_mgr.v1.providers.projects.crud import (
     add_project,
     delete_project,
@@ -44,6 +34,7 @@ project_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + PROJECTS_PREFIX,
     tags=["projects"],
     dependencies=[Depends(provider_required)],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
@@ -77,6 +68,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_project(
@@ -116,6 +108,11 @@ def create_project(
         db_project = add_project(
             session=session, project=project, created_by=current_user, provider=provider
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -125,11 +122,6 @@ def create_project(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
         ) from e
     msg = f"Project created: {db_project.model_dump_json()}"
     request.state.logger.info(msg)
@@ -207,7 +199,6 @@ def retrieve_projects(
     description="Check if the given project's ID already exists in the DB "
     "and return it. If the project does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRead:
     """Retrieve a project by their unique identifier.
@@ -251,7 +242,6 @@ def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRe
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -291,6 +281,11 @@ def edit_project(
             new_project=new_project,
             updated_by=current_user,
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -300,11 +295,6 @@ def edit_project(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Project with ID '{project_id!s}' updated"
     request.state.logger.info(msg)
@@ -316,6 +306,7 @@ def edit_project(
     description="Delete a project with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_project(
     request: Request, session: SessionDep, project_id: uuid.UUID

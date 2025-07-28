@@ -2,13 +2,7 @@
 
 import uuid
 
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -74,6 +68,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_provider(
@@ -111,6 +106,11 @@ def create_provider(
         db_provider = add_provider(
             session=session, provider=provider, created_by=current_user
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -120,11 +120,6 @@ def create_provider(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Resource provider created: {db_provider.model_dump_json()}"
     request.state.logger.info(msg)
@@ -286,6 +281,11 @@ def edit_provider(
             new_provider=new_provider,
             updated_by=current_user,
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -295,11 +295,6 @@ def edit_provider(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)
@@ -311,6 +306,7 @@ def edit_provider(
     description="Delete a resource provider with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_provider(
     request: Request, session: SessionDep, provider_id: uuid.UUID
@@ -352,7 +348,10 @@ def remove_provider(
     "/{provider_id}/submit",
     summary="Change the provider state from ready to submit",
     description="Provider is ready to be tested. Submit federation request",
-    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
 )
 def submit_request(
     request: Request,
@@ -398,7 +397,10 @@ def submit_request(
     "/{provider_id}/assign",
     summary="Change the provider state from submitted to evaluation",
     description="Site tester assign the provied to himself.",
-    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
 )
 def assign_to_request(
     request: Request,
@@ -452,7 +454,10 @@ def assign_to_request(
     "/{provider_id}/retract",
     summary="Change the provider state from submitted to evaluation",
     description="Site tester retract himself from the provider.",
-    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
 )
 def retract_from_request(
     request: Request,
@@ -496,7 +501,10 @@ def retract_from_request(
     summary="Change the provider state",
     description="Receive the next status the provider should go. If it is a valid one, "
     "following the status FSM, go into that state. Otherwise reject the request.",
-    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
 )
 def update_provider_state(
     request: Request,

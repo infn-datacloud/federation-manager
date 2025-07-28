@@ -248,6 +248,7 @@ def edit_user(
     summary="Delete user with given id",
     description="Delete a user with the given id from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_user(request: Request, session: SessionDep, user_id: uuid.UUID) -> None:
     """Remove a user from the system by their unique identifier.

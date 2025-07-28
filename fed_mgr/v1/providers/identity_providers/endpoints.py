@@ -2,14 +2,7 @@
 
 import uuid
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -20,10 +13,7 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
-from fed_mgr.v1.identity_providers.dependencies import (
-    IdentityProviderRequiredDep,
-    idp_required,
-)
+from fed_mgr.v1.identity_providers.dependencies import IdentityProviderRequiredDep
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
 from fed_mgr.v1.providers.identity_providers.crud import (
     connect_prov_idp,
@@ -46,6 +36,7 @@ prov_idp_link_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + IDPS_PREFIX,
     tags=["idp overrides"],
     dependencies=[Depends(provider_required)],
+    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
 
@@ -75,8 +66,9 @@ def available_methods(response: Response) -> None:
     description="",
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_prov_idp_connection(
@@ -119,6 +111,11 @@ def create_prov_idp_connection(
         db_overrides = connect_prov_idp(
             session=session, created_by=current_user, provider=provider, config=config
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -128,11 +125,6 @@ def create_prov_idp_connection(
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider.id!s}' connected with identity "
     msg += f"provider with ID '{config.idp_id!s}' with params: "
@@ -214,7 +206,6 @@ def retrieve_prov_idp_connections(
     description="Check if the given identity provider's ID already exists in the DB "
     "and return it. If the identity provider does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_prov_idp_connection(
     request: Request,
@@ -264,25 +255,24 @@ def retrieve_prov_idp_connection(
     description="Update a identity provider with the given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
-    dependencies=[Depends(idp_required)],
 )
 def edit_prov_idp_connection(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
     provider_id: uuid.UUID,
-    idp_id: uuid.UUID,
+    idp: IdentityProviderRequiredDep,
     new_overrides: IdpOverridesBase,
 ) -> None:
     """Update an existing identity provider in the database with the given idp ID.
 
     Args:
         request (Request): The current request object.
-        idp_id (uuid.UUID): The unique identifier of the identity provider to update.
+        idp (uuid.UUID): The unique identifier of the identity provider to update.
         provider_id (uuid.UUID): The unique identifier of the identity provider to
             update.
         new_overrides (UserCreate): The new identity provider data to update.
@@ -295,13 +285,13 @@ def edit_prov_idp_connection(
         occurs.
 
     """
-    msg = f"Update configuration detail for identity provider with ID '{idp_id!s}' "
+    msg = f"Update configuration detail for identity provider with ID '{idp.id!s}' "
     msg += f"overwritten by provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
     try:
         update_idp_overrides(
             session=session,
-            idp_id=idp_id,
+            idp_id=idp.id,
             provider_id=provider_id,
             new_overrides=new_overrides,
             updated_by=current_user,
@@ -321,7 +311,7 @@ def edit_prov_idp_connection(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    msg = f"Configuration detail for identity provider with ID '{idp_id!s}' "
+    msg = f"Configuration detail for identity provider with ID '{idp.id!s}' "
     msg += f"overwritten by provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -332,6 +322,7 @@ def edit_prov_idp_connection(
     description="Delete a identity provider with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def delete_provider_idp_connection(
     request: Request, session: SessionDep, provider_id: uuid.UUID, idp_id: uuid.UUID

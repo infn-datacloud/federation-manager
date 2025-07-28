@@ -63,6 +63,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_idp(
@@ -222,6 +223,7 @@ def retrieve_idp(
     description="Update a identity provider with the given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
@@ -280,6 +282,7 @@ def edit_idp(
     description="Delete a identity provider with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_idp(request: Request, session: SessionDep, idp_id: uuid.UUID) -> None:
     """Remove a identity provider from the system by their unique identifier.

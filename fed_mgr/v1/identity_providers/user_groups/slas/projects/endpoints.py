@@ -10,11 +10,7 @@ from fastapi import (
 )
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ConflictError, DeleteFailedError, NotNullError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
@@ -87,6 +83,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def connect_sla_to_proj(
@@ -153,6 +150,7 @@ def connect_sla_to_proj(
     summary="Delete sla with given sub",
     description="Delete a sla with the given subject, for this issuer, from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def disconnect_sla_from_project(
     request: Request,

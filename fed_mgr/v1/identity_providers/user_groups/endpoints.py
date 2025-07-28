@@ -81,6 +81,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_user_group(
@@ -208,7 +209,6 @@ def retrieve_user_groups(
     description="Check if the given user group's ID already exists in the DB "
     "and return it. If the user group does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_user_group(
     request: Request, user_group: UserGroupRequiredDep
@@ -252,6 +252,7 @@ def retrieve_user_group(
     description="Update a user group with the given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -312,6 +313,7 @@ def edit_user_group(
     description="Delete a user group with the given subject, for this issuer, "
     "from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_user_group(
     request: Request, session: SessionDep, user_group_id: uuid.UUID

@@ -86,6 +86,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
 )
 def create_sla(
@@ -212,7 +213,6 @@ def retrieve_slas(
     description="Check if the given sla's ID already exists in the DB "
     "and return it. If the sla does not exist in the DB, the endpoint "
     "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     """Retrieve a sla by their unique identifier.
@@ -253,6 +253,7 @@ def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     description="Update a sla with the given id in the DB",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
     },
@@ -312,6 +313,7 @@ def edit_sla(
     summary="Delete sla with given sub",
     description="Delete a sla with the given subject, for this issuer, from the DB.",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_sla(request: Request, session: SessionDep, sla_id: uuid.UUID) -> None:
     """Remove a sla from the system by their unique identifier.
