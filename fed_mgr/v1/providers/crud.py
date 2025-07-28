@@ -237,7 +237,7 @@ def remove_site_tester(*, session: Session, provider: Provider, user: User) -> N
 def change_provider_state(
     *,
     session: Session,
-    provider_id: uuid.UUID,
+    provider: Provider,
     next_state: ProviderStatus,
     updated_by: User,
 ) -> None:
@@ -245,7 +245,7 @@ def change_provider_state(
 
     Args:
         session: The database session.
-        provider_id: The UUID of the provider to update.
+        provider: The UUID of the provider to update.
         next_state: The target next provider state.
         updated_by: The User instance representing the updater of the provider.
 
@@ -257,16 +257,12 @@ def change_provider_state(
             state.
 
     """
-    db_provider = get_item(session=session, entity=Provider, id=provider_id)
     if (
-        next_state != db_provider.status
-        and next_state not in AVAILABLE_STATE_TRANSITIONS[db_provider.status]
+        next_state != provider.status
+        and next_state not in AVAILABLE_STATE_TRANSITIONS[provider.status]
     ):
-        raise ProviderStateChangeError(db_provider.status, next_state)
-    return update_item(
-        session=session,
-        entity=Provider,
-        id=provider_id,
-        updated_by=updated_by,
-        status=next_state,
-    )
+        raise ProviderStateChangeError(provider.status, next_state)
+    provider.status = next_state
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()

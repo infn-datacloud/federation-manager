@@ -300,7 +300,9 @@ class UserGroup(ItemID, CreationTime, UpdateTime, UserGroupBase, table=True):
 
     slas: list["SLA"] = Relationship(back_populates="user_group", passive_deletes="all")
 
-    __table_args__ = UniqueConstraint("name", "idp_id", name="unique_name_idp_couple")
+    __table_args__ = (
+        UniqueConstraint("name", "idp_id", name="unique_name_idp_couple"),
+    )
 
 
 class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
@@ -470,8 +472,8 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
         back_populates="region", passive_deletes="all"
     )
 
-    __table_args__ = UniqueConstraint(
-        "name", "provider_id", name="unique_name_provider_couple"
+    __table_args__ = (
+        UniqueConstraint("name", "provider_id", name="unique_name_provider_couple"),
     )
 
 
@@ -520,6 +522,8 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
 
-    __table_args__ = UniqueConstraint(
-        "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
+    __table_args__ = (
+        UniqueConstraint(
+            "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
+        ),
     )

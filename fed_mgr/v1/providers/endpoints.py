@@ -541,7 +541,7 @@ def update_provider_state(
     try:
         change_provider_state(
             session=session,
-            provider_id=provider.id,
+            provider=provider,
             next_state=next_state,
             updated_by=current_user,
         )
