@@ -30,7 +30,7 @@ from fed_mgr.v1.providers.projects.regions.dependencies import (
 from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionCreate,
     ProjRegConnectionList,
-    ProjRegConnectionQuery,
+    ProjRegConnectionQueryDep,
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
@@ -122,7 +122,7 @@ def create_project_config(
             session=session,
             created_by=current_user,
             project=project,
-            config=config.overrides,
+            config=config,
         )
     except ItemNotFoundError as e:
         request.state.logger.error(e.message)
@@ -152,8 +152,9 @@ def create_project_config(
 def retrieve_project_configs(
     request: Request,
     session: SessionDep,
+    provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
-    params: ProjRegConnectionQuery,
+    params: ProjRegConnectionQueryDep,
 ) -> ProjRegConnectionList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -200,7 +201,8 @@ def retrieve_project_configs(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            base_url=str(request.base_url),
+            provider_id=provider.id,
+            base_url=str(request.url),
         )
         configs.append(config)
     return ProjRegConnectionList(
@@ -258,7 +260,7 @@ def retrieve_project_config(
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.created_by_id,
-        base_url=str(request.base_url),
+        base_url=str(request.url),
     )
     return config
 

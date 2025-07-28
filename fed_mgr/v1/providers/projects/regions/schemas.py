@@ -1,6 +1,5 @@
 """ProjRegConnections's configurations schemas returned by the endpoints."""
 
-import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -59,7 +58,7 @@ class ProjRegConnectionCreate(SQLModel):
 class ProjRegConnectionLinks(SQLModel):
     """Schema containing links related to the ProjRegConnection."""
 
-    region: Annotated[
+    regions: Annotated[
         AnyHttpUrl, Field(description="Link to retrieve the target region.")
     ]
 
@@ -76,7 +75,7 @@ class ProjRegConnectionRead(CreationRead, EditableRead):
         AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
     provider_id: Annotated[
-        AnyHttpUrl,
+        uuid.UUID,
         Field(exclude=True, description="Provider ID used to build the children URL"),
     ]
 
@@ -89,10 +88,9 @@ class ProjRegConnectionRead(CreationRead, EditableRead):
             ProjRegConnectionLinks: An object with the user_groups attribute.
 
         """
-        link = urllib.parse.urljoin(
-            str(self.base_url),
-            f"{PROVIDERS_PREFIX}/{self.provider_id}/{REGIONS_PREFIX}",
-        )
+        link = str(self.base_url)
+        link = link[: link.index(PROVIDERS_PREFIX)]
+        link += f"{PROVIDERS_PREFIX}/{self.provider_id}{REGIONS_PREFIX}"
         return ProjRegConnectionLinks(regions=link)
 
 

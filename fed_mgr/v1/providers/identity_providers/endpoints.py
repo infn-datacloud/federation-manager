@@ -188,7 +188,7 @@ def retrieve_prov_idp_connections(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            base_url=str(request.base_url),
+            base_url=str(request.url),
         )
         configs.append(new_link)
     return ProviderIdPConnectionList(
@@ -244,7 +244,7 @@ def retrieve_prov_idp_connection(
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.updated_by_id,
-        base_url=str(request.base_url),
+        base_url=str(request.url),
     )
     return config
 

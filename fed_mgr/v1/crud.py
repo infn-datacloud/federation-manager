@@ -5,6 +5,7 @@ import uuid
 from typing import TypeVar
 
 import sqlalchemy
+import sqlalchemy.exc
 from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 
 from fed_mgr.exceptions import (
@@ -53,7 +54,15 @@ def raise_from_integrity_error(
     match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
         attr = match.group(0).split(".")[1]
-        raise ConflictError(element_str, attr, kwargs.get(attr)) from error
+        value = kwargs.get(attr)
+        raise ConflictError(element_str, attr, value) from error
+
+    # Search for 'FOREIGN KEY constraint failed'
+    match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", error.args[0])
+    if match is not None:
+        raise DeleteFailedError(
+            element_str, id=kwargs.get("id"), params=kwargs
+        ) from error
 
 
 def _handle_special_date_fields(entity, k, v):
@@ -323,9 +332,9 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         conditions.append(entity.__table__.c.get(k) == v)
 
     statement = delete(entity).where(sqlalchemy.and_(True, *conditions))
-    result = session.exec(statement)
-    if result.rowcount == 0:
-        session.rollback()
-        element_str = split_camel_case(entity.__name__)
-        raise DeleteFailedError(element_str)
+    try:
+        session.exec(statement)
+    except sqlalchemy.exc.IntegrityError as e:
+        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
+
     session.commit()

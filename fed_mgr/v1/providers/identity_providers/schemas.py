@@ -1,6 +1,5 @@
 """Identity Providers schemas returned by the endpoints."""
 
-import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -8,7 +7,7 @@ from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
-from fed_mgr.v1 import IDPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -101,7 +100,8 @@ class ProviderIdPConnectionRead(CreationRead, EditableRead):
             ProviderIdPConnectionLinks: An object with the user_groups attribute.
 
         """
-        link = urllib.parse.urljoin(str(self.base_url), f"{IDPS_PREFIX}")
+        link = str(self.base_url)
+        link = link[: link.index(PROVIDERS_PREFIX)] + IDPS_PREFIX
         return ProviderIdPConnectionLinks(idps=link)
 
 

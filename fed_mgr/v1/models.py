@@ -36,6 +36,7 @@ class Administrates(SQLModel, table=True):
         Field(
             foreign_key="provider.id",
             primary_key=True,
+            ondelete="CASCADE",
             description="FK pointing to the resource provider's ID",
         ),
     ]
@@ -57,6 +58,7 @@ class Evaluates(SQLModel, table=True):
         Field(
             foreign_key="provider.id",
             primary_key=True,
+            ondelete="CASCADE",
             description="FK pointing to the resource provider's ID",
         ),
     ]
@@ -223,6 +225,7 @@ class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
         Field(
             foreign_key="provider.id",
             primary_key=True,
+            ondelete="CASCADE",
             description="FK pointing to the resource provider's ID",
         ),
     ]
@@ -421,6 +424,7 @@ class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True)
         Field(
             foreign_key="project.id",
             primary_key=True,
+            ondelete="CASCADE",
             description="FK pointing to the project's ID",
         ),
     ]

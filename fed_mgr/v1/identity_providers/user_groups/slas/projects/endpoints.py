@@ -1,16 +1,14 @@
 """Endpoints to manage sla details."""
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, DeleteFailedError, NotNullError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    ItemNotFoundError,
+    NotNullError,
+)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
@@ -23,11 +21,12 @@ from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
     connect_proj_to_sla,
     disconnect_proj_from_sla,
 )
-from fed_mgr.v1.providers.endpoints import update_provider_state
-from fed_mgr.v1.providers.projects.dependencies import (
-    ProjectRequiredBodyDep,
-    ProjectRequiredDep,
+from fed_mgr.v1.identity_providers.user_groups.slas.projects.schemas import (
+    ProjSLAConnectionCreate,
 )
+from fed_mgr.v1.providers.endpoints import update_provider_state
+from fed_mgr.v1.providers.projects.crud import get_project
+from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
 from fed_mgr.v1.providers.schemas import ProviderStatus
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.dependencies import CurrenUserDep
@@ -91,7 +90,7 @@ def connect_sla_to_proj(
     session: SessionDep,
     current_user: CurrenUserDep,
     sla: SLARequiredDep,
-    project: ProjectRequiredBodyDep,
+    config: ProjSLAConnectionCreate,
 ) -> None:
     """Create a new sla in the system.
 
@@ -105,7 +104,7 @@ def connect_sla_to_proj(
         sla (SLA): The sla data to create.
         current_user (CurrenUser): The DB user matching the current user retrieved
             from the access token.
-        project (UserGroup): The parent user group associated with the sla.
+        config (UserGroup): The parent user group associated with the sla.
 
     Returns:
         None
@@ -117,12 +116,21 @@ def connect_sla_to_proj(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = f"Connecting SLA with ID '{sla.id!s}' to Project with ID '{project.id!s}'"
+    msg = f"Connecting SLA with ID '{sla.id!s}' to Project with ID "
+    msg += f"'{config.project_id!s}'"
     request.state.logger.info(msg)
     try:
+        project = get_project(session=session, project_id=config.project_id)
+        if project is None:
+            raise ItemNotFoundError("Project", id=config.project_id)
         connect_proj_to_sla(
-            session=session, updated_by=current_user, project=project, sla=sla
+            session=session, updated_by=current_user, sla=sla, project=project
         )
+    except ItemNotFoundError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
+        ) from e
     except ConflictError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
@@ -133,7 +141,8 @@ def connect_sla_to_proj(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
         ) from e
-    msg = f"SLA with ID '{sla.id!s}' connected to Project with ID '{project.id!s}'"
+    msg = f"SLA with ID '{sla.id!s}' connected to Project with ID "
+    msg += f"'{config.project_id!s}'"
     request.state.logger.info(msg)
 
     update_provider_state(

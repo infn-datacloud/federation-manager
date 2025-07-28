@@ -236,9 +236,9 @@ class ProviderRead(ItemID, CreationRead, EditableRead, ProviderBase, ProviderInt
         ),
     ]
     site_testers: Annotated[
-        list[uuid.UUID] | None,
+        list[uuid.UUID],
         Field(
-            default=None,
+            default_factory=list,
             sa_type=AutoString,
             description="List of the provider/site testers IDs",
         ),

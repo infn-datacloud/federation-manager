@@ -14,7 +14,11 @@ class ConflictError(Exception):
         self.entity = entity
         self.attr = attr
         self.value = value
-        self.message = f"{self.entity} with {self.attr}={self.value!s} already exists"
+        if self.value is None:
+            self.message = f"{self.entity} with {self.attr} already exists"
+        else:
+            self.message = f"{self.entity} with {self.attr}={self.value!s} already "
+            self.message += "exists"
         super().__init__(self.message)
 
 
@@ -43,7 +47,11 @@ class ItemNotFoundError(Exception):
     """Exception raised when the target ID does not match a user in the DB."""
 
     def __init__(
-        self, entity: str, *, id: uuid.UUID | None, params: dict[str, Any] | None
+        self,
+        entity: str,
+        *,
+        id: uuid.UUID | None = None,
+        params: dict[str, Any] | None = None,
     ):
         """Initialize ItemNotFoundError with a specific error message."""
         self.entity = entity
@@ -60,9 +68,21 @@ class ItemNotFoundError(Exception):
 class DeleteFailedError(Exception):
     """Exception raised when the delete operations has no effect."""
 
-    def __init__(self, entity: str):
+    def __init__(
+        self,
+        entity: str,
+        *,
+        id: uuid.UUID | None = None,
+        params: dict[str, Any] | None = None,
+    ):
         """Initialize DeleteFailedError with a specific error message."""
         self.entity = entity
-        self.message = f"{self.entity} with given key can't be deleted. "
-        self.message += f"Check target {self.entity} has no children entities."
+        self.entity_id = id
+        self.entity_params = params
+        if id is not None:
+            self.message = f"{self.entity} with ID '{self.entity_id}' can't be deleted."
+        else:
+            self.message = f"{self.entity} with given key-value pairs does not exist: "
+            self.message += f"{self.entity_params!s}."
+        self.message += f" Check target {self.entity} has no children entities."
         super().__init__(self.message)

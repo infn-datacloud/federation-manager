@@ -1,6 +1,7 @@
 """Projects schemas returned by the endpoints."""
 
 import urllib.parse
+import uuid
 from typing import Annotated
 
 from fastapi import Query
@@ -58,6 +59,9 @@ class ProjectLinks(SQLModel):
 class ProjectRead(ItemID, CreationRead, EditableRead, ProjectBase):
     """Schema used to read an Project."""
 
+    sla_id: Annotated[
+        uuid.UUID | None, Field(description="ID of the SLA assigned to this project")
+    ]
     base_url: Annotated[
         AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]

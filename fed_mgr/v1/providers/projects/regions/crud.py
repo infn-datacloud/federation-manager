@@ -92,9 +92,9 @@ def connect_project_region(
         RegionOverrides: The identifier of the newly created project.
 
     """
-    region = get_region(session=session, idp_id=config.region_id)
+    region = get_region(session=session, region_id=config.region_id)
     if region is None:
-        raise ItemNotFoundError("Region", id=config.id)
+        raise ItemNotFoundError("Region", id=config.region_id)
     return add_item(
         session=session,
         entity=RegionOverrides,

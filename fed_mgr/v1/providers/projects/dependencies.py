@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Body, Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 
 from fed_mgr.v1.models import Project
 from fed_mgr.v1.providers.projects.crud import get_project
@@ -36,5 +36,3 @@ def project_required(
 
 
 ProjectRequiredDep = Annotated[Project, Depends(project_required)]
-
-ProjectRequiredBodyDep = Annotated[Project, Depends(project_required), Body()]
