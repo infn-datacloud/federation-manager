@@ -4,8 +4,9 @@ Remember: Avoid Annotated when using Relationship
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Optional
 
+from pydantic import computed_field
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
@@ -159,6 +160,7 @@ class User(ItemID, CreationTime, UserBase, table=True):
         UniqueConstraint("sub", "issuer", name="unique_sub_issuer_couple"),
     )
     __hash__ = object.__hash__
+
 
 # class Location(ItemID, CreationTime, UpdateTime, LocationBase, table=True):
 #     """Physical site hosting one or multiple resource providers.
@@ -386,6 +388,20 @@ class Provider(
     projects: list["Project"] = Relationship(
         back_populates="provider", passive_deletes="all"
     )
+
+    @computed_field
+    @property
+    def root_project(self) -> Optional["Project"]:
+        """Return the root project from the list of associated projects.
+
+        Iterates through the `projects` attribute and returns the first project
+        where `is_root` is True. If no such project exists, returns None.
+
+        Returns:
+            Project | None: The root project if found, otherwise None.
+
+        """
+        return next(filter(lambda x: x.is_root, self.projects), None)
 
 
 class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True):

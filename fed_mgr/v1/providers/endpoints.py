@@ -23,6 +23,8 @@ from fed_mgr.v1.providers.crud import (
     get_providers,
     remove_site_admins,
     remove_site_testers,
+    submit_provider,
+    unsubmit_provider,
     update_provider,
 )
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep
@@ -390,6 +392,12 @@ def assign_tester_to_provider(
     msg = f"Assigning tester with ID '{tester.id!s}' to resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
+    if provider.status != ProviderStatus.submitted:
+        msg = f"Resource provider with ID '{provider.id!s}' is not in state "
+        msg += f"'{ProviderStatus.submitted.name}' (current state: "
+        msg += f"'{provider.status.name}')"
+        request.state.logger.info(msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
     add_site_testers(
         session=session,
         provider=provider,
@@ -565,6 +573,118 @@ def retract_admin_from_provider(
     request.state.logger.info(msg)
 
 
+@provider_router.post(
+    "/{provider_id}/submit",
+    summary="Change the provider state from ready to submit",
+    description="Provider is ready to be tested. Submit federation request",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
+)
+def submit_provider_request(
+    request: Request,
+    session: SessionDep,
+    current_user: CurrenUserDep,
+    provider: ProviderRequiredDep,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    msg = f"User with ID {current_user.id!s} submitted federation request for resource "
+    msg += f"provider with ID: {provider.id!s}"
+    request.state.logger.info(msg)
+    try:
+        submit_provider(
+            request=request,
+            session=session,
+            provider=provider,
+            current_user=current_user,
+        )
+    except ProviderStateChangeError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
+    msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
+    request.state.logger.info(msg)
+
+
+@provider_router.post(
+    "/{provider_id}/unsubmit",
+    summary="Change the provider state from ready to submit",
+    description="Provider is ready to be tested. Submit federation request",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
+)
+def unsubmit_provider_request(
+    request: Request,
+    session: SessionDep,
+    current_user: CurrenUserDep,
+    provider: ProviderRequiredDep,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        next_state (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    msg = f"User with ID {current_user.id!s} revoked federation request for resource "
+    msg += f"provider with ID: {provider.id!s}"
+    request.state.logger.info(msg)
+    try:
+        unsubmit_provider(
+            request=request,
+            session=session,
+            provider=provider,
+            current_user=current_user,
+        )
+    except ProviderStateChangeError as e:
+        request.state.logger.error(e.message)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
+        ) from e
+    msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
+    request.state.logger.info(msg)
+
+
 @provider_router.put(
     "/{provider_id}/change_state/{next_state}",
     summary="Change the provider state",
@@ -604,21 +724,15 @@ def update_provider_state(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = f"Changing provider state of provider with ID '{provider.id!s}' from "
+    msg = f"Force provider state change of provider with ID '{provider.id!s}' from "
     msg += f"'{provider.status.name}' to '{next_state.name}'"
     request.state.logger.info(msg)
-    try:
-        change_provider_state(
-            session=session,
-            provider=provider,
-            next_state=next_state,
-            updated_by=current_user,
-        )
-    except ProviderStateChangeError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
-    msg = f"The state of resource provider with ID '{provider.id!s}' is "
+    change_provider_state(
+        session=session,
+        provider=provider,
+        next_state=next_state,
+        updated_by=current_user,
+    )
+    msg = f"Now, the state of resource provider with ID '{provider.id!s}' is "
     msg += f"'{provider.status.name}'"
     request.state.logger.info(msg)

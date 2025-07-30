@@ -7,6 +7,7 @@ and exception handling.
 
 import uuid
 
+from sqlalchemy import event
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
@@ -291,7 +292,7 @@ def change_provider_state(
     next_state: ProviderStatus,
     updated_by: User,
 ) -> None:
-    """Update a provider changing only its state.
+    """Force Update a provider changing only its state.
 
     Args:
         session: The database session.
@@ -307,12 +308,132 @@ def change_provider_state(
             state.
 
     """
-    if (
-        next_state != provider.status
-        and next_state not in AVAILABLE_STATE_TRANSITIONS[provider.status]
-    ):
-        raise ProviderStateChangeError(provider.status, next_state)
     provider.status = next_state
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+
+
+def submit_provider(*, session: Session, provider: Provider, updated_by: User) -> None:
+    """Submit a provider for further processing by updating its status.
+
+    Args:
+        session (Session): The database session used to commit changes.
+        provider (Provider): The provider instance to be submitted.
+        updated_by (User): The user performing the submission.
+
+    Raises:
+        ProviderStateChangeError: If the provider's current status is not 'ready'.
+
+    Returns:
+        None
+
+    """
+    if provider.status != ProviderStatus.ready:
+        raise ProviderStateChangeError(provider.status, ProviderStatus.submitted)
+    provider.status = ProviderStatus.submitted
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+
+
+def unsubmit_provider(
+    *, session: Session, provider: Provider, updated_by: User
+) -> None:
+    """Revert a provider's status from 'submitted' to 'ready'.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+        updated_by (User): The user performing the update.
+
+    Raises:
+        ProviderStateChangeError: If the provider's current status is not 'submitted'.
+
+    Retruns:
+        None
+
+    """
+    if provider.status != ProviderStatus.submitted:
+        raise ProviderStateChangeError(provider.status, ProviderStatus.ready)
+    provider.status = ProviderStatus.ready
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+
+
+def is_provider_ready(provider: Provider) -> bool:
+    """Check if a given provider is ready.
+
+    Verify that the root project and its SLA are set, and that the provider has at least
+    one region and one identity provider (IdP).
+
+    Args:
+        provider (Provider): The provider instance to check.
+
+    Returns:
+        bool: True if the provider is ready, False otherwise.
+
+    """
+    return (
+        provider.root_project is not None
+        and provider.root_project.sla is not None
+        and len(provider.regions) > 0
+        and len(provider.idps) > 0
+    )
+
+
+def provider_can_be_evaluated(provider: Provider) -> bool:
+    """Check if a given provider is ready.
+
+    Verify that the root project and its SLA are set, and that the provider has at least
+    one region and one identity provider (IdP).
+
+    Args:
+        provider (Provider): The provider instance to check.
+
+    Returns:
+        bool: True if the provider is ready, False otherwise.
+
+    """
+    return len(provider.site_testers) > 0
+
+
+def update_provider_status(provider: Provider) -> Provider:
+    """Update the status of a Provider instance based on its attributes.
+
+    Transitions the provider's status according to the following rules:
+    - If the status is 'draft' and the provider has a root project with an SLA, at least
+        one region, and at least one IDP, the status is set to 'ready'.
+    - If the status is 'ready' and the provider is missing a root project, an SLA, any
+        regions, or any IDPs, the status is set back to 'draft'.
+
+    Args:
+        provider (Provider): The provider instance whose status will be updated.
+
+    Returns:
+        None
+
+    """
+    match provider.status:
+        case ProviderStatus.draft:
+            if is_provider_ready(provider):
+                provider.status = ProviderStatus.ready
+        case ProviderStatus.ready:
+            if not is_provider_ready(provider):
+                provider.status = ProviderStatus.draft
+        case ProviderStatus.submitted:
+            if provider_can_be_evaluated(provider):
+                provider.status = ProviderStatus.evaluation
+    return provider
+
+
+@event.listens_for(Provider, "before_update")
+def before_update_provider(mapper, connection, provider: Provider):
+    """Listen for the 'before_update' event.
+
+    Apply automatic state changes when all conditions are met:
+    - advance from draft to ready
+    - revert from ready to draft
+    """
+    update_provider_status(provider)
