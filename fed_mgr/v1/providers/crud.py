@@ -11,6 +11,7 @@ from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
+from fed_mgr.utils import check_list_not_empty
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
@@ -130,19 +131,12 @@ def update_provider(
         None
 
     """
-    kwargs = {}
-    if new_provider.site_admins is not None:
-        site_admins = check_users_exist(
-            session=session, user_ids=new_provider.site_admins
-        )
-        kwargs = {"site_admins": site_admins}
     return update_item(
         session=session,
         entity=Provider,
         id=provider_id,
         updated_by=updated_by,
         **new_provider.model_dump(exclude_none=True),
-        **kwargs,
     )
 
 
@@ -185,14 +179,17 @@ def check_users_exist(session: Session, user_ids: list[uuid.UUID]) -> list[User]
     return users
 
 
-def add_site_tester(*, session: Session, provider: Provider, user: User) -> None:
+def add_site_testers(
+    *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
+) -> None:
     """Add a user to the list of site testers for a given provider.
 
     Args:
         session (Session): The SQLAlchemy session used to interact with the database.
         provider (Provider): The provider object whose site testers list will be
             updated.
-        user (User): The user to be added as a site tester.
+        user_ids (User): The user to be added as a site tester.
+        updated_by: User who made operation
 
     Returns:
         None
@@ -201,21 +198,50 @@ def add_site_tester(*, session: Session, provider: Provider, user: User) -> None
         Any exceptions raised by the session commit will propagate.
 
     """
-    new_site_testers = set(provider.site_testers)
-    new_site_testers = new_site_testers.add(user)
-    provider.site_testers = list(new_site_testers)
+    users = check_users_exist(session=session, user_ids=user_ids)
+    provider.site_testers = list(set(provider.site_testers) | set(users))
+    provider.updated_by = updated_by
     session.add(provider)
     session.commit()
 
 
-def remove_site_tester(*, session: Session, provider: Provider, user: User) -> None:
+def add_site_admins(
+    *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
+) -> None:
+    """Add a user to the list of site testers for a given provider.
+
+    Args:
+        session (Session): The SQLAlchemy session used to interact with the database.
+        provider (Provider): The provider object whose site testers list will be
+            updated.
+        user_ids (User): The user to be added as a site tester.
+        updated_by: User who made operation
+
+    Returns:
+        None
+
+    Raises:
+        Any exceptions raised by the session commit will propagate.
+
+    """
+    users = check_users_exist(session=session, user_ids=user_ids)
+    provider.site_admins = list(set(provider.site_admins) | set(users))
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+
+
+def remove_site_testers(
+    *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
+) -> None:
     """Remove a specified user from the list of site testers associated with a provider.
 
     Args:
         session (Session): The database session used to commit changes.
         provider (Provider): The provider object from which the site tester will be
             removed.
-        user (User): The user to be removed from the provider's site testers.
+        user_ids (User): The user to be removed from the provider's site testers.
+        updated_by: User who made operation
 
     Returns:
         None
@@ -224,12 +250,36 @@ def remove_site_tester(*, session: Session, provider: Provider, user: User) -> N
         IndexError: If the user is not found in the provider's site testers list.
 
     """
-    i = 0
-    for site_tester in provider.site_testers:
-        if user.id == site_tester.id:
-            break
-        i += 1
-    provider.site_testers.pop(i)
+    users = check_users_exist(session=session, user_ids=user_ids)
+    provider.site_testers = list(set(provider.site_testers) - set(users))
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+
+
+def remove_site_admins(
+    *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
+) -> None:
+    """Remove a specified user from the list of site testers associated with a provider.
+
+    Args:
+        session (Session): The database session used to commit changes.
+        provider (Provider): The provider object from which the site tester will be
+            removed.
+        user_ids (User): The user to be removed from the provider's site testers.
+        updated_by: User who made operation
+
+    Returns:
+        None
+
+    Raises:
+        IndexError: If the user is not found in the provider's site testers list.
+
+    """
+    users = check_users_exist(session=session, user_ids=user_ids)
+    new_admins = list(set(provider.site_admins) - set(users))
+    provider.site_admins = check_list_not_empty(new_admins)
+    provider.updated_by = updated_by
     session.add(provider)
     session.commit()
 

@@ -338,21 +338,6 @@ class ProviderQuery(
     status: Annotated[
         str | None, Field(default=None, description="Resource provider status")
     ]
-    site_admins: Annotated[
-        str | None,
-        Field(
-            default=None,
-            description="Any of the provider/site administrators IDs must contain this "
-            "string",
-        ),
-    ]
-    site_testers: Annotated[
-        str | None,
-        Field(
-            default=None,
-            description="Any of the provider/site testers IDs must contain this string",
-        ),
-    ]
 
 
 ProviderQueryDep = Annotated[ProviderQuery, Query()]

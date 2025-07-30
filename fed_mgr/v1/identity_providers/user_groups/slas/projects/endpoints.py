@@ -78,7 +78,6 @@ def available_methods(response: Response) -> None:
     description="Add a new sla to the DB. Check if a sla's "
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
     "the endpoint raises a 409 error.",
-    status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},

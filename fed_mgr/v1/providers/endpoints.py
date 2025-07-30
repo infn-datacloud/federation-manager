@@ -16,11 +16,13 @@ from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX
 from fed_mgr.v1.providers.crud import (
     add_provider,
-    add_site_tester,
+    add_site_admins,
+    add_site_testers,
     change_provider_state,
     delete_provider,
     get_providers,
-    remove_site_tester,
+    remove_site_admins,
+    remove_site_testers,
     update_provider,
 )
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep
@@ -176,6 +178,7 @@ def retrieve_providers(
             created_by=provider.created_by_id,
             updated_by=provider.created_by_id,
             site_admins=[item.id for item in provider.site_admins],
+            site_testers=[item.id for item in provider.site_testers],
             base_url=str(request.url),
         )
         new_providers.append(new_provider)
@@ -228,6 +231,7 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
         created_by=provider.created_by_id,
         updated_by=provider.created_by_id,
         site_admins=[item.id for item in provider.site_admins],
+        site_testers=[item.id for item in provider.site_testers],
         base_url=str(request.url),
     )
     return provider
@@ -345,56 +349,7 @@ def remove_provider(
 
 
 @provider_router.post(
-    "/{provider_id}/submit",
-    summary="Change the provider state from ready to submit",
-    description="Provider is ready to be tested. Submit federation request",
-    responses={
-        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-    },
-)
-def submit_request(
-    request: Request,
-    session: SessionDep,
-    current_user: CurrenUserDep,
-    provider: ProviderRequiredDep,
-) -> None:
-    """Change provider state.
-
-    Update the provider state. If the next state can't be reached from the current one,
-    reject the request.
-
-    Args:
-        request (Request): The incoming HTTP request object, used for logging.
-        session (SessionDep): The database session dependency.
-        provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
-            from the access token.
-        next_state (ProviderStatus): Target state to reach.
-
-    Returns:
-        None
-
-    Raises:
-        400 Bad Request: If the target state is not a valid one (handled below).
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
-
-    """
-    msg = f"User with ID {current_user.id!s} submitted federation request for resource "
-    msg += f"provider with ID: {provider.id!s}"
-    request.state.logger.info(msg)
-    return update_provider_state(
-        request=request,
-        session=session,
-        provider=provider,
-        current_user=current_user,
-        next_state=ProviderStatus.submitted,
-    )
-
-
-@provider_router.post(
-    "/{provider_id}/assign",
+    "/{provider_id}/testers",
     summary="Change the provider state from submitted to evaluation",
     description="Site tester assign the provied to himself.",
     responses={
@@ -402,11 +357,12 @@ def submit_request(
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
     },
 )
-def assign_to_request(
+def assign_tester_to_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
     provider: ProviderRequiredDep,
+    tester: ItemID,
 ) -> None:
     """Change provider state.
 
@@ -419,7 +375,8 @@ def assign_to_request(
         provider (ProviderDep): The resource provider instance.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
-        next_state (ProviderStatus): Target state to reach.
+        users (ProviderStatus): Target state to reach.
+        tester: tester id
 
     Returns:
         None
@@ -430,40 +387,36 @@ def assign_to_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = f"Assigning tester with ID '{current_user.id!s}' to resource provider with "
+    msg = f"Assigning tester with ID '{tester.id!s}' to resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    first_tester = not len(provider.site_testers)
-    add_site_tester(session=session, provider=provider, user=current_user)
-    msg = f"Tester with ID '{current_user.id!s}' assigned to resource provider with ID "
+    add_site_testers(
+        session=session,
+        provider=provider,
+        user_ids=[tester.id],
+        updated_by=current_user,
+    )
+    msg = f"Tester with ID '{tester.id!s}' assigned to resource provider with ID "
     msg += f"'{provider.id!s}'"
     request.state.logger.info(msg)
 
-    # Site tester assigned for the first time and provider not yet evaluated
-    if first_tester and provider.status == ProviderStatus.submitted:
-        update_provider_state(
-            request=request,
-            session=session,
-            provider=provider,
-            current_user=current_user,
-            next_state=ProviderStatus.evaluation,
-        )
 
-
-@provider_router.post(
-    "/{provider_id}/retract",
+@provider_router.delete(
+    "/{provider_id}/testers/{tester_id}",
     summary="Change the provider state from submitted to evaluation",
     description="Site tester retract himself from the provider.",
+    status_code=status.HTTP_204_NO_CONTENT,
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
     },
 )
-def retract_from_request(
+def retract_tester_from_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
     provider: ProviderRequiredDep,
+    tester_id: uuid.UUID,
 ) -> None:
     """Change provider state.
 
@@ -476,7 +429,7 @@ def retract_from_request(
         provider (ProviderDep): The resource provider instance.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
-        next_state (ProviderStatus): Target state to reach.
+        tester_id (ProviderStatus): Target state to reach.
 
     Returns:
         None
@@ -487,11 +440,127 @@ def retract_from_request(
         403 Forbidden: If the user does not have permission (handled by dependencies).
 
     """
-    msg = f"Retract tester with ID '{current_user.id!s}' from resource provider with "
+    msg = f"Retract tester with ID '{tester_id!s}' from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    remove_site_tester(session=session, provider=provider, user=current_user)
-    msg = f"Tester with ID '{current_user.id!s}' retracted from resource provider with "
+    remove_site_testers(
+        session=session,
+        provider=provider,
+        user_ids=[tester_id],
+        updated_by=current_user,
+    )
+    msg = f"Tester with ID '{tester_id!s}' retracted from resource provider with "
+    msg += f"ID '{provider.id!s}'"
+    request.state.logger.info(msg)
+
+
+@provider_router.post(
+    "/{provider_id}/admins",
+    summary="Change the provider state from submitted to evaluation",
+    description="Site admin assign the provied to himself.",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
+)
+def assign_admin_to_provider(
+    request: Request,
+    session: SessionDep,
+    current_user: CurrenUserDep,
+    provider: ProviderRequiredDep,
+    admin: ItemID,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        users (ProviderStatus): Target state to reach.
+        admin: admin id
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    msg = f"Assigning admin with ID '{admin.id!s}' to resource provider with "
+    msg += f"ID '{provider.id!s}'"
+    request.state.logger.info(msg)
+    add_site_admins(
+        session=session,
+        provider=provider,
+        user_ids=[admin.id],
+        updated_by=current_user,
+    )
+    msg = f"Admin with ID '{admin.id!s}' assigned to resource provider with ID "
+    msg += f"'{provider.id!s}'"
+    request.state.logger.info(msg)
+
+
+@provider_router.delete(
+    "/{provider_id}/admins/{admin_id}",
+    summary="Change the provider state from submitted to evaluation",
+    description="Site admin retract himself from the provider.",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
+    },
+)
+def retract_admin_from_provider(
+    request: Request,
+    session: SessionDep,
+    current_user: CurrenUserDep,
+    provider: ProviderRequiredDep,
+    admin_id: uuid.UUID,
+) -> None:
+    """Change provider state.
+
+    Update the provider state. If the next state can't be reached from the current one,
+    reject the request.
+
+    Args:
+        request (Request): The incoming HTTP request object, used for logging.
+        session (SessionDep): The database session dependency.
+        provider (ProviderDep): The resource provider instance.
+        current_user (CurrenUserDep): The DB user matching the current user retrieved
+            from the access token.
+        admin_id (ProviderStatus): Target state to reach.
+
+    Returns:
+        None
+
+    Raises:
+        400 Bad Request: If the target state is not a valid one (handled below).
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+
+    """
+    msg = f"Retract admin with ID '{admin_id!s}' from resource provider with "
+    msg += f"ID '{provider.id!s}'"
+    request.state.logger.info(msg)
+    try:
+        remove_site_admins(
+            session=session,
+            provider=provider,
+            user_ids=[admin_id],
+            updated_by=current_user,
+        )
+    except ValueError as e:
+        msg = f"This is the last site admin for provider with ID '{provider.id}'"
+        request.state.logger.error(msg)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg) from e
+    msg = f"Admin with ID '{admin_id!s}' retracted from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
 

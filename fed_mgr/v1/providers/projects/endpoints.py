@@ -179,6 +179,7 @@ def retrieve_projects(
     for project in projects:
         new_project = ProjectRead(
             **project.model_dump(),  # Does not return created_by and updated_by
+            sla=project.sla_id,
             created_by=project.created_by_id,
             updated_by=project.created_by_id,
             base_url=str(request.url),
@@ -227,6 +228,7 @@ def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRe
     request.state.logger.info(msg)
     project = ProjectRead(
         **project.model_dump(),  # Does not return created_by and updated_by
+        sla=project.sla_id,
         created_by=project.created_by_id,
         updated_by=project.created_by_id,
         base_url=str(request.url),

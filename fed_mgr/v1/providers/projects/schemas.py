@@ -59,7 +59,7 @@ class ProjectLinks(SQLModel):
 class ProjectRead(ItemID, CreationRead, EditableRead, ProjectBase):
     """Schema used to read an Project."""
 
-    sla_id: Annotated[
+    sla: Annotated[
         uuid.UUID | None, Field(description="ID of the SLA assigned to this project")
     ]
     base_url: Annotated[

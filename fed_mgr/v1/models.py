@@ -158,7 +158,7 @@ class User(ItemID, CreationTime, UserBase, table=True):
     __table_args__ = (
         UniqueConstraint("sub", "issuer", name="unique_sub_issuer_couple"),
     )
-
+    __hash__ = object.__hash__
 
 # class Location(ItemID, CreationTime, UpdateTime, LocationBase, table=True):
 #     """Physical site hosting one or multiple resource providers.
