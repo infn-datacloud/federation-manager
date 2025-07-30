@@ -7,7 +7,7 @@ import uuid
 from typing import Annotated, Optional
 
 from pydantic import computed_field
-from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
+from sqlmodel import Field, Index, Relationship, SQLModel, UniqueConstraint, text
 
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
@@ -545,5 +545,8 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
     __table_args__ = (
         UniqueConstraint(
             "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
+        ),
+        Index(
+            "ix_unique_provider_root", "provider_id", text("is_root = 1"), unique=True
         ),
     )

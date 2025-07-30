@@ -53,11 +53,13 @@ def raise_from_integrity_error(
     # , or end of line
     match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
     if match is not None:
+        if match.group(0).startswith("index"):
+            raise ConflictError(element_str, "is_root", True)
         attr = match.group(0).split(".")[1]
         value = kwargs.get(attr)
         raise ConflictError(element_str, attr, value) from error
 
-    # Search for 'FOREIGN KEY constraint failed'
+    # Search for 'FOREIGN KEY constraint failed' string
     match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", error.args[0])
     if match is not None:
         raise DeleteFailedError(
