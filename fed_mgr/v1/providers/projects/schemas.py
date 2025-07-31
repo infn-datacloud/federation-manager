@@ -111,6 +111,10 @@ class ProjectQuery(
         bool | None,
         Field(default=None, description="The project must be or not be root"),
     ]
+    sla: Annotated[
+        uuid.UUID | None,
+        Field(default=None, description="The SLA's ID must contain this string"),
+    ]
 
 
 ProjectQueryDep = Annotated[ProjectQuery, Query()]

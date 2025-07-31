@@ -180,23 +180,6 @@ class ProviderUpdate(SQLModel):
             "'openstack' provider types)",
         ),
     ]
-    site_admins: Annotated[
-        list[uuid.UUID] | None,
-        Field(
-            default=None,
-            sa_type=AutoString,
-            description="List of the provider/site administrator IDs",
-        ),
-        AfterValidator(check_list_not_empty),
-    ]
-    site_testers: Annotated[
-        list[uuid.UUID] | None,
-        Field(
-            default=None,
-            sa_type=AutoString,
-            description="List of the provider/site testers IDs",
-        ),
-    ]
 
 
 class ProviderLinks(SQLModel):
@@ -337,6 +320,14 @@ class ProviderQuery(
     ]
     status: Annotated[
         str | None, Field(default=None, description="Resource provider status")
+    ]
+    site_admins: Annotated[
+        list[uuid.UUID] | None,
+        Field(default=None, description="List of the provider/site administrator IDs"),
+    ]
+    site_testers: Annotated[
+        list[uuid.UUID] | None,
+        Field(default=None, description="List of the provider/site testers IDs"),
     ]
 
 

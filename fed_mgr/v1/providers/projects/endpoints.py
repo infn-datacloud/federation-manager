@@ -170,7 +170,8 @@ def retrieve_projects(
         limit=params.size,
         sort=params.sort,
         provider_id=provider.id,
-        **params.model_dump(exclude={"page", "size", "sort"}, exclude_none=True),
+        sla_id=params.sla,
+        **params.model_dump(exclude={"page", "size", "sort", "sla"}, exclude_none=True),
     )
     msg = f"{tot_items} retrieved projects: "
     msg += f"{[project.model_dump_json() for project in projects]}"

@@ -128,10 +128,10 @@ def _handle_generic_field(entity, k, v):
         greater-than-or-equal ('_gte'), and equality filters.
 
     """
-    if isinstance(v, str):
-        return entity.__table__.c.get(k).icontains(v)
-    elif isinstance(v, uuid.UUID):
+    if isinstance(v, uuid.UUID):
         return entity.__table__.c.get(k) == v
+    elif isinstance(v, str):
+        return entity.__table__.c.get(k).icontains(v)
     elif isinstance(v, (int, float)):
         if k.endswith("_lte"):
             k = k[:-4]
