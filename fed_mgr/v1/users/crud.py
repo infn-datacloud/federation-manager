@@ -19,23 +19,18 @@ FAKE_USER_ISSUER = "fake_sub"
 FAKE_USER_SUBJECT = "http://fake.iss.it"
 
 
-def get_user(
-    *, session: SessionDep, user_id: uuid.UUID | None = None, **kwargs
-) -> User | None:
+def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:
     """Retrieve a user by their unique user_id from the database.
 
     Args:
         session: The database session dependency.
         user_id: The UUID of the user to retrieve. If present, kwargs is ignored.
-        **kwargs: Additional parameters to filter the user research
 
     Returns:
         User instance if found, otherwise None.
 
     """
-    if user_id is not None:
-        return get_item(session=session, entity=User, id=user_id)
-    return get_item(session=session, entity=User, **kwargs)
+    return get_item(session=session, entity=User, id=user_id)
 
 
 def get_users(
@@ -115,8 +110,15 @@ def create_fake_user(session: Session):
         the id of the fake user.
 
     """
-    user = get_user(session=session, name=FAKE_USER_NAME, issuer=FAKE_USER_ISSUER)
-    if user is None:
+    _, tot_items = get_users(
+        session=session,
+        skip=0,
+        limit=1,
+        sort="-created_at",
+        name=FAKE_USER_NAME,
+        issuer=FAKE_USER_ISSUER,
+    )
+    if tot_items == 0:
         add_user(
             session=session,
             user=UserCreate(
@@ -136,6 +138,13 @@ def delete_fake_user(session: Session) -> None:
         user_id: ID of the user to delete.
 
     """
-    user = get_user(session=session, name=FAKE_USER_NAME, issuer=FAKE_USER_ISSUER)
-    if user is not None:
-        delete_user(session=session, user_id=user.id)
+    users, tot_items = get_users(
+        session=session,
+        skip=0,
+        limit=1,
+        sort="-created_at",
+        name=FAKE_USER_NAME,
+        issuer=FAKE_USER_ISSUER,
+    )
+    if tot_items > 0:
+        delete_user(session=session, user_id=users[0].id)
