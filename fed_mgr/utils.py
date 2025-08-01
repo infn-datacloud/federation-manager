@@ -1,6 +1,7 @@
 """Utility functions and adapters for specific pydantic types."""
 
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Response
@@ -62,8 +63,8 @@ def add_allow_header_to_resp(router: APIRouter, response: Response) -> Response:
     """List in the 'Allow' header the available HTTP methods for the resource.
 
     Args:
-        router: The APIRouter instance containing route definitions.
-        response: The FastAPI Response object to modify.
+        router (APIRouter): The APIRouter instance containing route definitions.
+        response (Response): The FastAPI Response object to modify.
 
     Returns:
         Response: The response object with the 'Allow' header set.
@@ -93,8 +94,40 @@ def split_camel_case(text: str) -> str:
     return " ".join([m.group(0) for m in matches])
 
 
-def check_list_not_empty(items: list[Any] | Any) -> list[Any] | Any:
-    """Validate that the list of support emails is not empty."""
+def check_list_not_empty(items: list[Any]) -> list[Any]:
+    """Check if the input is a non-empty list, raising ValueError if empty.
+
+    If the argument is a list and it is empty, raises a ValueError.
+
+    Args:
+        items (list[Any]): The input to check. Can be a list of any type or a single
+            item.
+
+    Returns:
+        list[Any]: The original input if it is not an empty list.
+
+    Raises:
+        ValueError: If the input is a list and it is empty.
+
+    """
     if isinstance(items, list) and not len(items) > 0:
         raise ValueError("List must not be empty")
     return items
+
+
+def isoformat(d: datetime) -> str:
+    """Convert a datetime or date object to an ISO 8601 format.
+
+    UTC with millisecond precision.
+
+    Args:
+        d (datetime): The datetime or date object to format.
+
+    Returns:
+        str: The ISO 8601 formatted string representation of the input.
+
+    Raises:
+        AttributeError: If the input object does not have an 'astimezone' method.
+
+    """
+    return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")

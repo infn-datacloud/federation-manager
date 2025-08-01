@@ -9,23 +9,7 @@ from fastapi.datastructures import URL
 from pydantic import AnyHttpUrl, BeforeValidator, computed_field
 from sqlmodel import TIMESTAMP, Field, SQLModel
 
-
-def isoformat(d: datetime) -> str:
-    """Convert a datetime or date object to an ISO 8601 format.
-
-    UTC with millisecond precision.
-
-    Args:
-        d (datetime | date): The datetime or date object to format.
-
-    Returns:
-        str: The ISO 8601 formatted string representation of the input.
-
-    Raises:
-        AttributeError: If the input object does not have an 'astimezone' method.
-
-    """
-    return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
+from fed_mgr.utils import isoformat
 
 
 class ItemID(SQLModel):
