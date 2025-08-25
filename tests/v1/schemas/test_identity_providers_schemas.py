@@ -124,7 +124,6 @@ def test_identity_provider_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = IdentityProviderLinks(user_groups=DUMMY_ENDPOINT)
     idp_read = IdentityProviderRead(
         id=id_,
         created_at=now,
@@ -137,13 +136,13 @@ def test_identity_provider_read_inheritance():
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
         audience=DUMMY_AUDIENCE,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
     )
     assert isinstance(idp_read, ItemID)
     assert isinstance(idp_read, CreationRead)
     assert isinstance(idp_read, EditableRead)
     assert isinstance(idp_read, IdentityProviderBase)
-    assert idp_read.links == links
+    assert isinstance(idp_read.links, IdentityProviderLinks)
 
 
 def test_identity_provider_list():
@@ -151,7 +150,6 @@ def test_identity_provider_list():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = IdentityProviderLinks(user_groups=DUMMY_ENDPOINT)
     idp_read = IdentityProviderRead(
         id=id_,
         created_at=now,
@@ -164,7 +162,7 @@ def test_identity_provider_list():
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
         audience=DUMMY_AUDIENCE,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
     )
     idp_list = IdentityProviderList(
         data=[idp_read],

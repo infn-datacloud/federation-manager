@@ -21,9 +21,11 @@ from fed_mgr.v1.providers.schemas import (
 )
 from fed_mgr.v1.schemas import (
     CreationQuery,
+    CreationRead,
     CreationTime,
     DescriptionQuery,
     EditableQuery,
+    EditableRead,
     ItemID,
     PaginationQuery,
     SortQuery,
@@ -49,8 +51,8 @@ def test_provider_status_enum_all_values():
     """Test all ProviderStatus enum values and their integer representations."""
     status_map = {
         "draft": 0,
-        "submitted": 1,
-        "ready": 2,
+        "ready": 1,
+        "submitted": 2,
         "evaluation": 3,
         "pre_production": 4,
         "active": 5,
@@ -204,12 +206,10 @@ def test_provider_update_default_values():
     assert obj.support_emails is None
     assert obj.image_tags is None
     assert obj.network_tags is None
-    assert obj.site_admins is None
 
 
 def test_provider_update_fields():
     """Test fields of ProviderUpdate accept same values of ProviderCreate."""
-    site_admins = [uuid.uuid4()]
     obj = ProviderUpdate(
         name=DUMMY_NAME,
         description=DUMMY_DESC,
@@ -218,7 +218,6 @@ def test_provider_update_fields():
         support_emails=DUMMY_EMAILS,
         image_tags=["img1"],
         network_tags=["net1"],
-        site_admins=site_admins,
     )
     assert obj.name == DUMMY_NAME
     assert obj.auth_endpoint == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
@@ -226,19 +225,12 @@ def test_provider_update_fields():
     assert obj.support_emails == DUMMY_EMAILS
     assert obj.image_tags == ["img1"]
     assert obj.network_tags == ["net1"]
-    assert obj.site_admins == site_admins
 
 
 def test_provider_update_support_emails_empty():
     """Test ProviderUpdate support_emails must not be empty (if not None)."""
     with pytest.raises(ValidationError):
         ProviderUpdate(support_emails=[])
-
-
-def test_provider_update_site_admins_empty():
-    """Test ProviderUpdate site_admins must not be empty (if not None)."""
-    with pytest.raises(ValidationError):
-        ProviderUpdate(site_admins=[])
 
 
 def test_provider_links_fields():
@@ -258,9 +250,6 @@ def test_provider_read_inheritance():
     now = datetime.now()
     site_admin = uuid.uuid4()
     site_admins = [site_admin]
-    links = ProviderLinks(
-        idps=DUMMY_ENDPOINT, projects=DUMMY_ENDPOINT, regions=DUMMY_ENDPOINT
-    )
     provider_read = ProviderRead(
         id=id_,
         created_at=now,
@@ -274,10 +263,14 @@ def test_provider_read_inheritance():
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
         site_admins=site_admins,
-        links=links,
         status=ProviderStatus.active,
+        base_url=DUMMY_ENDPOINT,
     )
-    assert provider_read.links == links
+    assert isinstance(provider_read, ItemID)
+    assert isinstance(provider_read, CreationRead)
+    assert isinstance(provider_read, EditableRead)
+    assert isinstance(provider_read, ProviderRead)
+    assert isinstance(provider_read.links, ProviderLinks)
     assert provider_read.status == ProviderStatus.active
     assert provider_read.site_admins == site_admins
 
@@ -289,9 +282,6 @@ def test_provider_list():
     now = datetime.now()
     site_admin = uuid.uuid4()
     site_admins = [site_admin]
-    links = ProviderLinks(
-        idps=DUMMY_ENDPOINT, projects=DUMMY_ENDPOINT, regions=DUMMY_ENDPOINT
-    )
     read = ProviderRead(
         id=id_,
         created_at=now,
@@ -305,8 +295,8 @@ def test_provider_list():
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
         site_admins=site_admins,
-        links=links,
         status=ProviderStatus.active,
+        base_url=DUMMY_ENDPOINT,
     )
     plist = ProviderList(
         data=[read],
@@ -341,6 +331,7 @@ def test_provider_query_defaults():
 
 def test_provider_query_with_values():
     """Test that ProviderQuery assigns provided values to its fields."""
+    site_admins = [uuid.uuid4()]
     query = ProviderQuery(
         name=DUMMY_NAME,
         description=DUMMY_DESC,
@@ -351,7 +342,7 @@ def test_provider_query_with_values():
         image_tags="img1",
         network_tags="net1",
         status="active",
-        site_admins="id1",
+        site_admins=site_admins,
     )
     assert query.name == DUMMY_NAME
     assert query.type == "openstack"
@@ -361,4 +352,4 @@ def test_provider_query_with_values():
     assert query.image_tags == "img1"
     assert query.network_tags == "net1"
     assert query.status == "active"
-    assert query.site_admins == "id1"
+    assert query.site_admins == site_admins

@@ -99,7 +99,6 @@ def test_user_group_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
         created_at=now,
@@ -108,13 +107,13 @@ def test_user_group_read_inheritance():
         updated_by=creator,
         name=DUMMY_NAME,
         description=DUMMY_DESC,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
     )
     assert isinstance(group_read, ItemID)
     assert isinstance(group_read, CreationRead)
     assert isinstance(group_read, EditableRead)
     assert isinstance(group_read, UserGroupBase)
-    assert group_read.links == links
+    assert isinstance(group_read.links, UserGroupLinks)
 
 
 def test_user_group_list():
@@ -123,7 +122,6 @@ def test_user_group_list():
     id_ = uuid.uuid4()
     now = datetime.now()
     idp = MagicMock()
-    links = UserGroupLinks(slas=DUMMY_ENDPOINT)
     group_read = UserGroupRead(
         id=id_,
         created_at=now,
@@ -133,7 +131,7 @@ def test_user_group_list():
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         idp=idp,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
     )
     group_list = UserGroupList(
         data=[group_read],

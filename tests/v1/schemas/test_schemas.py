@@ -26,14 +26,17 @@ Covers:
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
+import pytest
 from pydantic import AnyHttpUrl
 
+from fed_mgr.utils import isoformat
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
     CreationTime,
+    CreationTimeRead,
     Creator,
     CreatorQuery,
     DescriptionQuery,
@@ -95,15 +98,26 @@ def test_pagination_total_pages():
     assert p.total_pages == 1
 
 
+def test_page_navigation_default():
+    """Generate PageNavigation with valid fields by default."""
+    url1 = AnyHttpUrl("http://test/1")
+    url2 = AnyHttpUrl("http://test/2")
+    nav = PageNavigation(first=url1, last=url2)
+    assert nav.first == url1
+    assert nav.prev is None
+    assert nav.next is None
+    assert nav.last == url2
+
+
 def test_page_navigation_fields():
     """Set all fields in PageNavigation and check types."""
     url1 = AnyHttpUrl("http://test/1")
     url2 = AnyHttpUrl("http://test/2")
-    nav = PageNavigation(first=url1, prev=url2, next=None, last=url1)
+    nav = PageNavigation(first=url1, prev=url1, next=url2, last=url2)
     assert nav.first == url1
-    assert nav.prev == url2
-    assert nav.next is None
-    assert nav.last == url1
+    assert nav.prev == url1
+    assert nav.next == url2
+    assert nav.last == url2
 
 
 def test_paginated_list_page_and_links_properties():
@@ -136,7 +150,14 @@ def test_paginated_list_page_and_links_properties():
     assert links.prev == AnyHttpUrl("http://test/resource?page=1")
     assert links.next == AnyHttpUrl("http://test/resource?page=3")
 
-    # Test edge cases: first page (no prev)
+
+def test_paginated_list_no_prev():
+    """Test PaginatedList edge cases: first page (no prev)."""
+    # Prepare test data
+    url = AnyHttpUrl("http://test/resource")
+    page_size = 5
+    tot_items = 12
+
     paginated_first = PaginatedList(
         page_number=1,
         page_size=page_size,
@@ -147,7 +168,14 @@ def test_paginated_list_page_and_links_properties():
     assert links_first.prev is None
     assert links_first.next == AnyHttpUrl("http://test/resource?page=2")
 
-    # Test edge cases: last page (no next)
+
+def test_paginated_list_no_next():
+    """Test PaginatedList edge cases: last page (no next)."""
+    # Prepare test data
+    url = AnyHttpUrl("http://test/resource")
+    page_size = 5
+    tot_items = 12
+
     paginated_last = PaginatedList(
         page_number=3,
         page_size=page_size,
@@ -161,20 +189,23 @@ def test_paginated_list_page_and_links_properties():
 
 def test_creation_time_field_assignment():
     """Test CreationTime schema field assignment."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     ct = CreationTime(created_at=now)
     assert ct.created_at == now
 
 
-def test_creation_time_default_value_is_func_now():
-    """Test CreationTime default value is set to func.now()."""
-    # The default is a SQLModel/SQLAlchemy function, so we check the default_factory
-    field = CreationTime.model_fields["created_at"]
-    assert (
-        field.default == field.default
-        or field.default_factory
-        or field.default_factory is not None
-    )
+def test_creation_time_field_type():
+    """Test CreationTime created_at field type."""
+    ct = CreationTime()
+    assert isinstance(ct.created_at, datetime)
+    assert ct.created_at.tzinfo == timezone.utc
+
+
+def test_creation_time_query_default():
+    """Set created_before and created_after in CreationQuery."""
+    cq = CreationQuery()
+    assert cq.created_before is None
+    assert cq.created_after is None
 
 
 def test_creation_time_query_fields():
@@ -183,6 +214,21 @@ def test_creation_time_query_fields():
     cq = CreationQuery(created_before=now, created_after=now)
     assert cq.created_before == now
     assert cq.created_after == now
+
+
+def test_creation_time_read_isoformat():
+    """Test CreationTimeRead serializes datetime to ISO format string."""
+    dt = datetime(2024, 6, 1, 12, 34, 56, tzinfo=timezone.utc)
+    creation = CreationTimeRead(created_at=dt)
+    assert creation.created_at == isoformat(dt)
+
+
+def test_creation_time_read_invalid_format_raises():
+    """Test CreationTimeRead raises error on string also if a valid datetime string."""
+    with pytest.raises(ValueError):
+        CreationTimeRead(created_at="not-a-datetime")
+    with pytest.raises(ValueError):
+        CreationTimeRead(created_at="2024-06-01T12:34:56+00:00")
 
 
 def test_creator_fields():
@@ -200,13 +246,13 @@ def test_creator_query_fields():
     assert cq2.created_by == "abc"
 
 
-def test_creation_inheritance():
+def test_creation_read_inheritance():
     """Test CreationRead schema inherits from Creator and CreationTime."""
     user_id = uuid.uuid4()
     now = datetime.now()
     creation = CreationRead(created_by=user_id, created_at=now)
     assert creation.created_by == user_id
-    assert creation.created_at == now
+    assert creation.created_at == isoformat(now)
 
 
 def test_creation_query_inheritance():
@@ -264,7 +310,7 @@ def test_editable_inheritance():
     now = datetime.now()
     editable = EditableRead(updated_by=user_id, updated_at=now)
     assert editable.updated_by == user_id
-    assert editable.updated_at == now
+    assert editable.updated_at == isoformat(now)
 
 
 def test_editable_query_inheritance():
@@ -278,5 +324,6 @@ def test_editable_query_inheritance():
 
 def test_error_message_fields():
     """Set detail in ErrorMessage."""
-    err = ErrorMessage(detail="Something went wrong")
+    err = ErrorMessage(status=400, detail="Something went wrong")
+    assert err.status == 400
     assert err.detail == "Something went wrong"

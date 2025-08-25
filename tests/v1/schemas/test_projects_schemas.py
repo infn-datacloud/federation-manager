@@ -43,6 +43,7 @@ from fed_mgr.v1.schemas import (
 DUMMY_NAME = "project"
 DUMMY_DESC = "example desc"
 DUMMY_IAAS_ID = "12345"
+DUMMY_ENDPOINT = "http://example.com"
 
 
 def test_project_model():
@@ -109,7 +110,6 @@ def test_project_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = ProjectLinks(regions="https://example.com/regions")
     project = ProjectRead(
         id=id_,
         created_at=now,
@@ -119,16 +119,18 @@ def test_project_read_inheritance():
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         iaas_project_id=DUMMY_IAAS_ID,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
+        sla=id_,
     )
     assert isinstance(project, ItemID)
     assert isinstance(project, CreationRead)
     assert isinstance(project, EditableRead)
     assert isinstance(project, ProjectBase)
-    assert project.links == links
+    assert isinstance(project.links, ProjectLinks)
     assert project.name == DUMMY_NAME
     assert project.description == DUMMY_DESC
     assert project.iaas_project_id == DUMMY_IAAS_ID
+    assert project.sla == id_
 
 
 def test_project_list_structure():
@@ -136,7 +138,6 @@ def test_project_list_structure():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = ProjectLinks(regions="https://example.com/regions")
     project_read = ProjectRead(
         id=id_,
         created_at=now,
@@ -146,7 +147,8 @@ def test_project_list_structure():
         name=DUMMY_NAME,
         description=DUMMY_DESC,
         iaas_project_id=DUMMY_IAAS_ID,
-        links=links,
+        base_url=DUMMY_ENDPOINT,
+        sla=id_,
     )
     project_list = ProjectList(
         data=[project_read],

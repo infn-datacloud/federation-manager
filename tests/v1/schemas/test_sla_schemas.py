@@ -121,7 +121,6 @@ def test_sla_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
         created_at=now,
@@ -133,13 +132,13 @@ def test_sla_read_inheritance():
         url=DUMMY_URL,
         start_date=DUMMY_START_DATE,
         end_date=DUMMY_END_DATE,
-        links=links,
+        base_url=DUMMY_URL,
     )
     assert isinstance(sla_read, ItemID)
     assert isinstance(sla_read, CreationRead)
     assert isinstance(sla_read, EditableRead)
     assert isinstance(sla_read, SLABase)
-    assert sla_read.links == links
+    assert isinstance(sla_read.links, SLALinks)
 
 
 def test_sla_list():
@@ -147,7 +146,6 @@ def test_sla_list():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = SLALinks(projects=DUMMY_URL)
     sla_read = SLARead(
         id=id_,
         created_at=now,
@@ -159,7 +157,7 @@ def test_sla_list():
         url=DUMMY_URL,
         start_date=DUMMY_START_DATE,
         end_date=DUMMY_END_DATE,
-        links=links,
+        base_url=DUMMY_URL,
     )
     sla_list = SLAList(
         data=[sla_read],
@@ -190,7 +188,7 @@ def test_sla_query_defaults():
 
 def test_sla_query_with_values():
     """Test that SLAQuery assigns provided values to its fields."""
-    dt = datetime(2024, 1, 1)
+    dt = date(2024, 1, 1)
     query = SLAQuery(
         name="sla",
         url=DUMMY_URL,

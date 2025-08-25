@@ -14,13 +14,10 @@ import uuid
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from pydantic import AnyHttpUrl
-
 from fed_mgr.v1.models import Region
 from fed_mgr.v1.providers.regions.schemas import (
     RegionBase,
     RegionCreate,
-    RegionLinks,
     RegionList,
     RegionQuery,
     RegionRead,
@@ -47,7 +44,6 @@ def test_region_model():
     id_ = uuid.uuid4()
     now = datetime.now()
     provider = MagicMock()
-    location = MagicMock()
     region = Region(
         id=id_,
         created_at=now,
@@ -57,7 +53,6 @@ def test_region_model():
         name="eu-west-1",
         description="EU West 1",
         provider=provider,
-        location=location,
     )
     assert isinstance(region, ItemID)
     assert isinstance(region, CreationTime)
@@ -71,7 +66,6 @@ def test_region_model():
     assert region.name == "eu-west-1"
     assert region.description == "EU West 1"
     assert region.provider == provider
-    assert region.location == location
 
 
 def test_region_base_fields():
@@ -84,18 +78,8 @@ def test_region_base_fields():
 
 def test_region_create_inheritance():
     """Test RegionCreate inherits from RegionBase and adds location_id."""
-    loc_id = uuid.uuid4()
-    region = RegionCreate(name="eu-west-2", description="desc", location_id=loc_id)
+    region = RegionCreate(name="eu-west-2", description="desc")
     assert isinstance(region, RegionBase)
-    assert region.location_id == loc_id
-
-
-def test_region_links_fields():
-    """Test RegionLinks field assignment and type."""
-    url = "https://example.com/location"
-    links = RegionLinks(location=url)
-    assert isinstance(links, RegionLinks)
-    assert links.location == AnyHttpUrl(url)
 
 
 def test_region_read_inheritance():
@@ -103,7 +87,6 @@ def test_region_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = RegionLinks(location="https://example.com/location")
     region = RegionRead(
         id=id_,
         created_at=now,
@@ -112,13 +95,11 @@ def test_region_read_inheritance():
         updated_by=creator,
         name="eu-central-1",
         description="desc",
-        links=links,
     )
     assert isinstance(region, ItemID)
     assert isinstance(region, CreationRead)
     assert isinstance(region, EditableRead)
     assert isinstance(region, RegionBase)
-    assert region.links == links
     assert region.name == "eu-central-1"
     assert region.description == "desc"
 
@@ -128,7 +109,6 @@ def test_region_list_structure():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    links = RegionLinks(location="https://example.com/location")
     region_read = RegionRead(
         id=id_,
         created_at=now,
@@ -137,7 +117,6 @@ def test_region_list_structure():
         updated_by=creator,
         name="eu-north-1",
         description="desc",
-        links=links,
     )
     region_list = RegionList(
         data=[region_read],
