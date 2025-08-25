@@ -69,15 +69,13 @@ class Pagination(SQLModel):
     """With pagination details and total elements count."""
 
     size: Annotated[int, Field(default=5, ge=1, description="Chunk size.")]
-    number: Annotated[
-        int, Field(default=1, ge=1, description="Divide the list in chunks")
-    ]
+    number: Annotated[int, Field(default=1, ge=1, description="Current page index")]
     total_elements: Annotated[int, Field(description="Total number of items")]
 
     @computed_field
     @property
     def total_pages(self) -> int:
-        """Return the ceiling value of tot_items/page size.
+        """Return the ceiling value of total items/page size.
 
         If there are no elements, there is still one page but with no items.
 

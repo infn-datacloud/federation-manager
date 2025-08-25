@@ -116,5 +116,5 @@ def test_isoformat_non_utc_datetime():
 
 def test_isoformat_raises_on_invalid_type():
     """Test that isoformat raises AttributeError when input is not a datetime object."""
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
         isoformat("not a datetime")

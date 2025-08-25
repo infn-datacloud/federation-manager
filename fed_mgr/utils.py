@@ -130,4 +130,9 @@ def isoformat(d: datetime) -> str:
         AttributeError: If the input object does not have an 'astimezone' method.
 
     """
-    return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
+    try:
+        return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
+    except AttributeError as e:
+        raise ValueError(
+            f"Input value is not a datetime instance. Type: {type(d)}"
+        ) from e
