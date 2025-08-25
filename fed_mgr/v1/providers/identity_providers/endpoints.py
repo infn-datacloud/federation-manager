@@ -181,6 +181,9 @@ def retrieve_prov_idp_connections(
     msg += f"by provider with ID '{provider.id!s}': "
     msg += f"{[overw.model_dump_json() for overw in overrides]}"
     request.state.logger.info(msg)
+
+    base_url = str(request.url)
+    base_url = base_url[: base_url.index(PROVIDERS_PREFIX)]
     configs = []
     for overw in overrides:
         new_link = ProviderIdPConnectionRead(
@@ -188,7 +191,7 @@ def retrieve_prov_idp_connections(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            base_url=str(request.url),
+            base_url=base_url,
         )
         configs.append(new_link)
     return ProviderIdPConnectionList(
@@ -239,12 +242,14 @@ def retrieve_prov_idp_connection(
     msg = f"Configuration details for identity provider with ID '{idp.id!s}' "
     msg += f"overwritten by provider with ID '{provider.id!s}' found: {overrides!s}"
     request.state.logger.info(msg)
+    base_url = str(request.url)
+    base_url = base_url[: base_url.index(PROVIDERS_PREFIX)]
     config = ProviderIdPConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.updated_by_id,
-        base_url=str(request.url),
+        base_url=base_url,
     )
     return config
 

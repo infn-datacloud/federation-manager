@@ -194,6 +194,9 @@ def retrieve_project_configs(
     msg = f"{tot_items} retrieved region configurations details overwritten by project "
     msg += f"with ID '{project.id!s}': "
     msg += f"{[overw.model_dump_json() for overw in overrides]}"
+
+    base_url = str(request.url)
+    base_url = base_url[: base_url.index(PROJECTS_PREFIX)]
     configs = []
     for overw in overrides:
         config = ProjRegConnectionRead(
@@ -201,8 +204,7 @@ def retrieve_project_configs(
             overrides=overw,
             created_by=overw.created_by_id,
             updated_by=overw.created_by_id,
-            provider_id=provider.id,
-            base_url=str(request.url),
+            base_url=base_url,
         )
         configs.append(config)
     return ProjRegConnectionList(
@@ -255,12 +257,14 @@ def retrieve_project_config(
     msg += f"overwritten by provider with ID '{project.id!s}' found: "
     msg += f"{overrides.model_dump_json()}"
     request.state.logger.info(msg)
+    base_url = str(request.url)
+    base_url = base_url[: base_url.index(PROJECTS_PREFIX)]
     config = ProjRegConnectionRead(
         **overrides.model_dump(),  # Does not return created_by and updated_by
         overrides=overrides,
         created_by=overrides.created_by_id,
         updated_by=overrides.created_by_id,
-        base_url=str(request.url),
+        base_url=base_url,
     )
     return config
 

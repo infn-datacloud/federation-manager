@@ -1,5 +1,6 @@
 """ProjRegConnections's configurations schemas returned by the endpoints."""
 
+import urllib.parse
 import uuid
 from typing import Annotated
 
@@ -7,7 +8,7 @@ from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
-from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1 import REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -74,10 +75,6 @@ class ProjRegConnectionRead(CreationRead, EditableRead):
     base_url: Annotated[
         AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
     ]
-    provider_id: Annotated[
-        uuid.UUID,
-        Field(exclude=True, description="Provider ID used to build the children URL"),
-    ]
 
     @computed_field
     @property
@@ -88,9 +85,7 @@ class ProjRegConnectionRead(CreationRead, EditableRead):
             ProjRegConnectionLinks: An object with the user_groups attribute.
 
         """
-        link = str(self.base_url)
-        link = link[: link.index(PROVIDERS_PREFIX)]
-        link += f"{PROVIDERS_PREFIX}/{self.provider_id}{REGIONS_PREFIX}"
+        link = urllib.parse.urljoin(str(self.base_url), f"{REGIONS_PREFIX}")
         return ProjRegConnectionLinks(regions=link)
 
 
