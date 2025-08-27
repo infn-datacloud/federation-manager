@@ -21,7 +21,7 @@ def test_project_required_success():
     parent_project = MagicMock()  # Simulate found resource project
 
     # Should not raise
-    assert project_required(request, project_id, parent_project) is None
+    assert project_required(request, project_id, parent_project) == parent_project
 
 
 def test_project_required_not_found(mock_logger):

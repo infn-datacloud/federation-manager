@@ -21,7 +21,7 @@ def test_provider_required_success():
     parent_provider = MagicMock()  # Simulate found resource provider
 
     # Should not raise
-    assert provider_required(request, provider_id, parent_provider) is None
+    assert provider_required(request, provider_id, parent_provider) == parent_provider
 
 
 def test_provider_required_not_found(mock_logger):
@@ -35,7 +35,7 @@ def test_provider_required_not_found(mock_logger):
         provider_required(request, provider_id, parent_provider)
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
-    assert f"Resource Provider with ID '{provider_id!s}' does not exist" in str(
+    assert f"Resource provider with ID '{provider_id!s}' does not exist" in str(
         exc.value.detail
     )
     request.state.logger.error.assert_called_once()

@@ -20,7 +20,7 @@ def test_idp_required_success():
     parent_idp = MagicMock()  # Simulate found identity provider
 
     # Should not raise
-    assert idp_required(request, idp_id, parent_idp) is None
+    assert idp_required(request, idp_id, parent_idp) == parent_idp
 
 
 def test_idp_required_not_found(mock_logger):

@@ -21,7 +21,7 @@ def test_region_required_success():
     parent_region = MagicMock()  # Simulate found region
 
     # Should not raise
-    assert region_required(request, region_id, parent_region) is None
+    assert region_required(request, region_id, parent_region) == parent_region
 
 
 def test_region_required_not_found(mock_logger):
