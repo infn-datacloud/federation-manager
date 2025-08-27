@@ -20,7 +20,7 @@ from sqlmodel import Field, SQLModel
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.v1.crud import (
@@ -75,7 +75,7 @@ def test_raise_from_integrity_error_unique(session, monkeypatch):
         raise_from_integrity_error(
             entity=DummyEntity, session=session, error=error, **item.model_dump()
         )
-    assert "Dummy Entity with name 'foo' already exists" in str(exc.value)
+    assert "Dummy Entity with name=foo already exists" in str(exc.value)
     session.rollback.assert_called_once()
 
 
@@ -314,7 +314,7 @@ def test_update_item_success(session):
 
 
 def test_update_item_no_item_to_update(session):
-    """Test update_item raises NoItemToUpdateError when rowcount == 0."""
+    """Test update_item raises ItemNotFoundError when rowcount == 0."""
     item_id = uuid.uuid4()
     new_data = MagicMock()
     new_data.model_dump.return_value = {"name": "newname"}
@@ -324,7 +324,7 @@ def test_update_item_no_item_to_update(session):
     exec_result.rowcount = 0
     session.exec.return_value = exec_result
 
-    with pytest.raises(NoItemToUpdateError) as exc:
+    with pytest.raises(ItemNotFoundError) as exc:
         update_item(
             entity=DummyEntity,
             session=session,
@@ -400,12 +400,20 @@ def test_delete_item_executes_and_commits(session):
     session.commit.assert_called()
 
 
-def test_delete_item_fails(session):
+def test_delete_item_fails(monkeypatch, session):
     """Test delete_item executes the delete statement and commits."""
     item_id = uuid.uuid4()
-    result = MagicMock()
-    result.rowcount = 0
-    session.exec.return_value = result
+
+    # Simulate IntegrityError for FOREIGN KEY constraint
+    exc = sqlalchemy.exc.IntegrityError(
+        statement=None,
+        params=None,
+        orig=Exception("FOREIGN KEY constraint failed"),
+    )
+    exc.args = ("FOREIGN KEY constraint failed",)
+    session.exec.side_effect = exc
+    monkeypatch.setattr("fed_mgr.v1.crud.split_camel_case", lambda x: "Dummy Entity")
+
     with pytest.raises(DeleteFailedError):
         delete_item(entity=DummyEntity, session=session, id=item_id)
     session.exec.assert_called()

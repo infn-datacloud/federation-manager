@@ -16,13 +16,10 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from fed_mgr.exceptions import LocationNotFoundError
 from fed_mgr.v1.models import Region
 from fed_mgr.v1.providers.regions.crud import (
     add_region,
-    check_location_exist,
+    # check_location_exist,
     delete_region,
     get_region,
     get_regions,
@@ -79,49 +76,51 @@ def test_add_region_success(session):
     """Test add_region calls add_item with correct arguments and location exists."""
     region = MagicMock(spec=RegionCreate)
     created_by = MagicMock()
-    location = MagicMock()
+    # location = MagicMock()
+    expected_item = MagicMock()
     provider = MagicMock()
     region.model_dump.return_value = {"foo": "bar"}
     with (
-        patch(
-            "fed_mgr.v1.providers.regions.crud.check_location_exist",
-            return_value=location,
-        ) as mock_check_loc,
+        # patch(
+        #     "fed_mgr.v1.providers.regions.crud.check_location_exist",
+        #     return_value=location,
+        # ) as mock_check_loc,
         patch(
             "fed_mgr.v1.providers.regions.crud.add_item",
-            return_value=location,
+            return_value=expected_item,
         ) as mock_add_item,
     ):
         result = add_region(
             session=session, region=region, created_by=created_by, provider=provider
         )
-        assert result == location
-        mock_check_loc.assert_called_once_with(session=session, region=region)
+        assert result == expected_item
+        # mock_check_loc.assert_called_once_with(session=session, region=region)
         mock_add_item.assert_called_once_with(
             session=session,
             entity=Region,
             created_by=created_by,
             updated_by=created_by,
-            location=location,
+            # location=location,
             provider=provider,
             **region.model_dump(),
         )
 
 
-def test_add_region_location_not_found(session):
-    """Test add_region raises LocationNotFoundError if location does not exist."""
-    region = MagicMock(spec=RegionCreate)
-    created_by = MagicMock()
-    provider = MagicMock()
-    with patch(
-        "fed_mgr.v1.providers.regions.crud.check_location_exist",
-        side_effect=LocationNotFoundError("not found"),
-    ):
-        with pytest.raises(LocationNotFoundError) as exc:
-            add_region(
-                session=session, region=region, created_by=created_by, provider=provider
-            )
-        assert "not found" in str(exc.value)
+# def test_add_region_location_not_found(session):
+#     """Test add_region raises ItemNotFoundError if location does not exist."""
+#     region = MagicMock(spec=RegionCreate)
+#     created_by = MagicMock()
+#     provider = MagicMock()
+#     with patch(
+#         "fed_mgr.v1.providers.regions.crud.check_location_exist",
+#         side_effect=ItemNotFoundError("not found"),
+#     ):
+#         with pytest.raises(ItemNotFoundError) as exc:
+#             add_region(
+#                 session=session, region=region, created_by=created_by,
+#                   provider=provider
+#             )
+#         assert "not found" in str(exc.value)
 
 
 def test_update_region_success(session):
@@ -129,14 +128,14 @@ def test_update_region_success(session):
     region_id = uuid.uuid4()
     new_region = MagicMock(spec=RegionCreate)
     updated_by = MagicMock()
-    location = MagicMock()
-    new_region.location_id = uuid.uuid4()
+    # location = MagicMock()
+    # new_region.location_id = uuid.uuid4()
     new_region.model_dump.return_value = {"foo": "bar"}
     with (
-        patch(
-            "fed_mgr.v1.providers.regions.crud.check_location_exist",
-            return_value=location,
-        ) as mock_check_loc,
+        # patch(
+        #     "fed_mgr.v1.providers.regions.crud.check_location_exist",
+        #     return_value=location,
+        # ) as mock_check_loc,
         patch("fed_mgr.v1.providers.regions.crud.update_item") as mock_update_item,
     ):
         update_region(
@@ -145,7 +144,7 @@ def test_update_region_success(session):
             new_region=new_region,
             updated_by=updated_by,
         )
-        mock_check_loc.assert_called_once_with(session=session, region=new_region)
+        # mock_check_loc.assert_called_once_with(session=session, region=new_region)
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Region,
@@ -155,24 +154,24 @@ def test_update_region_success(session):
         )
 
 
-def test_update_region_location_not_found(session):
-    """Test update_region raises LocationNotFoundError if location does not exist."""
-    region_id = uuid.uuid4()
-    new_region = MagicMock(spec=RegionCreate)
-    updated_by = MagicMock()
-    new_region.location_id = uuid.uuid4()
-    with patch(
-        "fed_mgr.v1.providers.regions.crud.check_location_exist",
-        side_effect=LocationNotFoundError("not found"),
-    ):
-        with pytest.raises(LocationNotFoundError) as exc:
-            update_region(
-                session=session,
-                region_id=region_id,
-                new_region=new_region,
-                updated_by=updated_by,
-            )
-        assert "not found" in str(exc.value)
+# def test_update_region_location_not_found(session):
+#     """Test update_region raises ItemNotFoundError if location does not exist."""
+#     region_id = uuid.uuid4()
+#     new_region = MagicMock(spec=RegionCreate)
+#     updated_by = MagicMock()
+#     new_region.location_id = uuid.uuid4()
+#     with patch(
+#         "fed_mgr.v1.providers.regions.crud.check_location_exist",
+#         side_effect=ItemNotFoundError("not found"),
+#     ):
+#         with pytest.raises(ItemNotFoundError) as exc:
+#             update_region(
+#                 session=session,
+#                 region_id=region_id,
+#                 new_region=new_region,
+#                 updated_by=updated_by,
+#             )
+#         assert "not found" in str(exc.value)
 
 
 def test_delete_region(session):
@@ -185,30 +184,30 @@ def test_delete_region(session):
         )
 
 
-def test_check_location_exist_found(session):
-    """Test check_location_exist returns location if found."""
-    region = MagicMock()
-    location = MagicMock()
-    region.location_id = uuid.uuid4()
-    with patch(
-        "fed_mgr.v1.providers.regions.crud.get_location",
-        return_value=location,
-    ) as mock_get_location:
-        result = check_location_exist(session=session, region=region)
-        assert result == location
-        mock_get_location.assert_called_once_with(
-            session=session, location_id=region.location_id
-        )
+# def test_check_location_exist_found(session):
+#     """Test check_location_exist returns location if found."""
+#     region = MagicMock()
+#     location = MagicMock()
+#     region.location_id = uuid.uuid4()
+#     with patch(
+#         "fed_mgr.v1.providers.regions.crud.get_location",
+#         return_value=location,
+#     ) as mock_get_location:
+#         result = check_location_exist(session=session, region=region)
+#         assert result == location
+#         mock_get_location.assert_called_once_with(
+#             session=session, location_id=region.location_id
+#         )
 
 
-def test_check_location_exist_not_found(session):
-    """Test check_location_exist raises LocationNotFoundError if not found."""
-    region = MagicMock()
-    region.location_id = uuid.uuid4()
-    with patch(
-        "fed_mgr.v1.providers.regions.crud.get_location",
-        return_value=None,
-    ):
-        with pytest.raises(LocationNotFoundError) as exc:
-            check_location_exist(session=session, region=region)
-        assert str(region.location_id) in str(exc.value)
+# def test_check_location_exist_not_found(session):
+#     """Test check_location_exist raises ItemNotFoundError if not found."""
+#     region = MagicMock()
+#     region.location_id = uuid.uuid4()
+#     with patch(
+#         "fed_mgr.v1.providers.regions.crud.get_location",
+#         return_value=None,
+#     ):
+#         with pytest.raises(ItemNotFoundError) as exc:
+#             check_location_exist(session=session, region=region)
+#         assert str(region.location_id) in str(exc.value)

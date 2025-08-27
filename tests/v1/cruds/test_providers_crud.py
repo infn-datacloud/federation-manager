@@ -13,12 +13,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fed_mgr.exceptions import ProviderStateChangeError, UserNotFoundError
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.models import Provider
 from fed_mgr.v1.providers.crud import (
     add_provider,
     change_provider_state,
-    check_site_admins_exist,
+    check_users_exist,
     delete_provider,
     get_provider,
     get_providers,
@@ -102,13 +102,13 @@ def test_add_provider_calls_add_item(mock_get_user, mock_add_item, session):
     )
 
 
-@patch("fed_mgr.v1.providers.crud.check_site_admins_exist")
+@patch("fed_mgr.v1.providers.crud.check_users_exist")
 def test_add_provider_user_not_found(mock_check_admins, session):
-    """Test add_provider raises UserNotFoundError if site admin not found."""
+    """Test add_provider raises ItemNotFoundError if site admin not found."""
     provider = MagicMock()
     created_by = MagicMock()
-    mock_check_admins.side_effect = UserNotFoundError("user not found")
-    with pytest.raises(UserNotFoundError) as exc:
+    mock_check_admins.side_effect = ItemNotFoundError("user not found")
+    with pytest.raises(ItemNotFoundError) as exc:
         add_provider(
             session=session,
             provider=provider,
@@ -125,7 +125,6 @@ def test_update_provider_calls_update_item(mock_get_user, mock_update_item, sess
     new_provider = MagicMock()
     updated_by = MagicMock()
     site_admin = MagicMock()
-    new_provider.site_admins = [site_admin]
     mock_get_user.return_value = site_admin
 
     update_provider(
@@ -139,8 +138,7 @@ def test_update_provider_calls_update_item(mock_get_user, mock_update_item, sess
         entity=Provider,
         id=provider_id,
         updated_by=updated_by,
-        site_admins=[site_admin],
-        **new_provider.model_dump(exclude={"site_admins"}, exclude_none=True),
+        **new_provider.model_dump(exclude_none=True),
     )
 
 
@@ -166,23 +164,6 @@ def test_update_provider_calls_update_item_empty_site_admins(mock_update_item, s
     )
 
 
-@patch("fed_mgr.v1.providers.crud.check_site_admins_exist")
-def test_update_provider_user_not_found(mock_check_admins, session):
-    """Test update_provider raises UserNotFoundError if site admin not found."""
-    provider_id = uuid.uuid4()
-    new_provider = MagicMock()
-    updated_by = MagicMock()
-    mock_check_admins.side_effect = UserNotFoundError("user not found")
-    with pytest.raises(UserNotFoundError) as exc:
-        update_provider(
-            session=session,
-            provider_id=provider_id,
-            new_provider=new_provider,
-            updated_by=updated_by,
-        )
-    assert "user not found" in str(exc.value)
-
-
 def test_delete_provider_calls_delete_item(session):
     """Test delete_provider calls delete_item with correct arguments."""
     provider_id = uuid.uuid4()
@@ -193,14 +174,14 @@ def test_delete_provider_calls_delete_item(session):
         )
 
 
-def test_check_site_admins_exist_all_found():
-    """Test check_site_admins_exist returns list of users when site user IDs exist.
+def test_check_users_exist_all_found():
+    """Test check_users_exist returns list of users when site user IDs exist.
 
     This test mocks the database session and the get_user function to simulate the
     presence of all site admin users.
 
     It verifies that:
-    - check_site_admins_exist returns the correct list of user objects corresponding to
+    - check_users_exist returns the correct list of user objects corresponding to
         the provided user IDs.
     - get_user is called exactly once for each user ID.
     - Each call to get_user is made with the correct user_id and session arguments.
@@ -208,12 +189,11 @@ def test_check_site_admins_exist_all_found():
     session = MagicMock()
     user_ids = [uuid.uuid4(), uuid.uuid4()]
     users = [MagicMock(id=user_ids[0]), MagicMock(id=user_ids[1])]
-    provider = DummyProviderCreate(site_admins=user_ids)
 
     with patch(
         "fed_mgr.v1.providers.crud.get_user", side_effect=users
     ) as mock_get_user:
-        result = check_site_admins_exist(session=session, provider=provider)
+        result = check_users_exist(session=session, user_ids=user_ids)
         assert result == users
         assert mock_get_user.call_count == 2
         for idx, call in enumerate(mock_get_user.call_args_list):
@@ -221,8 +201,8 @@ def test_check_site_admins_exist_all_found():
             assert call.kwargs["session"] == session
 
 
-def test_check_site_admins_exist_user_not_found():
-    """Test check_site_admins_exist raises a UserNotFoundError.
+def test_check_users_exist_user_not_found():
+    """Test check_users_exist raises a ItemNotFoundError.
 
     Raise when at least one user ID in the provider's `site_admins` list does not
     correspond to an existing user.
@@ -233,24 +213,22 @@ def test_check_site_admins_exist_user_not_found():
     """
     session = MagicMock()
     user_ids = [uuid.uuid4(), uuid.uuid4()]
-    provider = DummyProviderCreate(site_admins=user_ids)
 
     # First user found, second user not found (returns None)
     with patch("fed_mgr.v1.providers.crud.get_user", side_effect=[MagicMock(), None]):
-        with pytest.raises(UserNotFoundError) as exc:
-            check_site_admins_exist(session=session, provider=provider)
+        with pytest.raises(ItemNotFoundError) as exc:
+            check_users_exist(session=session, user_ids=user_ids)
         assert f"User with ID '{user_ids[1]}" in str(exc.value)
 
 
-def test_check_site_admins_exist_empty_list():
-    """Test that check_site_admins_exist returns an empty list.
+def test_check_users_exist_empty_list():
+    """Test that check_users_exist returns an empty list.
 
     Does not call get_user when the provider's site_admins list is empty.
     """
     session = MagicMock()
-    provider = DummyProviderCreate(site_admins=[])
     with patch("fed_mgr.v1.providers.crud.get_user") as mock_get_user:
-        result = check_site_admins_exist(session=session, provider=provider)
+        result = check_users_exist(session=session, user_ids=[])
         assert result == []
         mock_get_user.assert_not_called()
 
@@ -258,9 +236,9 @@ def test_check_site_admins_exist_empty_list():
 @pytest.mark.parametrize(
     "current_status,next_status",
     [
-        (ProviderStatus.draft, ProviderStatus.submitted),
-        (ProviderStatus.submitted, ProviderStatus.ready),
-        (ProviderStatus.ready, ProviderStatus.evaluation),
+        (ProviderStatus.draft, ProviderStatus.ready),
+        (ProviderStatus.ready, ProviderStatus.submitted),
+        (ProviderStatus.submitted, ProviderStatus.evaluation),
         (ProviderStatus.evaluation, ProviderStatus.pre_production),
         (ProviderStatus.pre_production, ProviderStatus.active),
         (ProviderStatus.active, ProviderStatus.deprecated),
@@ -274,85 +252,55 @@ def test_change_provider_state_valid_transition(session, current_status, next_st
     """Test change_provider_state allows valid state transitions."""
     db_provider = MagicMock()
     db_provider.status = current_status
-    provider_id = uuid.uuid4()
     updated_by = MagicMock()
-    with (
-        patch(
-            "fed_mgr.v1.providers.crud.get_item", return_value=db_provider
-        ) as get_item_mock,
-        patch("fed_mgr.v1.providers.crud.update_item") as update_item_mock,
-    ):
-        change_provider_state(
-            session=session,
-            provider_id=provider_id,
-            next_state=next_status,
-            updated_by=updated_by,
-        )
-        get_item_mock.assert_called_once_with(
-            session=session, entity=Provider, id=provider_id
-        )
-        update_item_mock.assert_called_once_with(
-            session=session,
-            entity=Provider,
-            id=provider_id,
-            updated_by=updated_by,
-            status=next_status,
-        )
+    change_provider_state(
+        session=session,
+        provider=db_provider,
+        next_state=next_status,
+        updated_by=updated_by,
+    )
+    assert db_provider.status == next_status
 
 
-@patch("fed_mgr.v1.providers.crud.get_item")
-@patch("fed_mgr.v1.providers.crud.update_item")
-def test_change_provider_state_same_state_no_update(
-    update_item_mock, get_item_mock, session
-):
+def test_change_provider_state_same_state_no_update(session):
     """Test change_provider_state is idempotent."""
     db_provider = MagicMock()
     db_provider.status = ProviderStatus.active
-    provider_id = uuid.uuid4()
     updated_by = MagicMock()
-    get_item_mock.return_value = db_provider
     change_provider_state(
         session=session,
-        provider_id=provider_id,
+        provider=db_provider,
         next_state=ProviderStatus.active,
         updated_by=updated_by,
     )
-    get_item_mock.assert_called_once()
-    update_item_mock.assert_called_once_with(
-        session=session,
-        entity=Provider,
-        id=provider_id,
-        updated_by=updated_by,
-        status=ProviderStatus.active,
-    )
+    assert db_provider.status == ProviderStatus.active
 
 
-@pytest.mark.parametrize(
-    "current_status,next_status",
-    [
-        (ProviderStatus.draft, ProviderStatus.ready),
-        (ProviderStatus.active, ProviderStatus.submitted),
-        (ProviderStatus.removed, ProviderStatus.active),
-        (ProviderStatus.deprecated, ProviderStatus.active),
-    ],
-)
-def test_change_provider_state_invalid_transition_raises(
-    session, current_status, next_status
-):
-    """Test that change_provider_state raises an error for invalid state transitions."""
-    db_provider = MagicMock()
-    db_provider.status = current_status
-    provider_id = uuid.uuid4()
-    updated_by = MagicMock()
-    with patch("fed_mgr.v1.providers.crud.get_item", return_value=db_provider):
-        with pytest.raises(ProviderStateChangeError) as exc:
-            change_provider_state(
-                session=session,
-                provider_id=provider_id,
-                next_state=next_status,
-                updated_by=updated_by,
-            )
-        assert (
-            f"Transition from state '{current_status}' to state '{next_status}' is "
-            "forbidden" in str(exc.value)
-        )
+# TODO: add tests for new functions changing state and test that they raises the error
+# @pytest.mark.parametrize(
+#     "current_status,next_status",
+#     [
+#         (ProviderStatus.draft, ProviderStatus.ready),
+#         (ProviderStatus.active, ProviderStatus.submitted),
+#         (ProviderStatus.removed, ProviderStatus.active),
+#         (ProviderStatus.deprecated, ProviderStatus.active),
+#     ],
+# )
+# def test_change_provider_state_invalid_transition_raises(
+#     session, current_status, next_status
+# ):
+#     """Test that change_provider_state raises an error for invalid next state."""
+#     db_provider = MagicMock()
+#     db_provider.status = current_status
+#     updated_by = MagicMock()
+#     with pytest.raises(ProviderStateChangeError) as exc:
+#         change_provider_state(
+#             session=session,
+#             provider=db_provider,
+#             next_state=next_status,
+#             updated_by=updated_by,
+#         )
+#     assert (
+#         f"Transition from state '{current_status}' to state '{next_status}' is "
+#         "forbidden" in str(exc.value)
+#     )

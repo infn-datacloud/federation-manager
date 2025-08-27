@@ -15,8 +15,8 @@ from fed_mgr.v1.users.schemas import UserCreate
 
 FAKE_USER_NAME = "fake_name"
 FAKE_USER_EMAIL = "fake@email.com"
-FAKE_USER_ISSUER = "fake_sub"
-FAKE_USER_SUBJECT = "http://fake.iss.it"
+FAKE_USER_SUBJECT = "fake_sub"
+FAKE_USER_ISSUER = "http://fake.iss.it"
 
 
 def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:
