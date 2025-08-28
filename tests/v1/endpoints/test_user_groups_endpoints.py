@@ -17,11 +17,15 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlmodel import Field, SQLModel
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.main import sub_app_v1
@@ -30,7 +34,7 @@ from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
 
 DUMMY_DESC = "desc"
 DUMMY_NAME = "Test UserGroup"
-DUMMY_CREATED_AT = "2024-01-01T00:00:00Z"
+DUMMY_CREATED_AT = datetime.now()
 
 
 def get_fake_idp_id() -> str:
@@ -85,10 +89,10 @@ def test_create_user_group_success(client, monkeypatch):
     fake_idp_id = get_fake_idp_id()
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
-    class FakeUserGroup:
-        id = fake_id
-
     def fake_add_user_group(session, user_group, created_by, idp):
+        class FakeUserGroup(SQLModel):
+            id: uuid.UUID = fake_id
+
         return FakeUserGroup()
 
     monkeypatch.setattr(
@@ -106,7 +110,7 @@ def test_create_user_group_conflict(client, monkeypatch):
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
     def fake_add_user_group(session, user_group, created_by, idp):
-        raise ConflictError("User group already exists")
+        raise ConflictError("User group", "name", DUMMY_NAME)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.endpoints.add_user_group",
@@ -114,7 +118,7 @@ def test_create_user_group_conflict(client, monkeypatch):
     )
     resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "User group already exists"
+    assert resp.json()["detail"] == f"User group with name={DUMMY_NAME} already exists"
 
 
 def test_create_user_group_not_null_error(client, monkeypatch):
@@ -123,7 +127,7 @@ def test_create_user_group_not_null_error(client, monkeypatch):
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
     def fake_add_user_group(session, user_group, created_by, idp):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("User group", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.endpoints.add_user_group",
@@ -132,7 +136,7 @@ def test_create_user_group_not_null_error(client, monkeypatch):
 
     resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 # GET (list) endpoint
@@ -186,27 +190,15 @@ def test_get_user_group_success(client):
     fake_id = str(uuid.uuid4())
     fake_idp_id = get_fake_idp_id()
 
-    class FakeUserGroup:
-        id = fake_id
-        name = DUMMY_NAME
-        description = DUMMY_DESC
-        idp = fake_idp_id
-        created_at = DUMMY_CREATED_AT
-        created_by_id = fake_id
-        updated_at = DUMMY_CREATED_AT
-        updated_by_id = fake_id
-
-        def model_dump(self):
-            return {
-                "id": self.id,
-                "description": self.description,
-                "name": self.name,
-                "idp": self.idp,
-                "created_at": self.created_at,
-                "created_by_id": self.created_by_id,
-                "updated_at": self.updated_at,
-                "updated_by_id": self.updated_by_id,
-            }
+    class FakeUserGroup(SQLModel):
+        id: uuid.UUID = fake_id
+        name: str = DUMMY_NAME
+        description: str = DUMMY_DESC
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
+        idp: Any = Field(fake_idp_id, exclude=True)
 
     def fake_get_user_group(idp_id, session=None):
         return FakeUserGroup()
@@ -274,7 +266,7 @@ def test_edit_user_group_not_found(client, monkeypatch):
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
     def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
-        raise NoItemToUpdateError("User group not found")
+        raise ItemNotFoundError("User group", id=user_group_id)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
@@ -285,7 +277,7 @@ def test_edit_user_group_not_found(client, monkeypatch):
         f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
     )
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "User group not found"
+    assert resp.json()["detail"] == f"User group with ID '{fake_id}' does not exist"
 
 
 def test_edit_user_group_conflict(client, monkeypatch):
@@ -295,7 +287,7 @@ def test_edit_user_group_conflict(client, monkeypatch):
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
     def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
-        raise ConflictError("User group already exists")
+        raise ConflictError("User group", "name", DUMMY_NAME)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
@@ -306,7 +298,7 @@ def test_edit_user_group_conflict(client, monkeypatch):
         f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "User group already exists"
+    assert resp.json()["detail"] == f"User group with name={DUMMY_NAME} already exists"
 
 
 def test_edit_user_group_not_null_error(client, monkeypatch):
@@ -316,7 +308,7 @@ def test_edit_user_group_not_null_error(client, monkeypatch):
     user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
 
     def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("User group", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
@@ -327,7 +319,7 @@ def test_edit_user_group_not_null_error(client, monkeypatch):
         f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 # DELETE endpoint

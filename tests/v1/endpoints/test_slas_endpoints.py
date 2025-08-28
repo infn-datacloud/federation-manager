@@ -17,11 +17,15 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlmodel import Field, SQLModel
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.main import sub_app_v1
@@ -34,7 +38,7 @@ DUMMY_NAME = "Test SLA"
 DUMMY_URL = "http://test.url.it"
 DUMMY_START_DATE = "2024-01-01"
 DUMMY_END_DATE = "2025-01-01"
-DUMMY_CREATED_AT = "2024-01-01T00:00:00Z"
+DUMMY_CREATED_AT = datetime.now()
 
 
 def get_fake_user_group_id() -> str:
@@ -166,10 +170,10 @@ def test_create_sla_success(client, monkeypatch):
         "end_date": DUMMY_END_DATE,
     }
 
-    class FakeSLA:
-        id = fake_id
-
     def fake_add_sla(session, sla, created_by, user_group):
+        class FakeSLA(SQLModel):
+            id: uuid.UUID = fake_id
+
         return FakeSLA()
 
     monkeypatch.setattr(
@@ -197,7 +201,7 @@ def test_create_sla_conflict(client, monkeypatch):
     }
 
     def fake_add_sla(session, sla, created_by, user_group):
-        raise ConflictError("User group already exists")
+        raise ConflictError("SLA", "url", DUMMY_URL)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.add_sla",
@@ -208,7 +212,7 @@ def test_create_sla_conflict(client, monkeypatch):
         json=sla_data,
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "User group already exists"
+    assert resp.json()["detail"] == f"SLA with url={DUMMY_URL} already exists"
 
 
 def test_create_sla_not_null_error(client, monkeypatch):
@@ -224,7 +228,7 @@ def test_create_sla_not_null_error(client, monkeypatch):
     }
 
     def fake_add_sla(session, sla, created_by, user_group):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("SLA", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.add_sla",
@@ -236,7 +240,7 @@ def test_create_sla_not_null_error(client, monkeypatch):
         json=sla_data,
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 # GET (list) endpoint
@@ -332,33 +336,18 @@ def test_get_sla_success(client):
     fake_idp_id = get_fake_idp_id()
     fake_user_group_id = get_fake_user_group_id()
 
-    class FakeSLA:
-        id = fake_id
-        name = DUMMY_NAME
-        description = DUMMY_DESC
-        url = DUMMY_URL
-        start_date = DUMMY_START_DATE
-        end_date = DUMMY_END_DATE
-        user_group = fake_user_group_id
-        created_at = DUMMY_CREATED_AT
-        created_by_id = fake_id
-        updated_at = DUMMY_CREATED_AT
-        updated_by_id = fake_id
-
-        def model_dump(self):
-            return {
-                "id": self.id,
-                "description": self.description,
-                "name": self.name,
-                "url": self.url,
-                "start_date": self.start_date,
-                "end_date": self.end_date,
-                "user_group": self.user_group,
-                "created_at": self.created_at,
-                "created_by_id": self.created_by_id,
-                "updated_at": self.updated_at,
-                "updated_by_id": self.updated_by_id,
-            }
+    class FakeSLA(SQLModel):
+        id: uuid.UUID = fake_id
+        name: str = DUMMY_NAME
+        description: str = DUMMY_DESC
+        url: str = DUMMY_URL
+        start_date: str = DUMMY_START_DATE
+        end_date: str = DUMMY_END_DATE
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
+        user_group: Any = Field(fake_user_group_id, exclude=True)
 
     def fake_get_sla(user_group_id, session=None):
         return FakeSLA()
@@ -477,7 +466,7 @@ def test_edit_sla_not_found(client, monkeypatch):
     }
 
     def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise NoItemToUpdateError("User group not found")
+        raise ItemNotFoundError("SLA", id=sla_id)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
@@ -489,7 +478,7 @@ def test_edit_sla_not_found(client, monkeypatch):
         json=sla_data,
     )
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "User group not found"
+    assert resp.json()["detail"] == f"SLA with ID '{fake_id}' does not exist"
 
 
 def test_edit_sla_conflict(client, monkeypatch):
@@ -506,7 +495,7 @@ def test_edit_sla_conflict(client, monkeypatch):
     }
 
     def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise ConflictError("User group already exists")
+        raise ConflictError("SLA", "url", DUMMY_URL)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
@@ -518,7 +507,7 @@ def test_edit_sla_conflict(client, monkeypatch):
         json=sla_data,
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "User group already exists"
+    assert resp.json()["detail"] == f"SLA with url={DUMMY_URL} already exists"
 
 
 def test_edit_sla_not_null_error(client, monkeypatch):
@@ -535,7 +524,7 @@ def test_edit_sla_not_null_error(client, monkeypatch):
     }
 
     def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("SLA", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
@@ -547,7 +536,7 @@ def test_edit_sla_not_null_error(client, monkeypatch):
         json=sla_data,
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 # DELETE endpoint

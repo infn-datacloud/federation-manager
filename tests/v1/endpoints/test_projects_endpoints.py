@@ -18,11 +18,14 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
+
+from sqlmodel import SQLModel
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.main import sub_app_v1
@@ -32,7 +35,7 @@ from fed_mgr.v1.providers.projects.crud import get_project
 DUMMY_NAME = "eu-west-1"
 DUMMY_DESC = "A test project."
 DUMMY_IAAS_ID = "12345"
-DUMMY_CREATED_AT = "2024-01-01T00:00:00Z"
+DUMMY_CREATED_AT = datetime.now()
 
 
 def get_fake_provider_id() -> str:
@@ -52,8 +55,8 @@ def get_fake_provider_id() -> str:
 def fake_add_project(fake_id):
     """Return a fake project object with the given id."""
 
-    class FakeProject:
-        id = fake_id
+    class FakeProject(SQLModel):
+        id: uuid.UUID = fake_id
 
     return FakeProject()
 
@@ -130,7 +133,7 @@ def test_create_project_conflict(client, monkeypatch):
     }
 
     def fake_add_project(session, project, created_by, provider):
-        raise ConflictError("Project already exists")
+        raise ConflictError("Project", "iaas_project_id", DUMMY_IAAS_ID)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.projects.endpoints.add_project", fake_add_project
@@ -139,7 +142,10 @@ def test_create_project_conflict(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "Project already exists"
+    assert (
+        resp.json()["detail"]
+        == f"Project with iaas_project_id={DUMMY_IAAS_ID} already exists"
+    )
 
 
 def test_create_project_not_null_error(client, monkeypatch):
@@ -152,7 +158,7 @@ def test_create_project_not_null_error(client, monkeypatch):
     }
 
     def fake_add_project(session, project, created_by, provider):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("Project", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.projects.endpoints.add_project", fake_add_project
@@ -161,7 +167,7 @@ def test_create_project_not_null_error(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert resp.json()["detail"] == "Attribute 'name' of Project can't be NULL"
 
 
 def test_get_projects_parent_provider_not_found(client):
@@ -214,27 +220,16 @@ def test_get_project_success(client):
     fake_provider_id = get_fake_provider_id()
     fake_id = str(uuid.uuid4())
 
-    class FakeProject:
-        id = fake_id
-        name = DUMMY_NAME
-        description = DUMMY_DESC
-        iaas_project_id = DUMMY_IAAS_ID
-        created_at = DUMMY_CREATED_AT
-        created_by_id = fake_id
-        updated_at = DUMMY_CREATED_AT
-        updated_by_id = fake_id
-
-        def model_dump(self):
-            return {
-                "id": self.id,
-                "name": self.name,
-                "description": self.description,
-                "iaas_project_id": self.iaas_project_id,
-                "created_at": self.created_at,
-                "created_by_id": self.created_by_id,
-                "updated_at": self.updated_at,
-                "updated_by_id": self.updated_by_id,
-            }
+    class FakeProject(SQLModel):
+        id: uuid.UUID = fake_id
+        name: str = DUMMY_NAME
+        description: str = DUMMY_DESC
+        iaas_project_id: str = DUMMY_IAAS_ID
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
+        sla_id: uuid.UUID | None = None
 
     def fake_get_project(project_id, session=None):
         return FakeProject()
@@ -309,7 +304,7 @@ def test_edit_project_not_found(client, monkeypatch):
     }
 
     def fake_update_project(session, project_id, new_project, updated_by):
-        raise NoItemToUpdateError("Project not found")
+        raise ItemNotFoundError("Project", id=project_id)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
@@ -318,7 +313,7 @@ def test_edit_project_not_found(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
     )
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "Project not found"
+    assert resp.json()["detail"] == f"Project with ID '{fake_id}' does not exist"
 
 
 def test_edit_project_conflict(client, monkeypatch):
@@ -332,7 +327,7 @@ def test_edit_project_conflict(client, monkeypatch):
     }
 
     def fake_update_project(session, project_id, new_project, updated_by):
-        raise ConflictError("Project already exists")
+        raise ConflictError("Project", "iaas_project_id", DUMMY_IAAS_ID)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
@@ -341,7 +336,10 @@ def test_edit_project_conflict(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "Project already exists"
+    assert (
+        resp.json()["detail"]
+        == f"Project with iaas_project_id={DUMMY_IAAS_ID} already exists"
+    )
 
 
 def test_edit_project_not_null_error(client, monkeypatch):
@@ -355,7 +353,7 @@ def test_edit_project_not_null_error(client, monkeypatch):
     }
 
     def fake_update_project(session, project_id, new_project, updated_by):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("Project", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
@@ -364,7 +362,7 @@ def test_edit_project_not_null_error(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 def test_delete_project_parent_provider_not_found(client):

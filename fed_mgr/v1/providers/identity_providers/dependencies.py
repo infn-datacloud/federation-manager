@@ -33,7 +33,7 @@ def idp_overrides_required(
 
     """
     if idp_overrides is None:
-        message = f"Provider with ID '{provider_id!s}' does not define overrides for"
+        message = f"Provider with ID '{provider_id!s}' does not define overrides for "
         message += f"identity provider with ID '{idp_id!s}'"
         request.state.logger.error(message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)

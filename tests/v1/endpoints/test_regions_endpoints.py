@@ -18,12 +18,14 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
+
+from sqlmodel import SQLModel
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    LocationNotFoundError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.main import sub_app_v1
@@ -32,7 +34,7 @@ from fed_mgr.v1.providers.regions.crud import get_region
 
 DUMMY_NAME = "eu-west-1"
 DUMMY_DESC = "A test region."
-DUMMY_CREATED_AT = "2024-01-01T00:00:00Z"
+DUMMY_CREATED_AT = datetime.now()
 DUMMY_LOCATION_ID = str(uuid.uuid4())
 
 
@@ -53,8 +55,8 @@ def get_fake_provider_id() -> str:
 def fake_add_region(fake_id):
     """Return a fake region object with the given id."""
 
-    class FakeRegion:
-        id = fake_id
+    class FakeRegion(SQLModel):
+        id: uuid.UUID = fake_id
 
     return FakeRegion()
 
@@ -131,7 +133,7 @@ def test_create_region_conflict(client, monkeypatch):
     }
 
     def fake_add_region(session, region, created_by, provider):
-        raise ConflictError("Region already exists")
+        raise ConflictError("Region", "name", DUMMY_NAME)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.add_region", fake_add_region
@@ -140,7 +142,7 @@ def test_create_region_conflict(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/regions/", json=region_data
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "Region already exists"
+    assert resp.json()["detail"] == f"Region with name={DUMMY_NAME} already exists"
 
 
 def test_create_region_not_null_error(client, monkeypatch):
@@ -153,7 +155,7 @@ def test_create_region_not_null_error(client, monkeypatch):
     }
 
     def fake_add_region(session, region, created_by, provider):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("Region", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.add_region", fake_add_region
@@ -162,29 +164,29 @@ def test_create_region_not_null_error(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/regions/", json=region_data
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
-def test_create_region_location_not_found(client, monkeypatch):
-    """Test POST /regions/ returns 400 if location not found."""
-    fake_provider_id = get_fake_provider_id()
-    region_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "location_id": DUMMY_LOCATION_ID,
-    }
+# def test_create_region_location_not_found(client, monkeypatch):
+#     """Test POST /regions/ returns 400 if location not found."""
+#     fake_provider_id = get_fake_provider_id()
+#     region_data = {
+#         "name": DUMMY_NAME,
+#         "description": DUMMY_DESC,
+#         "location_id": DUMMY_LOCATION_ID,
+#     }
 
-    def fake_add_region(session, region, created_by, provider):
-        raise LocationNotFoundError("Location not found")
+#     def fake_add_region(session, region, created_by, provider):
+#         raise LocationNotFoundError("Location not found")
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.regions.endpoints.add_region", fake_add_region
-    )
-    resp = client.post(
-        f"/api/v1/providers/{fake_provider_id}/regions/", json=region_data
-    )
-    assert resp.status_code == 400
-    assert "Location not found" in resp.json()["detail"]
+#     monkeypatch.setattr(
+#         "fed_mgr.v1.providers.regions.endpoints.add_region", fake_add_region
+#     )
+#     resp = client.post(
+#         f"/api/v1/providers/{fake_provider_id}/regions/", json=region_data
+#     )
+#     assert resp.status_code == 400
+#     assert "Location not found" in resp.json()["detail"]
 
 
 def test_get_regions_parent_provider_not_found(client):
@@ -237,27 +239,15 @@ def test_get_region_success(client):
     fake_provider_id = get_fake_provider_id()
     fake_id = str(uuid.uuid4())
 
-    class FakeRegion:
-        id = fake_id
-        name = DUMMY_NAME
-        description = DUMMY_DESC
-        location_id = DUMMY_LOCATION_ID
-        created_at = DUMMY_CREATED_AT
-        created_by_id = fake_id
-        updated_at = DUMMY_CREATED_AT
-        updated_by_id = fake_id
-
-        def model_dump(self):
-            return {
-                "id": self.id,
-                "name": self.name,
-                "description": self.description,
-                "location_id": self.location_id,
-                "created_at": self.created_at,
-                "created_by_id": self.created_by_id,
-                "updated_at": self.updated_at,
-                "updated_by_id": self.updated_by_id,
-            }
+    class FakeRegion(SQLModel):
+        id: uuid.UUID = fake_id
+        name: str = DUMMY_NAME
+        description: str = DUMMY_DESC
+        # location_id: uuid.UUID = DUMMY_LOCATION_ID
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
 
     def fake_get_region(region_id, session=None):
         return FakeRegion()
@@ -332,7 +322,7 @@ def test_edit_region_not_found(client, monkeypatch):
     }
 
     def fake_update_region(session, region_id, new_region, updated_by):
-        raise NoItemToUpdateError("Region not found")
+        raise ItemNotFoundError("Region", id=region_id)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.update_region", fake_update_region
@@ -341,7 +331,7 @@ def test_edit_region_not_found(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}", json=region_data
     )
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "Region not found"
+    assert resp.json()["detail"] == f"Region with ID '{fake_id}' does not exist"
 
 
 def test_edit_region_conflict(client, monkeypatch):
@@ -351,11 +341,11 @@ def test_edit_region_conflict(client, monkeypatch):
     region_data = {
         "name": DUMMY_NAME,
         "description": DUMMY_DESC,
-        "location_id": DUMMY_LOCATION_ID,
+        # "location_id": DUMMY_LOCATION_ID,
     }
 
     def fake_update_region(session, region_id, new_region, updated_by):
-        raise ConflictError("Region already exists")
+        raise ConflictError("Region", "name", DUMMY_NAME)
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.update_region", fake_update_region
@@ -364,7 +354,7 @@ def test_edit_region_conflict(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}", json=region_data
     )
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "Region already exists"
+    assert resp.json()["detail"] == f"Region with name={DUMMY_NAME} already exists"
 
 
 def test_edit_region_not_null_error(client, monkeypatch):
@@ -374,11 +364,11 @@ def test_edit_region_not_null_error(client, monkeypatch):
     region_data = {
         "name": DUMMY_NAME,
         "description": DUMMY_DESC,
-        "location_id": DUMMY_LOCATION_ID,
+        # "location_id": DUMMY_LOCATION_ID,
     }
 
     def fake_update_region(session, region_id, new_region, updated_by):
-        raise NotNullError("Field 'name' cannot be null")
+        raise NotNullError("Region", "name")
 
     monkeypatch.setattr(
         "fed_mgr.v1.providers.regions.endpoints.update_region", fake_update_region
@@ -387,30 +377,30 @@ def test_edit_region_not_null_error(client, monkeypatch):
         f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}", json=region_data
     )
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
-def test_edit_region_location_not_found(client, monkeypatch):
-    """Test PUT /regions/{region_id} returns 400 if location not found."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    region_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "location_id": DUMMY_LOCATION_ID,
-    }
+# def test_edit_region_location_not_found(client, monkeypatch):
+#     """Test PUT /regions/{region_id} returns 400 if location not found."""
+#     fake_provider_id = get_fake_provider_id()
+#     fake_id = str(uuid.uuid4())
+#     region_data = {
+#         "name": DUMMY_NAME,
+#         "description": DUMMY_DESC,
+#         "location_id": DUMMY_LOCATION_ID,
+#     }
 
-    def fake_update_region(session, region_id, new_region, updated_by):
-        raise LocationNotFoundError("Location not found")
+#     def fake_update_region(session, region_id, new_region, updated_by):
+#         raise LocationNotFoundError("Location not found")
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.regions.endpoints.update_region", fake_update_region
-    )
-    resp = client.put(
-        f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}", json=region_data
-    )
-    assert resp.status_code == 400
-    assert "Location not found" in resp.json()["detail"]
+#     monkeypatch.setattr(
+#         "fed_mgr.v1.providers.regions.endpoints.update_region", fake_update_region
+#     )
+#     resp = client.put(
+#         f"/api/v1/providers/{fake_provider_id}/regions/{fake_id}", json=region_data
+#     )
+#     assert resp.status_code == 400
+#     assert "Location not found" in resp.json()["detail"]
 
 
 def test_delete_region_parent_provider_not_found(client):

@@ -16,11 +16,15 @@ Tests in this file:
 """
 
 import uuid
+from datetime import datetime
+
+from pydantic import AnyHttpUrl
+from sqlmodel import SQLModel
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
-    NoItemToUpdateError,
+    ItemNotFoundError,
     NotNullError,
 )
 from fed_mgr.main import sub_app_v1
@@ -32,14 +36,14 @@ DUMMY_NAME = "Test IdP"
 DUMMY_CLAIM = "groups"
 DUMMY_PROTOCOL = "openid"
 DUMMY_AUD = "aud1"
-DUMMY_CREATED_AT = "2024-01-01T00:00:00Z"
+DUMMY_CREATED_AT = datetime.now()
 
 
 def fake_add_idp(fake_id):
     """Return a fake identity provider object with the given id."""
 
-    class FakeIdp:
-        id = fake_id
+    class FakeIdp(SQLModel):
+        id: uuid.UUID = fake_id
 
     return FakeIdp()
 
@@ -85,13 +89,16 @@ def test_create_idp_conflict(client, monkeypatch):
     }
 
     def fake_add_idp(session, idp, created_by):
-        raise ConflictError("IDP already exists")
+        raise ConflictError("Identity provider", "endpoint", "https://example.com")
 
     monkeypatch.setattr("fed_mgr.v1.identity_providers.endpoints.add_idp", fake_add_idp)
 
     resp = client.post("/api/v1/idps/", json=idp_data)
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "IDP already exists"
+    assert (
+        resp.json()["detail"]
+        == "Identity provider with endpoint=https://example.com already exists"
+    )
 
 
 def test_create_idp_not_null_error(client, monkeypatch):
@@ -106,13 +113,13 @@ def test_create_idp_not_null_error(client, monkeypatch):
     }
 
     def fake_add_idp(session, idp, created_by):
-        raise NotNullError("Field 'endpoint' cannot be null")
+        raise NotNullError("Identity provider", "endpoint")
 
     monkeypatch.setattr("fed_mgr.v1.identity_providers.endpoints.add_idp", fake_add_idp)
 
     resp = client.post("/api/v1/idps/", json=idp_data)
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert "can't be NULL" in resp.json()["detail"]
 
 
 def test_get_idps_success(client, monkeypatch):
@@ -135,33 +142,18 @@ def test_get_idp_success(client):
     """Test GET /idps/{idp_id} returns identity provider if found."""
     fake_id = str(uuid.uuid4())
 
-    class FakeIdp:
-        id = fake_id
-        description = DUMMY_DESC
-        endpoint = DUMMY_ENDPOINT
-        name = DUMMY_NAME
-        groups_claim = DUMMY_CLAIM
-        protocol = DUMMY_PROTOCOL
-        audience = DUMMY_AUD
-        created_at = DUMMY_CREATED_AT
-        created_by_id = fake_id
-        updated_at = DUMMY_CREATED_AT
-        updated_by_id = fake_id
-
-        def model_dump(self):
-            return {
-                "id": self.id,
-                "description": self.description,
-                "endpoint": self.endpoint,
-                "name": self.name,
-                "groups_claim": self.groups_claim,
-                "protocol": self.protocol,
-                "audience": self.audience,
-                "created_at": self.created_at,
-                "created_by_id": self.created_by_id,
-                "updated_at": self.updated_at,
-                "updated_by_id": self.updated_by_id,
-            }
+    class FakeIdp(SQLModel):
+        id: uuid.UUID = fake_id
+        description: str = DUMMY_DESC
+        endpoint: AnyHttpUrl = DUMMY_ENDPOINT
+        name: str = DUMMY_NAME
+        groups_claim: str = DUMMY_CLAIM
+        protocol: str = DUMMY_PROTOCOL
+        audience: str = DUMMY_AUD
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
 
     def fake_get_idp(idp_id, session=None):
         return FakeIdp()
@@ -220,7 +212,7 @@ def test_edit_idp_not_found(client, monkeypatch):
     }
 
     def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise NoItemToUpdateError("IDP not found")
+        raise ItemNotFoundError("Identity provider", id=idp_id)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
@@ -228,7 +220,9 @@ def test_edit_idp_not_found(client, monkeypatch):
 
     resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "IDP not found"
+    assert (
+        resp.json()["detail"] == f"Identity provider with ID '{fake_id}' does not exist"
+    )
 
 
 def test_edit_idp_conflict(client, monkeypatch):
@@ -244,7 +238,7 @@ def test_edit_idp_conflict(client, monkeypatch):
     }
 
     def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise ConflictError("IDP already exists")
+        raise ConflictError("Identity Provider", "endpoint", DUMMY_ENDPOINT)
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
@@ -252,7 +246,10 @@ def test_edit_idp_conflict(client, monkeypatch):
 
     resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
     assert resp.status_code == 409
-    assert resp.json()["detail"] == "IDP already exists"
+    assert (
+        resp.json()["detail"]
+        == f"Identity Provider with endpoint={DUMMY_ENDPOINT} already exists"
+    )
 
 
 def test_edit_idp_not_null_error(client, monkeypatch):
@@ -268,7 +265,7 @@ def test_edit_idp_not_null_error(client, monkeypatch):
     }
 
     def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise NotNullError("Field 'endpoint' cannot be null")
+        raise NotNullError("Identity provider", "endpoint")
 
     monkeypatch.setattr(
         "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
@@ -276,7 +273,10 @@ def test_edit_idp_not_null_error(client, monkeypatch):
 
     resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
     assert resp.status_code == 422
-    assert "cannot be null" in resp.json()["detail"]
+    assert (
+        resp.json()["detail"]
+        == "Attribute 'endpoint' of Identity provider can't be NULL"
+    )
 
 
 def test_delete_idp_success(client, monkeypatch):
