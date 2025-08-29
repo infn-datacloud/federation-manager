@@ -45,6 +45,13 @@ spec:
                   name: db-cm0
                   key: mysql_user
           image: mysql:8
+          name: fed-mgr-db
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: db-data
           livenessProbe:
             exec:
               command:
@@ -55,16 +62,23 @@ spec:
                 - -uroot
                 - -pchangeit
                 - --silent
-            failureThreshold: 50
+            failureThreshold: 10
+            initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 5
-          name: fed-mgr-db
-          ports:
-            - containerPort: 3306
-              protocol: TCP
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: db-data
+          readinessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - 127.0.0.1
+                - -uroot
+                - -pchangeit
+                - --silent
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
       restartPolicy: Always
       volumes:
         - name: db-data

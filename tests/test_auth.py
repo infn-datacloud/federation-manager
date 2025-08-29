@@ -53,6 +53,8 @@ class DummySettings:
     AUTHZ_MODE = None
     TRUSTED_IDP_LIST: ClassVar[list[str]] = ["https://idp.example.com"]
     OPA_AUTHZ_URL = "http://opa:8181/v1/data/example/allow"
+    IDP_TIMEOUT = 5
+    OPA_TIMEOUT = 5
 
 
 class DummyLogger:

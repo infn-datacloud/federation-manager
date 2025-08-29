@@ -217,21 +217,18 @@ async def consume(
             logger.error(msg)
 
 
-async def start_kafka_consumer(topic: str, settings: Settings, logger: Logger) -> None:
+async def start_kafka_consumer(
+    topic: str, settings: Settings, logger: Logger
+) -> AIOKafkaConsumer | None:
     """Start an asynchronous Kafka consumer for the specified topic.
 
     This function initializes an AIOKafkaConsumer with the given configuration,
-    including SSL parameters if enabled. It consumes messages from the Kafka topic.
-    Errors during consumer startup or message consumption are logged, and a KafkaError
-    is raised if the consumer fails to start.
+    including SSL parameters if enabled. Errors during consumer startup are logged.
 
     Args:
         topic (str): The Kafka topic to consume messages from.
         settings (Settings): Configuration settings for the Kafka consumer.
         logger (Logger): Logger instance for logging information and errors.
-
-    Raises:
-        KafkaError: If the Kafka consumer fails to start or during message consumption.
 
     """
     kwargs = {
@@ -253,21 +250,36 @@ async def start_kafka_consumer(topic: str, settings: Settings, logger: Logger) -
     kafka_consumer = AIOKafkaConsumer(topic, **kwargs)
     try:
         await kafka_consumer.start()
+        msg = f"Consumer on topic '{topic}' started"
+        logger.info(msg)
+        return kafka_consumer
     except (KafkaConnectionError, UnsupportedVersionError, ValueError) as e:
         msg = f"Failed to start Kafka consumer: {e.args[0]}"
         logger.error(msg)
         await kafka_consumer.stop()
-        return
+        return None
 
-    msg = f"Consumer on topic '{topic}' started"
-    logger.info(msg)
 
-    try:
-        await consume(kafka_consumer, settings, logger)
-    except (ConsumerStoppedError, RecordTooLargeError) as e:
-        msg = f"Error reading messages from topic '{topic}': {e.args[0]}"
-        logger.error(msg)
-        await kafka_consumer.stop()
+async def start_kafka_listener(topic: str, settings: Settings, logger: Logger) -> None:
+    """Start an asynchronous Kafka consumer for the specified topic and consume msg.
+
+    Args:
+        topic (str): The Kafka topic to consume messages from.
+        settings (Settings): Configuration settings for the Kafka consumer.
+        logger (Logger): Logger instance for logging information and errors.
+
+    Raises:
+        KafkaError: If the Kafka consumer fails to start or during message consumption.
+
+    """
+    kafka_consumer = await start_kafka_consumer(topic, settings, logger)
+    if kafka_consumer is not None:
+        try:
+            await consume(kafka_consumer, settings, logger)
+        except (ConsumerStoppedError, RecordTooLargeError) as e:
+            msg = f"Error reading messages from topic '{topic}': {e.args[0]}"
+            logger.error(msg)
+            await kafka_consumer.stop()
 
 
 async def start_kafka_listeners(

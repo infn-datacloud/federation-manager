@@ -41,6 +41,23 @@ spec:
             - mountPath: /fed_mgr
               name: opa-cm0
               readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              scheme: HTTP
+              port: 8181
+            failureThreshold: 10
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health?bundle=true # Include bundle activation in readiness
+              scheme: HTTP
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
       restartPolicy: Always
       volumes:
         - configMap:

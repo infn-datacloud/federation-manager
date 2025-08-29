@@ -113,12 +113,18 @@ class Settings(BaseSettings):
             description="List of the application trusted identity providers",
         ),
     ]
+    IDP_TIMEOUT: Annotated[
+        int, Field(default=5, description="Communication timeout for IDP")
+    ]
     OPA_AUTHZ_URL: Annotated[
         AnyHttpUrl,
         Field(
             default="http://localhost:8181/v1/data/fed_mgr",
             description="Open Policy Agent service roles authorization URL",
         ),
+    ]
+    OPA_TIMEOUT: Annotated[
+        int, Field(default=5, description="Communication timeout for OPA")
     ]
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyHttpUrl | Literal["*"]],
