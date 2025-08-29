@@ -1,27 +1,39 @@
 [tool.poetry]
-name = "federation-manager"
+name = "fed-mgr"
 version = "0.1.0"
-description = ""
-authors = ["Giovanni Savarese <giovanni.savarese@lnl.infn.it>"]
+description = "INFN-DataCloud federation-manager python library and backend REST API"
+authors = ["Giovanni Savarese <giovanni.savarese@ba.infn.it>"]
+license = "Apache License 2.0"
 readme = "README.md"
-packages = [{ include = "fed_mng" }]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-federation-registry = {git = "https://github.com/infn-datacloud/federation-registry.git"}
-sqlmodel = "^0.0.14"
-spiffworkflow = "^3.0.0"
-python-socketio = "^5.11.2"
-eventlet = "^0.36.1"
-websockets = "^12.0"
+python = ">=3.12,<4.0.0"
+pydantic-settings = "^2.9.1"
+pydantic = {extras = ["email"], version = "^2.11.4"}
+sqlmodel = "^0.0.24"
+aiokafka = "^0.12.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.4"
-ruff = "^0.2.1"
-pytest-cases = "^3.8.2"
-pytest-cov = "^4.1.0"
-httpx = "^0.27.0"
-websocket-client = "^1.8.0"
+pre-commit = "^3.5.0"
+pytest = "^8.3.5"
+pytest-cases = "^3.8.6"
+pytest-mock = "^3.14.0"
+pytest-cov = "^6.1.1"
+ruff = "^0.11.10"
+fastapi-cli = "^0.0.7"
+pytest-asyncio = "^0.26.0"
+
+[tool.poetry.group.rest-api.dependencies]
+fastapi = {extras = ["standard"], version = "^0.115.13"}
+sqlalchemy = "^2.0.41"
+flaat = "^1.2.0"
+opentelemetry-distro = "^0.55b1"
+
+[tool.poetry.group.mysql]
+optional = true
+
+[tool.poetry.group.mysql.dependencies]
+pymysql = "^1.1.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -32,15 +44,10 @@ build-backend = "poetry.core.masonry.api"
 # mccabe (C90) pep8-naming (N), pydocstyle (D), pyupgrade (UP), 
 # ruff specific rules (RUF),
 # flake8-bugbear (B), flake8-logging-format (G), flake8-quotes (Q)
-extend-select = ["B", "C90", "E", "F", "G", "I", "N", "Q", "RUF", "UP", "W"]
+extend-select = ["B", "C90", "E", "D", "F", "G", "I", "N", "Q", "RUF", "UP", "W"]
 
-[tool.ruff.lint.flake8-bugbear]
-# Ignore flake8-bugbear errors raised by Depends, Query and Security
-extend-immutable-calls = [
-    "fastapi.Depends", 
-    "fastapi.params.Depends", 
-    "fastapi.Query", 
-    "fastapi.params.Query", 
-    "fastapi.Security", 
-    "fastapi.params.Security",
-]
+[tool.coverage.run]
+relative_files = true
+source = ["fed_mgr/"]
+branch = true
+omit = ["tests/**"]

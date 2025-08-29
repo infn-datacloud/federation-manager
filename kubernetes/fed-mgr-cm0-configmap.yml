@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: fed-mgr
+  name: fed-mgr-cm0
+data:
+  authn_mode: local
+  authz_mode: opa
+  db_url: mysql+pymysql://fed-mgr:changeit@db:3306/fed_mgr
+  opa_url: http://opa:8181/v1/data/fed_mgr

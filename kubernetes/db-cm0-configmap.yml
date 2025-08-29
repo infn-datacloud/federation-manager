@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: db
+  name: db-cm0
+data:
+  mysql_database: fed_mgr
+  mysql_user: fed-mgr
+  mysql_password: changeit
+  mysql_root_password: changeit

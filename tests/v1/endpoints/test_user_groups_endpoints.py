@@ -1,0 +1,366 @@
+"""Integration tests for fed_mgr.v1.identity_providers.user_groups.endpoints.
+
+Tests in this file:
+- test_options_user_groups
+- test_create_user_group_success
+- test_create_user_group_conflict
+- test_create_user_group_not_null_error
+- test_create_user_group_parent_idp_not_found
+- test_get_user_groups_success
+- test_get_user_group_success
+- test_get_user_group_not_found
+- test_edit_user_group_success
+- test_edit_user_group_not_found
+- test_edit_user_group_conflict
+- test_edit_user_group_not_null_error
+- test_delete_user_group_success
+"""
+
+import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlmodel import Field, SQLModel
+
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    ItemNotFoundError,
+    NotNullError,
+)
+from fed_mgr.main import sub_app_v1
+from fed_mgr.v1.identity_providers.crud import get_idp
+from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
+
+DUMMY_DESC = "desc"
+DUMMY_NAME = "Test UserGroup"
+DUMMY_CREATED_AT = datetime.now()
+
+
+def get_fake_idp_id() -> str:
+    """Patch get_idp depencency to return a dummy IDP."""
+    fake_id = str(uuid.uuid4())
+
+    class FakeIdp:
+        id = fake_id
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: FakeIdp()
+
+    return fake_id
+
+
+# OPTIONS endpoint
+def test_options_user_groups_parent_idp_not_found(client):
+    """Test OPTIONS returns 404 if parent_idp is None."""
+    fake_idp_id = str(uuid.uuid4())
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+
+    resp = client.options(f"/api/v1/idps/{fake_idp_id}/user-groups/")
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_options_user_groups(client):
+    """Test OPTIONS /idps/{idp_id}/user-groups/ returns 204 and Allow header."""
+    fake_idp_id = get_fake_idp_id()
+
+    resp = client.options(f"/api/v1/idps/{fake_idp_id}/user-groups/")
+    assert resp.status_code == 204
+    assert "allow" in resp.headers or "Allow" in resp.headers
+
+
+# POST endpoint
+def test_create_user_group_parent_idp_not_found(client):
+    """Test POST returns 404 if parent_idp is None."""
+    fake_idp_id = str(uuid.uuid4())
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+
+    resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_create_user_group_success(client, monkeypatch):
+    """Test POST creates a user group and returns 201 with id."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_add_user_group(session, user_group, created_by, idp):
+        class FakeUserGroup(SQLModel):
+            id: uuid.UUID = fake_id
+
+        return FakeUserGroup()
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.add_user_group",
+        fake_add_user_group,
+    )
+    resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
+    assert resp.status_code == 201
+    assert resp.json() == {"id": fake_id}
+
+
+def test_create_user_group_conflict(client, monkeypatch):
+    """Test POST returns 409 if user group already exists."""
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_add_user_group(session, user_group, created_by, idp):
+        raise ConflictError("User group", "name", DUMMY_NAME)
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.add_user_group",
+        fake_add_user_group,
+    )
+    resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == f"User group with name={DUMMY_NAME} already exists"
+
+
+def test_create_user_group_not_null_error(client, monkeypatch):
+    """Test POST returns 409 if a not null error occurs."""
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_add_user_group(session, user_group, created_by, idp):
+        raise NotNullError("User group", "name")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.add_user_group",
+        fake_add_user_group,
+    )
+
+    resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
+    assert resp.status_code == 422
+    assert "can't be NULL" in resp.json()["detail"]
+
+
+# GET (list) endpoint
+def test_get_user_groups_parent_idp_not_found(client):
+    """Test GET returns 404 if parent_idp is None."""
+    fake_idp_id = str(uuid.uuid4())
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+
+    resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/")
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_get_user_groups_success(client, monkeypatch):
+    """Test GET returns paginated user group list."""
+    fake_user_groups = []
+    fake_total = 0
+    fake_idp_id = get_fake_idp_id()
+
+    def fake_get_user_groups(session, skip, limit, sort, **kwargs):
+        return fake_user_groups, fake_total
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.get_user_groups",
+        fake_get_user_groups,
+    )
+    resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/")
+    assert resp.status_code == 200
+    assert "data" in resp.json()
+
+
+# GET (by id) endpoint
+def test_get_user_group_parent_idp_not_found(client):
+    """Test GET by id returns 404 if parent_idp is None."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = str(uuid.uuid4())
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_user_group] = (
+        lambda user_group_id, session=None: None
+    )
+
+    resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_get_user_group_success(client):
+    """Test GET by id returns user group."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+
+    class FakeUserGroup(SQLModel):
+        id: uuid.UUID = fake_id
+        name: str = DUMMY_NAME
+        description: str = DUMMY_DESC
+        created_at: datetime = DUMMY_CREATED_AT
+        created_by_id: uuid.UUID = fake_id
+        updated_at: datetime = DUMMY_CREATED_AT
+        updated_by_id: uuid.UUID = fake_id
+        idp: Any = Field(fake_idp_id, exclude=True)
+
+    def fake_get_user_group(idp_id, session=None):
+        return FakeUserGroup()
+
+    sub_app_v1.dependency_overrides[get_user_group] = fake_get_user_group
+
+    resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 200
+    assert resp.json()["id"] == fake_id
+
+
+def test_get_user_group_not_found(client):
+    """Test GET by id returns 404 if not found."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+
+    sub_app_v1.dependency_overrides[get_user_group] = (
+        lambda user_group_id, session=None: None
+    )
+    resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+# PUT endpoint
+def test_edit_user_group_parent_idp_not_found(client):
+    """Test PUT returns 404 if parent_idp is None."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = str(uuid.uuid4())
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+
+    resp = client.put(
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
+    )
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_edit_user_group_success(client, monkeypatch):
+    """Test PUT returns 204 on success."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
+        return None
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
+        fake_update_user_group,
+    )
+
+    resp = client.put(
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
+    )
+    assert resp.status_code == 204
+
+
+def test_edit_user_group_not_found(client, monkeypatch):
+    """Test PUT returns 404 if not found."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
+        raise ItemNotFoundError("User group", id=user_group_id)
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
+        fake_update_user_group,
+    )
+
+    resp = client.put(
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == f"User group with ID '{fake_id}' does not exist"
+
+
+def test_edit_user_group_conflict(client, monkeypatch):
+    """Test PUT returns 409 if conflict."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
+        raise ConflictError("User group", "name", DUMMY_NAME)
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
+        fake_update_user_group,
+    )
+
+    resp = client.put(
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
+    )
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == f"User group with name={DUMMY_NAME} already exists"
+
+
+def test_edit_user_group_not_null_error(client, monkeypatch):
+    """Test PUT returns 422 if not null."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+    user_group_data = {"name": DUMMY_NAME, "description": DUMMY_DESC}
+
+    def fake_update_user_group(session, user_group_id, new_user_group, updated_by):
+        raise NotNullError("User group", "name")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.update_user_group",
+        fake_update_user_group,
+    )
+
+    resp = client.put(
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
+    )
+    assert resp.status_code == 422
+    assert "can't be NULL" in resp.json()["detail"]
+
+
+# DELETE endpoint
+def test_delete_user_group_parent_idp_not_found(client):
+    """Test DELETE returns 404 if parent_idp is None."""
+    fake_id = str(uuid.uuid4())
+    idp_id = str(uuid.uuid4())
+
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+
+    resp = client.delete(f"/api/v1/idps/{idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_delete_user_group_success(client, monkeypatch):
+    """Test DELETE returns 204 on success."""
+    fake_id = str(uuid.uuid4())
+    fake_idp_id = get_fake_idp_id()
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.delete_user_group",
+        lambda session, user_group_id: None,
+    )
+
+    resp = client.delete(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 204
+
+
+def test_delete_user_group_fail(client, monkeypatch):
+    """Test DELETE /user_groups/{user_group_id} returns 400 on fail."""
+    fake_idp_id = get_fake_idp_id()
+    fake_id = str(uuid.uuid4())
+
+    def fake_delete_user_group(session, user_group_id):
+        raise DeleteFailedError("Failed to delete item")
+
+    monkeypatch.setattr(
+        "fed_mgr.v1.identity_providers.user_groups.endpoints.delete_user_group",
+        fake_delete_user_group,
+    )
+
+    resp = client.delete(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
+    assert resp.status_code == 400

@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    io.kompose.service: opa
+  name: opa-cm0
+data:
+  data.json: |-
+    {
+        "site_admin_entitlements": [
+            "fed-mgr/site_admin"
+        ],
+        "site_tester_entitlements": [
+            "fed-mgr/site_tester"
+        ],
+        "user_group_mgr_entitlements": [
+            "fed-mgr/user_group_mgr"
+        ],
+        "sla_mod_entitlements": [
+            "fed-mgr/sla_mod"
+        ],
+        "admin_entitlements": [
+            "datacloud/fedmgr"
+        ],
+        "trusted_issuers": [
+            {
+                "endpoint": "https://iam.cloud.infn.it/",
+                "claim": "groups"
+            },
+            {
+                "endpoint": "https://iam.icsc.cloud.infn.it/",
+                "claim": "groups"
+            }
+        ],
+        "site_admin_endpoints": [
+            {
+                "path": "/api/v1/users/",
+                "method": "GET"
+            },
+            {
+                "path": "/api/v1/idps/",
+                "method": "GET"
+            }
+        ],
+        "site_tester_endpoints": [
+            {
+                "path": "/api/v1/users/",
+                "method": "GET"
+            },
+            {
+                "path": "/api/v1/idps/",
+                "method": "GET"
+            }
+        ],
+        "user_group_mgr_endpoints": [
+            {
+                "path": "/api/v1/users/",
+                "method": "GET"
+            },
+            {
+                "path": "/api/v1/idps/",
+                "method": "GET"
+            }
+        ],
+        "sla_mod_endpoints": [
+            {
+                "path": "/api/v1/users/",
+                "method": "GET"
+            },
+            {
+                "path": "/api/v1/idps/",
+                "method": "GET"
+            }
+        ]
+    }
+  policy.rego: |+
+    # The policy returns the roles granted to a user identified by a trused issuer.
+    # Roles are stored in the "groups" attribute of the JWT token.
+    #
+    # This policy does:
+    #
+    #   * Extract and decode a JSON Web Token (JWT).
+    #   * Verify signatures on JWT using built-in functions in Rego.
+    #   * Define helper rules that provide useful abstractions.
+    #   * Verify token's iss is a trusted issuer.
+    #   * Retrieve roles granted to authenticated user.
+    #
+    # For more information see:
+    #
+    #   * Rego JWT decoding and verification functions:
+    #     https://www.openpolicyagent.org/docs/latest/policy-reference/#token-verification
+    #
+    package fed_mgr
+
+    import rego.v1
+
+    default claim := ""
+
+    claim := issuer.claim if {
+        some issuer in data.trusted_issuers
+        issuer.endpoint == input.user_info.iss
+    }
+
+    default is_user := false
+
+    is_user if {
+        some issuer in data.trusted_issuers
+        issuer.endpoint == input.user_info.iss
+    }
+
+    default is_site_admin := false
+
+    is_site_admin if {
+        is_user
+        some role in input.user_info[claim]
+        role in data.site_admin_entitlements
+    }
+
+    default is_site_tester := false
+
+    is_site_tester if {
+        is_user
+        some role in input.user_info[claim]
+        role in data.site_tester_entitlements
+    }
+
+    default is_user_group_mgr := false
+
+    is_user_group_mgr if {
+        is_user
+        some role in input.user_info[claim]
+        role in data.user_group_mgr_entitlements
+    }
+
+    default is_sla_mod := false
+
+    is_sla_mod if {
+        is_user
+        some role in input.user_info[claim]
+        role in data.sla_mod_entitlements
+    }
+
+    default is_admin := false
+
+    is_admin if {
+        is_user
+        some role in input.user_info[claim]
+        role in data.admin_entitlements
+    }
+
+    default allow := false
+
+    # Allow if user is admin
+    allow if {
+        is_admin
+    }
+
+    # Allow users on permitted endpoints
+    allow if {
+        is_site_admin
+        some endpoint in data.site_admin_endpoints
+        endpoint.method == input.method
+        endpoint.path == input.path
+    }
+
+    allow if {
+        is_site_tester
+        some endpoint in data.site_tester_endpoints
+        endpoint.method == input.method
+        endpoint.path == input.path
+    }
+
+    allow if {
+        is_user_group_mgr
+        some endpoint in data.user_group_mgr_endpoints
+        endpoint.method == input.method
+        endpoint.path == input.path
+    }
+
+    allow if {
+        is_sla_mod
+        some endpoint in data.sla_mod_endpoints
+        endpoint.method == input.method
+        endpoint.path == input.path
+    }

@@ -1,0 +1,52 @@
+services:
+  fed-mgr:
+    image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr-rest-api:main
+    container_name: fed-mgr
+    restart: unless-stopped
+    depends_on:
+      - db
+      - opa
+    ports:
+      - 8000:80
+    environment:
+      DB_URL: mysql+pymysql://fed-mgr:changeit@fed-mgr-db:3306/fed-mgr
+      AUTHN_MODE: local
+      AUTHZ_MODE: opa 
+    networks:
+      - fed-mgr-net
+
+  db:
+    image: mysql:8
+    container_name: fed-mgr-db
+    restart: unless-stopped
+    ports:
+      - 3306:3306
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: changeit
+      MYSQL_DATABASE: fed_mgr
+      MYSQL_USER: fed-mgr
+      MYSQL_PASSWORD: changeit
+    networks:
+      - fed-mgr-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-changeit}", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 50
+
+  opa:
+    image: openpolicyagent/opa
+    container_name: opa
+    ports:
+      - 8181:8181
+    volumes:
+      - ../opa/data:/fed_mgr:ro
+    command: run --server --log-level debug --addr 0.0.0.0:8181 /fed_mgr
+
+networks:
+  fed-mgr-net:
+
+volumes:
+  db-data:

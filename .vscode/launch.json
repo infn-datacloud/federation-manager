@@ -5,65 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Current File and Dependencies",
+      "name": "FastAPI App",
       "type": "debugpy",
       "request": "launch",
-      "program": "${file}",
+      "module": "fastapi",
+      "args": ["dev", "fed_mgr/main.py"],
       "console": "integratedTerminal",
       "justMyCode": false
-    },
-    {
-      "name": "Spiffworkflow",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "fed_mng/workflow/spiff.py",
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Uvicorn: FastAPI App",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["fed_mng.main:app", "--reload"],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Pytest: Specific test",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["${lineNumber}"],
-      "console": "integratedTerminal",
-      "justMyCode": true
-    },
-    {
-      "name": "Pytest: Specific file",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["${relativeFile}"],
-      "console": "integratedTerminal",
-      "justMyCode": true
-    },
-    {
-      "name": "Pytest: Specific folder",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["${relativeFileDirname}"],
-      "console": "integratedTerminal",
-      "justMyCode": true
-    },
-    {
-      "name": "Pytest: All",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["${workspaceFolder}/tests"],
-      "console": "integratedTerminal",
-      "justMyCode": true
     }
   ]
 }
