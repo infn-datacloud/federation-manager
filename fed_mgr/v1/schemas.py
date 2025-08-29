@@ -321,7 +321,7 @@ class KafkaEvaluateProviderMessage(SQLModel):
     """Schema for Kafka messages used to evaluate a resource provider."""
 
     msg_version: Annotated[str, Field(default="v1.0.0", description="Message version")]
-    auth_url: Annotated[
+    auth_endpoint: Annotated[
         AnyHttpUrl, Field(description="Resource provider authentication URL")
     ]
     region_name: Annotated[str, Field(description="Openstack region name")]

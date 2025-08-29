@@ -10,8 +10,11 @@ import uuid
 from sqlalchemy import event
 from sqlmodel import Session
 
+from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
+from fed_mgr.kafka import send_provider_to_be_evaluated
+from fed_mgr.logger import get_logger
 from fed_mgr.utils import check_list_not_empty
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
@@ -399,7 +402,7 @@ def provider_can_be_evaluated(provider: Provider) -> bool:
     return len(provider.site_testers) > 0
 
 
-def update_provider_status(provider: Provider) -> Provider:
+async def update_provider_status(provider: Provider) -> Provider:
     """Update the status of a Provider instance based on its attributes.
 
     Transitions the provider's status according to the following rules:
@@ -415,6 +418,8 @@ def update_provider_status(provider: Provider) -> Provider:
         None
 
     """
+    settings = get_settings()
+    logger = get_logger(settings)
     match provider.status:
         case ProviderStatus.draft:
             if is_provider_ready(provider):
@@ -425,15 +430,17 @@ def update_provider_status(provider: Provider) -> Provider:
         case ProviderStatus.submitted:
             if provider_can_be_evaluated(provider):
                 provider.status = ProviderStatus.evaluation
+                await send_provider_to_be_evaluated(provider, settings, logger)
     return provider
 
 
 @event.listens_for(Provider, "before_update")
-def before_update_provider(mapper, connection, provider: Provider):
+async def before_update_provider(mapper, connection, provider: Provider):
     """Listen for the 'before_update' event.
 
     Apply automatic state changes when all conditions are met:
     - advance from draft to ready
     - revert from ready to draft
+    - advance from submit to evaluation and send message to kafka
     """
-    update_provider_status(provider)
+    await update_provider_status(provider)

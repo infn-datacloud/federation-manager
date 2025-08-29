@@ -355,17 +355,20 @@ async def test_start_kafka_consumer_start_exception(monkeypatch, error):
     settings.KAFKA_SSL_ENABLE = False
 
     logger = mock.Mock()
+    kafka_consumer_mock = mock.Mock()
 
-    class DummyConsumer:
-        async def start(self):
-            raise error("fail_start")
+    async def start_fail(*args, **kwargs):
+        raise error("fail_start")
 
+    kafka_consumer_mock.start = start_fail
+    kafka_consumer_mock.stop = mock.AsyncMock()
     monkeypatch.setattr(
-        "fed_mgr.kafka.AIOKafkaConsumer", lambda topic, **kwargs: DummyConsumer()
+        "fed_mgr.kafka.AIOKafkaConsumer", lambda topic, **kwargs: kafka_consumer_mock
     )
 
     await start_kafka_consumer("topic", settings, logger)
     logger.error.assert_any_call("Failed to start Kafka consumer: fail_start")
+    kafka_consumer_mock.stop.assert_awaited_once()
 
 
 @pytest.mark.asyncio

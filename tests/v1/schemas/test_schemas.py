@@ -334,7 +334,7 @@ def test_kafka_evaluate_provider_message_fields():
     """Test KafkaEvaluateProviderMessage field assignment and types."""
     url = AnyHttpUrl("http://provider/auth")
     msg = KafkaEvaluateProviderMessage(
-        auth_url=url,
+        auth_endpoint=url,
         region_name="RegionOne",
         project_name="tenant123",
         flavor_name="m1.small",
@@ -343,7 +343,7 @@ def test_kafka_evaluate_provider_message_fields():
         floating_ips_enable=True,
     )
     assert msg.msg_version == "v1.0.0"
-    assert msg.auth_url == url
+    assert msg.auth_endpoint == url
     assert msg.region_name == "RegionOne"
     assert msg.project_name == "tenant123"
     assert msg.flavor_name == "m1.small"

@@ -14,7 +14,9 @@ from aiokafka.errors import (
 )
 
 from fed_mgr.config import Settings
+from fed_mgr.v1.models import Provider
 from fed_mgr.v1.schemas import (
+    KafkaEvaluateProviderMessage,
     KafkaFederationResultsMessage,
     KafkaMonitoringResultsMessage,
 )
@@ -118,6 +120,42 @@ async def send(producer: AIOKafkaProducer, topic: str, message: dict[str, Any]) 
         await producer.stop()
 
 
+async def send_provider_to_be_evaluated(
+    provider: Provider, settings: Settings, logger: Logger
+) -> None:
+    """Asynchronously send evaluation messages for a provider to Kafka for each region.
+
+    Args:
+        provider (Provider): The provider object containing projects and regions to be
+            evaluated.
+        settings (Settings): Application settings including Kafka configuration and
+            message version.
+        logger (Logger): Logger instance for logging events.
+
+    Returns:
+        None
+
+    Raises:
+        StopIteration: If no root project is found in provider.projects.
+        Exception: Propagates exceptions from Kafka producer creation or message sending
+
+    """
+    producer = create_kafka_producer(settings, logger)
+    root_project = next(filter(lambda p: p.is_root, provider.projects))
+    for region in provider.regions:
+        message = KafkaEvaluateProviderMessage(
+            msg_version=settings.KAFKA_EVALUATE_PROVIDERS_MSG_VERSION,
+            auth_endpoint=provider.auth_endpoint,
+            region_name=region.name,
+            project_name=root_project.name,
+            flavor_name=None,
+            public_net_name=None,
+            cinder_net_id=None,
+            floating_ips_enable=False,
+        )
+        await send(producer, settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, message)
+
+
 def consume_results_of_federation_tests(message: KafkaFederationResultsMessage) -> None:
     """Consume a Kafka message and processes it based on its topic.
 
@@ -218,6 +256,7 @@ async def start_kafka_consumer(topic: str, settings: Settings, logger: Logger) -
     except (KafkaConnectionError, UnsupportedVersionError, ValueError) as e:
         msg = f"Failed to start Kafka consumer: {e.args[0]}"
         logger.error(msg)
+        await kafka_consumer.stop()
         return
 
     msg = f"Consumer on topic '{topic}' started"
