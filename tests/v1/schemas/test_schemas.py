@@ -47,6 +47,7 @@ from fed_mgr.v1.schemas import (
     ErrorMessage,
     ItemDescription,
     ItemID,
+    KafkaEvaluateProviderMessage,
     PageNavigation,
     PaginatedList,
     Pagination,
@@ -327,3 +328,25 @@ def test_error_message_fields():
     err = ErrorMessage(status=400, detail="Something went wrong")
     assert err.status == 400
     assert err.detail == "Something went wrong"
+
+
+def test_kafka_evaluate_provider_message_fields():
+    """Test KafkaEvaluateProviderMessage field assignment and types."""
+    url = AnyHttpUrl("http://provider/auth")
+    msg = KafkaEvaluateProviderMessage(
+        auth_url=url,
+        region_name="RegionOne",
+        project_name="tenant123",
+        flavor_name="m1.small",
+        public_net_name="public",
+        cinder_net_id="net-abc",
+        floating_ips_enable=True,
+    )
+    assert msg.msg_version == "v1.0.0"
+    assert msg.auth_url == url
+    assert msg.region_name == "RegionOne"
+    assert msg.project_name == "tenant123"
+    assert msg.flavor_name == "m1.small"
+    assert msg.public_net_name == "public"
+    assert msg.cinder_net_id == "net-abc"
+    assert msg.floating_ips_enable

@@ -60,22 +60,37 @@ def test_get_level_with_int():
 
 def test_settings_defaults():
     """Test that Settings model has correct default values and types."""
-    s = Settings()
+    s = Settings(_env_file=".test.env")
     assert s.PROJECT_NAME == "Federation-Manager"
-    assert s.BASE_URL == AnyHttpUrl("http://localhost:8000")
-    assert isinstance(s.LOG_LEVEL, LogLevelEnum)
-    assert isinstance(s.AUTHN_MODE, (str, type(None)))
-    assert isinstance(s.AUTHZ_MODE, (str, type(None)))
     assert isinstance(s.MAINTAINER_NAME, (str, type(None)))
-    assert isinstance(s.MAINTAINER_URL, (str, type(None))) or s.MAINTAINER_URL is None
-    assert (
-        isinstance(s.MAINTAINER_EMAIL, (str, type(None))) or s.MAINTAINER_EMAIL is None
-    )
-    assert isinstance(s.DB_URL, str)
-    assert isinstance(s.OPA_AUTHZ_URL, str) or s.OPA_AUTHZ_URL is not None
-    assert isinstance(s.DB_ECO, bool)
+    assert isinstance(s.MAINTAINER_URL, (str, type(None)))
+    assert isinstance(s.MAINTAINER_EMAIL, (str, type(None)))
+    assert isinstance(s.LOG_LEVEL, LogLevelEnum)
+    assert s.BASE_URL == AnyHttpUrl("http://localhost:8000")
+    assert s.DB_URL == "sqlite+pysqlite:///:memory:"
+    assert s.DB_ECO is False
+    assert isinstance(s.AUTHN_MODE, (AuthenticationMethodsEnum, type(None)))
+    assert isinstance(s.AUTHZ_MODE, (AuthorizationMethodsEnum, type(None)))
     assert isinstance(s.TRUSTED_IDP_LIST, list)
+    assert s.OPA_AUTHZ_URL == AnyHttpUrl("http://localhost:8181/v1/data/fed_mgr")
     assert isinstance(s.BACKEND_CORS_ORIGINS, list)
+    assert s.KAFKA_ENABLE is False
+    assert isinstance(s.KAFKA_BOOTSTRAP_SERVERS, str)
+    assert isinstance(s.KAFKA_EVALUATE_PROVIDERS_TOPIC, str)
+    assert isinstance(s.KAFKA_FEDERATION_TESTS_RESULT_TOPIC, str)
+    assert isinstance(s.KAFKA_PROVIDERS_MONITORING_TOPIC, str)
+    assert isinstance(s.KAFKA_TOPIC_TIMEOUT, int)
+    assert isinstance(s.KAFKA_MAX_REQUEST_SIZE, int)
+    assert isinstance(s.KAFKA_CLIENT_NAME, str)
+    assert s.KAFKA_SSL_ENABLE is False
+    assert isinstance(s.KAFKA_SSL_CACERT_PATH, (str, type(None)))
+    assert isinstance(s.KAFKA_SSL_CERT_PATH, (str, type(None)))
+    assert isinstance(s.KAFKA_SSL_KEY_PATH, (str, type(None)))
+    assert isinstance(s.KAFKA_SSL_PASSWORD, (str, type(None)))
+    assert s.KAFKA_ALLOW_AUTO_CREATE_TOPICS is False
+    assert isinstance(s.KAFKA_EVALUATE_PROVIDERS_MSG_VERSION, str)
+    assert isinstance(s.KAFKA_FEDERATION_TESTS_RESULT_MSG_VERSION, str)
+    assert isinstance(s.KAFKA_PROVIDERS_MONITORING_MSG_VERSION, str)
 
 
 def test_get_settings_caching():

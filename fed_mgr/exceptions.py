@@ -86,3 +86,12 @@ class DeleteFailedError(Exception):
             self.message += f"{self.entity_params!s}."
         self.message += f" Check target {self.entity} has no children entities."
         super().__init__(self.message)
+
+
+class KafkaError(Exception):
+    """Exception raised when communicating with kafka."""
+
+    def __init__(self):
+        """Initialize KafkaError with a specific error message."""
+        self.message = "Communication with kafka failed."
+        super().__init__(self.message)

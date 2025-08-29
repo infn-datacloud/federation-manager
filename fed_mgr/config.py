@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     MAINTAINER_EMAIL: Annotated[
         EmailStr | None, Field(default=None, description="Maintainer's email address")
     ]
+    LOG_LEVEL: Annotated[
+        LogLevelEnum,
+        Field(default=LogLevelEnum.INFO, description="Logs level"),
+        BeforeValidator(get_level),
+    ]
     BASE_URL: Annotated[
         AnyHttpUrl,
         Field(
@@ -84,27 +89,8 @@ class Settings(BaseSettings):
             description="DB URL. By default it use an in memory SQLite DB.",
         ),
     ]
-    OPA_AUTHZ_URL: Annotated[
-        AnyHttpUrl,
-        Field(
-            default="http://localhost:8181/v1/data/fed_mgr",
-            description="Open Policy Agent service roles authorization URL",
-        ),
-    ]
     DB_ECO: Annotated[
         bool, Field(default=False, description="Eco messages exchanged with the DB")
-    ]
-    LOG_LEVEL: Annotated[
-        LogLevelEnum,
-        Field(default=LogLevelEnum.INFO, description="Logs level"),
-        BeforeValidator(get_level),
-    ]
-    TRUSTED_IDP_LIST: Annotated[
-        list[AnyHttpUrl],
-        Field(
-            default_factory=list,
-            description="List of the application trusted identity providers",
-        ),
     ]
     AUTHN_MODE: Annotated[
         AuthenticationMethodsEnum | None,
@@ -120,11 +106,126 @@ class Settings(BaseSettings):
             description="Authorization method to use. Allowed values: opa",
         ),
     ]
+    TRUSTED_IDP_LIST: Annotated[
+        list[AnyHttpUrl],
+        Field(
+            default_factory=list,
+            description="List of the application trusted identity providers",
+        ),
+    ]
+    OPA_AUTHZ_URL: Annotated[
+        AnyHttpUrl,
+        Field(
+            default="http://localhost:8181/v1/data/fed_mgr",
+            description="Open Policy Agent service roles authorization URL",
+        ),
+    ]
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyHttpUrl | Literal["*"]],
         Field(
             default=["http://localhost:3000/"],
             description="JSON-formatted list of allowed origins",
+        ),
+    ]
+    KAFKA_ENABLE: Annotated[
+        bool, Field(default=False, description="Enable kafka communication")
+    ]
+    KAFKA_BOOTSTRAP_SERVERS: Annotated[
+        str,
+        Field(
+            default="localhost:9092",
+            description="Kafka server hostnames. DNS name and port. Can be comma "
+            "separeted list",
+        ),
+    ]
+    KAFKA_EVALUATE_PROVIDERS_TOPIC: Annotated[
+        str,
+        Field(
+            default="evaluate-providers",
+            description="Kafka topic with the providers to evaluate before federation "
+            "request approval.",
+        ),
+    ]
+    KAFKA_FEDERATION_TESTS_RESULT_TOPIC: Annotated[
+        str,
+        Field(
+            default="federation-tests-result",
+            description="Kafka topic with rally tests results",
+        ),
+    ]
+    KAFKA_PROVIDERS_MONITORING_TOPIC: Annotated[
+        str,
+        Field(
+            default="providers-monitoring",
+            description="Kafka topic with the results of the periodic tests execute "
+            "on federated providers.",
+        ),
+    ]
+    KAFKA_TOPIC_TIMEOUT: Annotated[
+        int,
+        Field(
+            default=1000,
+            ge=0,
+            description="Number of ms to wait when reading published messages",
+        ),
+    ]
+    KAFKA_MAX_REQUEST_SIZE: Annotated[
+        int,
+        Field(
+            default=104857600,
+            description="Maximum size of a request to send to kafka (B).",
+        ),
+    ]
+    KAFKA_CLIENT_NAME: Annotated[
+        str,
+        Field(
+            default="fedmgr", description="Client name to use when connecting to kafka"
+        ),
+    ]
+    KAFKA_SSL_ENABLE: Annotated[
+        bool, Field(default=False, description="Enable SSL connection with kafka")
+    ]
+    KAFKA_SSL_CACERT_PATH: Annotated[
+        str | None, Field(default=None, descrption="Path to the SSL CA cert file")
+    ]
+    KAFKA_SSL_CERT_PATH: Annotated[
+        str | None, Field(default=None, descrption="Path to the SSL cert file")
+    ]
+    KAFKA_SSL_KEY_PATH: Annotated[
+        str | None, Field(default=None, descrption="Path to the SSL Key file")
+    ]
+    KAFKA_SSL_PASSWORD: Annotated[
+        str | None, Field(default=None, descrption="SSL password")
+    ]
+    KAFKA_ALLOW_AUTO_CREATE_TOPICS: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Enable automatic creation of new topics if not yet in kafka",
+        ),
+    ]
+    KAFKA_EVALUATE_PROVIDERS_MSG_VERSION: Annotated[
+        str,
+        Field(
+            default="1.0.0",
+            description="Message version for evaluate-providers topic. "
+            "It defines the fields in the message sent to kafka",
+        ),
+    ]
+    KAFKA_FEDERATION_TESTS_RESULT_MSG_VERSION: Annotated[
+        str,
+        Field(
+            default="1.0.0",
+            description="Message version for federation-tests-result topic. "
+            "It defines the fields in the message sent to kafka",
+        ),
+    ]
+    KAFKA_PROVIDERS_MONITORING_MSG_VERSION: Annotated[
+        str,
+        Field(
+            default="1.0.0",
+            description="Message version for providers-monitoring topic. "
+            "It defines the fields in the message sent to kafka",
         ),
     ]
 

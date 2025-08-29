@@ -69,6 +69,16 @@ async def test_lifespan_calls_create_fake_user_when_authn_mode_none(monkeypatch)
     fake_session_ctx.__exit__.return_value = None
     called = {"create": False}
 
+    async def async_fake_start_kafka_listeners(s, log):
+        return mock.Mock()
+
+    monkeypatch.setattr(main, "start_kafka_listeners", async_fake_start_kafka_listeners)
+
+    async def async_fake_stop_kafka_listeners(tasks, log):
+        return None
+
+    monkeypatch.setattr(main, "stop_kafka_listeners", async_fake_stop_kafka_listeners)
+
     def fake_create_fake_user(s):
         called["create"] = True
 
@@ -98,6 +108,16 @@ async def test_lifespan_calls_delete_fake_user_when_authn_mode_set(monkeypatch):
     fake_session_ctx.__enter__.return_value = fake_session
     fake_session_ctx.__exit__.return_value = None
     called = {"delete": False}
+
+    async def async_fake_start_kafka_listeners(s, log):
+        return mock.Mock()
+
+    monkeypatch.setattr(main, "start_kafka_listeners", async_fake_start_kafka_listeners)
+
+    async def async_fake_stop_kafka_listeners(tasks, log):
+        return None
+
+    monkeypatch.setattr(main, "stop_kafka_listeners", async_fake_stop_kafka_listeners)
 
     def fake_delete_fake_user(s):
         called["delete"] = True

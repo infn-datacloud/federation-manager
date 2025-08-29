@@ -314,5 +314,39 @@ class ErrorMessage(SQLModel):
     """Schema returned when raising an HTTP exception such as 404."""
 
     status: Annotated[int, Field(description="Error code")]
-    # title: Annotated[str, Field(description="Error title")]
     detail: Annotated[str, Field(description="Error detailed description")]
+
+
+class KafkaEvaluateProviderMessage(SQLModel):
+    """Schema for Kafka messages used to evaluate a resource provider."""
+
+    msg_version: Annotated[str, Field(default="v1.0.0", description="Message version")]
+    auth_url: Annotated[
+        AnyHttpUrl, Field(description="Resource provider authentication URL")
+    ]
+    region_name: Annotated[str, Field(description="Openstack region name")]
+    project_name: Annotated[
+        str, Field(description="ID of the tenant to for rally tests execution")
+    ]
+    flavor_name: Annotated[
+        str, Field(description="Name of the flavor to use to execute tests")
+    ]
+    public_net_name: Annotated[
+        str, Field(description="Name of the public network to use")
+    ]
+    cinder_net_id: Annotated[str, Field(description="Id of the Cinder net to use")]
+    floating_ips_enable: Annotated[
+        bool, Field(description="Enable tests for floating IPs")
+    ]
+
+
+class KafkaFederationResultsMessage(SQLModel):
+    """Schema for Kafka messages used to retrieve federation tests results."""
+
+    msg_version: Annotated[str, Field(description="Message version")]
+
+
+class KafkaMonitoringResultsMessage(SQLModel):
+    """Schema for Kafka messages used to retrieve monitoring results."""
+
+    msg_version: Annotated[str, Field(description="Message version")]
