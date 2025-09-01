@@ -17,9 +17,6 @@ from fed_mgr.config import (
     SettingsDep,
 )
 
-IDP_TIMEOUT = 5
-OPA_TIMEOUT = 5
-
 flaat = Flaat()
 
 
@@ -47,7 +44,7 @@ def configure_flaat(settings: Settings, logger: Logger) -> None:
         logger.warning("No authorization")
     else:
         logger.info("Authorization mode is %s", settings.AUTHZ_MODE.value)
-    flaat.set_request_timeout(IDP_TIMEOUT)
+    flaat.set_request_timeout(settings.IDP_TIMEOUT)
     flaat.set_trusted_OP_list([str(i) for i in settings.TRUSTED_IDP_LIST])
 
 
@@ -154,7 +151,9 @@ async def check_opa_authorization(
     }
     try:
         logger.debug("Sending user's data to OPA")
-        resp = requests.post(settings.OPA_AUTHZ_URL, json=data, timeout=OPA_TIMEOUT)
+        resp = requests.post(
+            settings.OPA_AUTHZ_URL, json=data, timeout=settings.OPA_TIMEOUT
+        )
     except (requests.Timeout, ConnectionError) as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

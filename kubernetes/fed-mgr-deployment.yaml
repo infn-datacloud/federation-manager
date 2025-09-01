@@ -44,9 +44,26 @@ spec:
                 configMapKeyRef:
                   name: fed-mgr-cm0
                   key: opa_url
-          image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:kompose-python3.12
+          image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:PR-18-python3.12
           name: fed-mgr
           ports:
             - containerPort: 80
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              scheme: HTTP
+              port: 80
+            failureThreshold: 10
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              scheme: HTTP
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
       restartPolicy: Always

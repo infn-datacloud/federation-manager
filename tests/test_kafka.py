@@ -22,6 +22,7 @@ from fed_mgr.kafka import (
     create_kafka_producer,
     send,
     start_kafka_consumer,
+    start_kafka_listener,
     start_kafka_listeners,
     stop_kafka_listeners,
 )
@@ -287,7 +288,7 @@ async def test_stop_kafka_listeners_catches_other_exceptions():
 
 
 @pytest.mark.asyncio
-async def test_start_kafka_consumer_starts_and_consumes(monkeypatch):
+async def test_start_kafka_listener(monkeypatch):
     """Test start_kafka_consumer starts consumer and calls consume."""
     settings = mock.Mock()
     settings.KAFKA_CLIENT_NAME = "client"
@@ -306,10 +307,11 @@ async def test_start_kafka_consumer_starts_and_consumes(monkeypatch):
     consume_mock = mock.AsyncMock()
     monkeypatch.setattr("fed_mgr.kafka.consume", consume_mock)
 
-    await start_kafka_consumer("topic", settings, logger)
+    await start_kafka_listener("topic", settings, logger)
     kafka_consumer_mock.start.assert_awaited_once()
     consume_mock.assert_awaited_once_with(kafka_consumer_mock, settings, logger)
     logger.info.assert_any_call("Consumer on topic 'topic' started")
+    consume_mock.assert_awaited_once_with(kafka_consumer_mock, settings, logger)
 
 
 @pytest.mark.asyncio
@@ -332,13 +334,10 @@ async def test_start_kafka_consumer_ssl_enabled(monkeypatch):
     monkeypatch.setattr(
         "fed_mgr.kafka.add_ssl_parameters", lambda s: {"ssl_test": True}
     )
-    consume_mock = mock.AsyncMock()
-    monkeypatch.setattr("fed_mgr.kafka.consume", consume_mock)
 
     await start_kafka_consumer("topic", settings, logger)
     logger.info.assert_any_call("SSL enabled")
     kafka_consumer_mock.start.assert_awaited_once()
-    consume_mock.assert_awaited_once_with(kafka_consumer_mock, settings, logger)
 
 
 @pytest.mark.asyncio
@@ -373,7 +372,7 @@ async def test_start_kafka_consumer_start_exception(monkeypatch, error):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("error", [ConsumerStoppedError, RecordTooLargeError])
-async def test_start_kafka_consumer_consume_exception(monkeypatch, error):
+async def test_start_kafka_listener_consume_exception(monkeypatch, error):
     """Test start_kafka_consumer logs and raises KafkaError if consume fails."""
     settings = mock.Mock()
     settings.KAFKA_CLIENT_NAME = "client"
@@ -395,7 +394,7 @@ async def test_start_kafka_consumer_consume_exception(monkeypatch, error):
 
     monkeypatch.setattr("fed_mgr.kafka.consume", consume_fail)
 
-    await start_kafka_consumer("topic", settings, logger)
+    await start_kafka_listener("topic", settings, logger)
     logger.error.assert_any_call(
         "Error reading messages from topic 'topic': fail_consume"
     )

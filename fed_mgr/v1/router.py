@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Security, status
 
 from fed_mgr.auth import check_authorization
+from fed_mgr.v1.health.endpoints import health_router
 from fed_mgr.v1.identity_providers.endpoints import idp_router
 from fed_mgr.v1.identity_providers.user_groups.endpoints import user_group_router
 from fed_mgr.v1.identity_providers.user_groups.slas.endpoints import sla_router
@@ -37,3 +38,4 @@ secured_router_v1.include_router(project_router)
 secured_router_v1.include_router(proj_reg_link_router)
 
 public_router_v1 = APIRouter()
+public_router_v1.include_router(health_router)

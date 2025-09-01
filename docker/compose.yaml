@@ -1,6 +1,6 @@
 services:
   fed-mgr:
-    image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr-rest-api:main
+    image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:PR-18-python3.12
     container_name: fed-mgr
     restart: unless-stopped
     depends_on:
