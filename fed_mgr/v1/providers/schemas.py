@@ -2,7 +2,6 @@
 
 import urllib.parse
 import uuid
-from datetime import date
 from enum import Enum
 from typing import Annotated
 
@@ -107,13 +106,6 @@ class ProviderInternal(SQLModel):
     status: Annotated[
         ProviderStatus,
         Field(default=ProviderStatus.draft, description="Resource provider status"),
-    ]
-    expiration_date: Annotated[
-        date | None,
-        Field(
-            default=None,
-            description="Date of when the provider will be no more available",
-        ),
     ]
 
 
