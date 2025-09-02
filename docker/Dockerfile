@@ -1,21 +1,28 @@
 ARG PYTHON_VERSION=3.12
-ARG POETRY_VERSION=1.8.3
+ARG PYTHON_VARIANT=slim
 
 # Install packages using poetry
-FROM ghcr.io/withlogicco/poetry:${POETRY_VERSION}-python-${PYTHON_VERSION}-slim AS builder
 
-COPY ./pyproject.toml ./poetry.lock ./README.md /usr/src/app/
-COPY ./fed_mgr /usr/src/app/fed_mgr
+FROM python:${PYTHON_VERSION}-${PYTHON_VARIANT} AS base
+
+ARG POETRY_VERSION=2.1.4
+
+ENV POETRY_HOME=/opt/poetry \
+    POETRY_VERSION=${POETRY_VERSION} \
+    POETRY_VIRTUALENVS_CREATE=false \
+    PATH=${PATH}:/opt/poetry/bin
+
+RUN python -m ensurepip --upgrade \
+    && python -m pip install --upgrade setuptools pip poetry
+
+# # Stage used in production with the service
+FROM base
+
+WORKDIR /app
+
+COPY ./pyproject.toml ./poetry.lock ./README.md /app/
+COPY ./fed_mgr /app/fed_mgr
 
 RUN poetry install --without dev --with rest-api,mysql
 
-# Stage used in production with the service
-FROM python:${PYTHON_VERSION}-slim AS production
-
-ENV DEBIAN_FRONTEND=noninteractive
-WORKDIR /app/
-
-COPY --from=builder /usr/local/ /usr/local
-COPY ./fed_mgr ./fed_mgr
-
-CMD ["fastapi", "run", "/app/fed_mgr/main.py", "--port", "80"]
+CMD ["fastapi", "run", "/usr/src/app/fed_mgr/main.py", "--port", "80"]
