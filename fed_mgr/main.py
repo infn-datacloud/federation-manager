@@ -72,11 +72,13 @@ async def lifespan(app: FastAPI):
             delete_fake_user(session)
         start_tasks_to_remove_deprecated_providers(session)
 
-    kafka_tasks = await start_kafka_listeners(settings, logger)
+    if settings.KAFKA_ENABLE:
+        kafka_tasks = await start_kafka_listeners(settings, logger)
 
     yield {"logger": logger}
 
-    await stop_kafka_listeners(kafka_tasks, logger)
+    if settings.KAFKA_ENABLE:
+        await stop_kafka_listeners(kafka_tasks, logger)
     dispose_engine(logger)
 
 
