@@ -7,8 +7,20 @@ import uuid
 from typing import Annotated, Optional
 
 from pydantic import computed_field
-from sqlmodel import Field, Index, Relationship, SQLModel, UniqueConstraint, text
+from sqlalchemy.ext.declarative import declared_attr
+from sqlmodel import (
+    Column,
+    Computed,
+    Field,
+    Index,
+    Integer,
+    Relationship,
+    SQLModel,
+    UniqueConstraint,
+    true,
+)
 
+from fed_mgr.db import engine
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
@@ -542,11 +554,35 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
 
-    __table_args__ = (
-        UniqueConstraint(
-            "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
-        ),
-        Index(
-            "ix_unique_provider_root", "provider_id", text("is_root = 1"), unique=True
-        ),
-    )
+    if engine.dialect.name == "mysql":
+        provider_root_id: int = Column(
+            "provider_root_id",
+            Integer,
+            Computed("IF(is_root = TRUE, provider_id, NULL)", persisted=True),
+        )
+
+        __table_args__ = (
+            UniqueConstraint(
+                "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
+            ),
+            Index("ix_unique_provider_root", "provider_root_id", unique=True),
+        )
+
+    elif engine.dialect.name == "sqlite":
+
+        @declared_attr
+        def __table_args__(self):
+            """Return table arguments for the Project model when using SQLite."""
+            return (
+                UniqueConstraint(
+                    "iaas_project_id",
+                    "provider_id",
+                    name="unique_projid_provider_couple",
+                ),
+                Index(
+                    "ix_unique_provider_root",
+                    "provider_id",
+                    unique=True,
+                    sqlite_where=(self.is_root == true()),
+                ),
+            )
