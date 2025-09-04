@@ -10,6 +10,7 @@ from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 
 from fed_mgr.exceptions import (
     ConflictError,
+    DatabaseOperationError,
     DeleteFailedError,
     ItemNotFoundError,
     NotNullError,
@@ -65,6 +66,9 @@ def raise_from_integrity_error(
         raise DeleteFailedError(
             element_str, id=kwargs.get("id"), params=kwargs
         ) from error
+
+    # Generic error
+    raise DatabaseOperationError(message=error.args[0]) from error
 
 
 def _handle_special_date_fields(entity, k, v):

@@ -555,7 +555,7 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
     )
 
     if engine.dialect.name == "mysql":
-        provider_root_id: int = Column(
+        provider_root_id: int | None = Column(
             "provider_root_id",
             Integer,
             Computed("IF(is_root = TRUE, provider_id, NULL)", persisted=True),
