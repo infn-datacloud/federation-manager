@@ -43,6 +43,7 @@ def raise_from_integrity_error(
     session.rollback()
     element_str = split_camel_case(entity.__name__)
 
+    # SQLITE
     # Search for 'NOT NULL constraint failed: ' string and catch anything till the first
     # , or end of line
     match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
@@ -66,6 +67,20 @@ def raise_from_integrity_error(
         raise DeleteFailedError(
             element_str, id=kwargs.get("id"), params=kwargs
         ) from error
+
+    # MYSQL
+    # Search for 'Duplicate entry ' string and catch anything till the end of line
+    match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", error.args[0])
+    if match is not None:
+        # raise ConflictError(element_str, "is_root", True)
+        if "unique_projid_provider_couple" in match.group(0):
+            attr = "provider_id"
+        elif "ix_unique_provider_root" in match.group(0):
+            attr = "is_root"
+        else:
+            attr = match.group(0).split(".")[1]
+        value = kwargs.get(attr)
+        raise ConflictError(element_str, attr, value) from error
 
     # Generic error
     raise DatabaseOperationError(message=error.args[0]) from error

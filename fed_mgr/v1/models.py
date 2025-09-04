@@ -13,9 +13,9 @@ from sqlmodel import (
     Computed,
     Field,
     Index,
-    Integer,
     Relationship,
     SQLModel,
+    String,
     UniqueConstraint,
     true,
 )
@@ -555,11 +555,16 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
     )
 
     if engine.dialect.name == "mysql":
-        provider_root_id: int | None = Column(
-            "provider_root_id",
-            Integer,
-            Computed("IF(is_root = TRUE, provider_id, NULL)", persisted=True),
-        )
+        provider_root_id: Annotated[
+            int | None,
+            Field(
+                sa_column=Column(
+                    "provider_root_id",
+                    String(32),  # UUID length
+                    Computed("IF(is_root = TRUE, provider_id, NULL)", persisted=True),
+                )
+            ),
+        ]
 
         __table_args__ = (
             UniqueConstraint(
