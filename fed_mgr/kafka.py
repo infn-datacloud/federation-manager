@@ -12,6 +12,7 @@ from aiokafka.errors import (
     RecordTooLargeError,
     UnsupportedVersionError,
 )
+from aiokafka.helpers import create_ssl_context
 
 from fed_mgr.config import Settings
 from fed_mgr.v1.models import Provider
@@ -42,15 +43,13 @@ def add_ssl_parameters(settings: Settings) -> dict[str, Any]:
         raise ValueError(
             "KAFKA_SSL_PASSWORD can't be None when KAFKA_SSL_ENABLE is True"
         )
-    kwargs = {
-        "security_protocol": "SSL",
-        "ssl_check_hostname": False,
-        "ssl_cafile": settings.KAFKA_SSL_CACERT_PATH,
-        "ssl_certfile": settings.KAFKA_SSL_CERT_PATH,
-        "ssl_keyfile": settings.KAFKA_SSL_KEY_PATH,
-        "ssl_password": settings.KAFKA_SSL_PASSWORD,
-    }
-    return kwargs
+    context = create_ssl_context(
+        ssl_cafile=settings.KAFKA_SSL_CACERT_PATH,
+        ssl_certfile=settings.KAFKA_SSL_CERT_PATH,
+        ssl_keyfile=settings.KAFKA_SSL_KEY_PATH,
+        ssl_password=settings.KAFKA_SSL_PASSWORD,
+    )
+    return {"security_protocol": "SSL", "ssl_context": context}
 
 
 def create_kafka_producer(
