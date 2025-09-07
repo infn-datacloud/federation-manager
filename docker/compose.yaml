@@ -11,7 +11,11 @@ services:
     ports:
       - 8000:80
     environment:
-      DB_URL: mysql+pymysql://fed-mgr:changeit@fed-mgr-db:3306/fed_mgr
+      DB_SCHEME: mysql+pymysql
+      DB_USER: fed-mgr
+      DB_PASSWORD: changeit
+      DB_HOST: db
+      DB_NAME: fed_mgr
       AUTHN_MODE: local
       AUTHZ_MODE: opa 
       TRUSTED_IDP_LIST: '["https://iam.cloud.infn.it/"]'
@@ -35,7 +39,7 @@ services:
     networks:
       - fed-mgr-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-changeit}", "--silent"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}", "--silent"]
       interval: 5s
       timeout: 5s
       retries: 50
