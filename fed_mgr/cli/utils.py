@@ -1,52 +1,27 @@
 """Module with utils and config for the CLI."""
 
-from functools import lru_cache
 from typing import Annotated
 
 import requests
 import typer
-from pydantic import AnyHttpUrl, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class CliSettings(BaseSettings):
-    """Settings for CLI."""
-
-    FED_MGR_URL: Annotated[
-        AnyHttpUrl,
-        Field(
-            default="http://localhost:8000/api/v1",
-            description="Federation-Manager base URL",
-        ),
-    ]
-    FED_MGR_TOKEN: Annotated[str | None, Field(default=None, description="User token")]
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+def default_base_url() -> str:
+    """Return the default base url for fed-mgr."""
+    return "http://localhost:8000/api/v1"
 
 
-@lru_cache
-def get_settings() -> CliSettings:
-    """Retrieve cached settings."""
-    return CliSettings()
-
-
-def retrieve_token(cli_token: str, settings: CliSettings) -> str | None:
-    """Return the token from env var or from cli.
-
-    In any case verify token signature.
-    """
-    if cli_token is not None:
-        return cli_token
-    if settings.FED_MGR_TOKEN is not None:
-        return settings.FED_MGR_TOKEN
-    print(
-        "No token provided. Either edit the env variable FED_MGR_TOKEN or pass it using"
-        " the '--token' argument."
-    )
-
-
+FedMgrUrlDep = Annotated[
+    str,
+    typer.Option(
+        default_factory=default_base_url,
+        envvar="FED_MGR_URL",
+        help="Federation-Manager base URL",
+    ),
+]
 TokenDep = Annotated[
-    str | None, typer.Option(help="User token to attach to the request")
+    str,
+    typer.Option(envvar="FED_MGR_TOKEN", help="User token to attach to the request"),
 ]
 
 
@@ -62,6 +37,12 @@ def evaluate_create_result(resp: requests.Response) -> None:
         case 403:
             data = resp.json()
             print(f"Forbidden: {data['detail']}")
+        case 409:
+            data = resp.json()
+            print(f"Conflict: {data['detail']}")
+        case 422:
+            data = resp.json()
+            print(f"Unprocessable content: {data['detail']}")
         case _:
             print(f"Unexpected status-code: {resp.status_code}")
 
@@ -108,5 +89,11 @@ def evaluate_patch_result(resp: requests.Response) -> None:
         case 403:
             data = resp.json()
             print(f"Forbidden: {data['detail']}")
+        case 409:
+            data = resp.json()
+            print(f"Conflict: {data['detail']}")
+        case 422:
+            data = resp.json()
+            print(f"Unprocessable content: {data['detail']}")
         case _:
             print(f"Unexpected status-code: {resp.status_code}")
