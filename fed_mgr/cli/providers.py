@@ -14,23 +14,23 @@ from fed_mgr.cli.utils import (
     evaluate_get_result,
     evaluate_patch_result,
 )
-from fed_mgr.v1 import IDPS_PREFIX
+from fed_mgr.v1 import PROVIDERS_PREFIX
 
 app = typer.Typer()
 
 
 @app.command()
 def create(
-    idp: Annotated[str, typer.Argument(help="Identity provider creation data")],
+    idp: Annotated[str, typer.Argument(help="Provider creation data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Create an identity provider with the given attributes in the Fed-Mgr.
+    """Create a provider with the given attributes in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}"
+    url = f"{base_url}{PROVIDERS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.post(url, headers=headers, data=idp)
@@ -43,12 +43,12 @@ def create(
 
 @app.command(name="list")
 def get_list(base_url: FedMgrUrlDep, token: TokenDep):
-    """Retrieve list of identity providers registered in the Fed-Mgr.
+    """Retrieve list of providers registered in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}"
+    url = f"{base_url}{PROVIDERS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.get(url, headers=headers)
@@ -61,16 +61,16 @@ def get_list(base_url: FedMgrUrlDep, token: TokenDep):
 
 @app.command()
 def get(
-    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
+    id: Annotated[str, typer.Argument(help="Provider UUID")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Retrieve identity provider registered in the Fed-Mgr and matching the given ID.
+    """Retrieve provider registered in the Fed-Mgr and matching the given ID.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.get(url, headers=headers)
@@ -83,17 +83,17 @@ def get(
 
 @app.command()
 def patch(
-    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
-    idp: Annotated[str, typer.Argument(help="Identity provider patch data")],
+    id: Annotated[str, typer.Argument(help="Provider UUID")],
+    idp: Annotated[str, typer.Argument(help="Provider patch data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Patch the identity provider registered in the Fed-Mgr and matching the given ID.
+    """Patch the provider registered in the Fed-Mgr and matching the given ID.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.patch(url, headers=headers, data=idp)
@@ -106,16 +106,16 @@ def patch(
 
 @app.command()
 def delete(
-    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
+    id: Annotated[str, typer.Argument(help="Provider UUID")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Delete the identity provider registered in the Fed-Mgr and matching the given ID.
+    """Delete the provider registered in the Fed-Mgr and matching the given ID.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.delete(url, headers=headers)

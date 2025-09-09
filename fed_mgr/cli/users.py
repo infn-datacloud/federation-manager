@@ -20,9 +20,10 @@ app = typer.Typer()
 
 @app.command()
 def create_me(base_url: FedMgrUrlDep, token: TokenDep):
-    """Retrieve user registered in the Federation-Manager and matching the given ID.
+    """Create user matching token details in the Federation-Manager.
 
-    If --token is used, it overrides the default written in env var USER_TOKEN.
+    If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
+    If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
     url = f"{base_url}{USERS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -39,7 +40,8 @@ def create_me(base_url: FedMgrUrlDep, token: TokenDep):
 def get_list(base_url: FedMgrUrlDep, token: TokenDep):
     """Retrieve list of users registered in the Federation-Manager.
 
-    If --token is used, it overrides the default written in env var USER_TOKEN.
+    If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
+    If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
     url = f"{base_url}{USERS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -60,7 +62,8 @@ def get(
 ):
     """Retrieve user registered in the Federation-Manager and matching the given ID.
 
-    If --token is used, it overrides the default written in env var USER_TOKEN.
+    If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
+    If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
     url = f"{base_url}{USERS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -79,9 +82,10 @@ def delete(
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Retrieve user registered in the Federation-Manager and matching the given ID.
+    """Delete the user registered in the Federation-Manager and matching the given ID.
 
-    If --token is used, it overrides the default written in env var USER_TOKEN.
+    If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
+    If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
     url = f"{base_url}{USERS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
