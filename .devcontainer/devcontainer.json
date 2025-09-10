@@ -1,0 +1,21 @@
+{
+  "name": "Federation Manager",
+  "dockerComposeFile": [
+    "../docker/compose.yaml",
+    "compose.extend.yaml"
+  ],
+  "service": "devcontainer",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "python -m ensurepip --upgrade && python -m pip install --upgrade setuptools pip poetry",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "streetsidesoftware.code-spell-checker",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  },
+  "forwardPorts": [
+    8080
+  ]
+}
