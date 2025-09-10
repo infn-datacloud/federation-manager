@@ -21,7 +21,7 @@ app = typer.Typer()
 
 @app.command()
 def create(
-    idp: Annotated[str, typer.Argument(help="Identity provider creation data")],
+    data: Annotated[str, typer.Argument(help="Identity provider creation data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
@@ -33,7 +33,7 @@ def create(
     url = f"{base_url}{IDPS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        resp = requests.post(url, headers=headers, data=idp)
+        resp = requests.post(url, headers=headers, data=data)
     except ConnectionError:
         print(f"Can't connect to URL {url}")
         return
@@ -84,7 +84,7 @@ def get(
 @app.command()
 def patch(
     id: Annotated[str, typer.Argument(help="Identity provider UUID")],
-    idp: Annotated[str, typer.Argument(help="Identity provider patch data")],
+    data: Annotated[str, typer.Argument(help="Identity provider patch data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
@@ -96,7 +96,7 @@ def patch(
     url = f"{base_url}{IDPS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        resp = requests.patch(url, headers=headers, data=idp)
+        resp = requests.patch(url, headers=headers, data=data)
     except ConnectionError:
         print(f"Can't connect to URL {url}")
         return
