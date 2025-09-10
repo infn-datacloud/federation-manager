@@ -124,7 +124,3 @@ def delete(
         return
 
     evaluate_delete_result(resp)
-
-
-if __name__ == "__main__":
-    app()

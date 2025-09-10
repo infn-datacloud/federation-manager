@@ -14,24 +14,24 @@ from fed_mgr.cli.utils import (
     evaluate_get_result,
     evaluate_patch_result,
 )
-from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
+from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
 
 app = typer.Typer()
 
 
 @app.command()
-def create(
-    idp_id: Annotated[str, typer.Argument(help="Parent identity provider ID")],
-    data: Annotated[str, typer.Argument(help="User group creation data")],
+def connect(
+    provider_id: Annotated[str, typer.Argument(help="Parent provider ID")],
+    data: Annotated[str, typer.Argument(help="Identity provider connection data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Create a user group with the given attributes in the Fed-Mgr.
+    """Connect an idp to a provider with the given attributes in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{idp_id}/{USER_GROUPS_PREFIX}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{provider_id}/{IDPS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.post(url, headers=headers, data=data)
@@ -44,16 +44,16 @@ def create(
 
 @app.command(name="list")
 def get_list(
-    idp_id: Annotated[str, typer.Argument(help="Parent identity provider ID")],
+    provider_id: Annotated[str, typer.Argument(help="Parent provider ID")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Retrieve list of user groups registered in the Fed-Mgr.
+    """Retrieve list of idps connected to a specific provider in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{idp_id}/{USER_GROUPS_PREFIX}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{provider_id}/{IDPS_PREFIX}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.get(url, headers=headers)
@@ -66,17 +66,17 @@ def get_list(
 
 @app.command()
 def get(
-    idp_id: Annotated[str, typer.Argument(help="Parent identity provider ID")],
-    id: Annotated[str, typer.Argument(help="User group UUID")],
+    provider_id: Annotated[str, typer.Argument(help="Parent provider ID")],
+    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Retrieve user group registered in the Fed-Mgr and matching the given ID.
+    """Retrieve the idp, matching the given ID, connected to a provider in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{idp_id}/{USER_GROUPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{provider_id}/{IDPS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.get(url, headers=headers)
@@ -89,18 +89,18 @@ def get(
 
 @app.command()
 def patch(
-    idp_id: Annotated[str, typer.Argument(help="Parent identity provider ID")],
-    id: Annotated[str, typer.Argument(help="User group UUID")],
-    data: Annotated[str, typer.Argument(help="User group patch data")],
+    provider_id: Annotated[str, typer.Argument(help="Parent provider ID")],
+    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
+    data: Annotated[str, typer.Argument(help="Identity provider patch data")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Patch the user group registered in the Fed-Mgr and matching the given ID.
+    """Patch the override values for an idp-provider couple in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{idp_id}/{USER_GROUPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{provider_id}/{IDPS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.patch(url, headers=headers, data=data)
@@ -112,18 +112,18 @@ def patch(
 
 
 @app.command()
-def delete(
-    idp_id: Annotated[str, typer.Argument(help="Parent identity provider ID")],
-    id: Annotated[str, typer.Argument(help="User group UUID")],
+def disconnect(
+    provider_id: Annotated[str, typer.Argument(help="Parent provider ID")],
+    id: Annotated[str, typer.Argument(help="Identity provider UUID")],
     base_url: FedMgrUrlDep,
     token: TokenDep,
 ):
-    """Delete the user group registered in the Fed-Mgr and matching the given ID.
+    """Disconnect an idp from the provider in the Fed-Mgr.
 
     If --token is used, it overrides the default written in env var FED_MGR_TOKEN.
     If --base_url is used, it overrides the default written in env var FED_MGR_URL.
     """
-    url = f"{base_url}{IDPS_PREFIX}/{idp_id}/{USER_GROUPS_PREFIX}/{id}"
+    url = f"{base_url}{PROVIDERS_PREFIX}/{provider_id}/{IDPS_PREFIX}/{id}"
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = requests.delete(url, headers=headers)
