@@ -5,8 +5,11 @@ the database. It wraps generic CRUD operations with resource providers-specific 
 and exception handling.
 """
 
+import time
 import uuid
+from datetime import date, timedelta
 
+from fastapi import BackgroundTasks
 from sqlalchemy import event
 from sqlmodel import Session
 
@@ -21,6 +24,7 @@ from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
 from fed_mgr.v1.users.crud import get_user
 
+DEPRECATION_TIMEDELTA = 14  # days
 AVAILABLE_STATE_TRANSITIONS = {
     ProviderStatus.draft: [ProviderStatus.ready],
     ProviderStatus.ready: [ProviderStatus.submitted, ProviderStatus.draft],
@@ -353,7 +357,7 @@ def unsubmit_provider(
     Raises:
         ProviderStateChangeError: If the provider's current status is not 'submitted'.
 
-    Retruns:
+    Returns:
         None
 
     """
@@ -363,6 +367,130 @@ def unsubmit_provider(
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+
+
+def remove_deprecated_provider(
+    *, session: Session, provider: Provider, updated_by: User | None = None
+) -> bool:
+    """If the expiration date has been reached, remove the deprecated provider.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+        updated_by (User | None): The user performing the update. If None, the operation
+            has been executed by the automated task.
+
+    Returns:
+        bool: Operation success
+
+    """
+    if date.today() >= provider.expiration_date:
+        provider.status = ProviderStatus.removed
+        if updated_by is not None:
+            provider.updated_by = updated_by
+        session.add(provider)
+        session.commit()
+        return True
+    return False
+
+
+async def task_remove_deprecated_provider(*, session: Session, provider: Provider):
+    """If the expiration date has been reached, remove the deprecated provider.
+
+    Calculate remaining time to provider expiration, wait then remove the deprecated
+    provider.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+
+
+    Returns:
+        None
+
+    """
+    if (
+        provider.expiration_date is not None
+        and provider.status == ProviderStatus.deprecated
+    ):
+        delta = date.today() - provider.expiration_date
+        if delta.total_seconds() > 0:
+            time.sleep(delta.total_seconds())
+        remove_deprecated_provider(session=session, provider=provider)
+
+
+def revoke_provider(
+    *, session: Session, provider: Provider, updated_by: User, bg_tasks: BackgroundTasks
+) -> None:
+    """Site admin revoke provider submission.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+        updated_by (User): The user performing the update.
+        bg_tasks (BackgroundTasks): List of background tasks.
+
+    Returns:
+        None
+
+    """
+    match provider.status:
+        case ProviderStatus.draft | ProviderStatus.ready:
+            delete_provider(session=session, provider_id=provider.id)
+        case (
+            ProviderStatus.submitted
+            | ProviderStatus.evaluation
+            | ProviderStatus.pre_production
+        ):
+            provider.status = ProviderStatus.removed
+            provider.updated_by = updated_by
+            session.add(provider)
+            session.commit()
+        case (
+            ProviderStatus.active | ProviderStatus.degraded | ProviderStatus.maintenance
+        ):
+            provider.status = ProviderStatus.deprecated
+            provider.expiration_date = date.today() + timedelta(
+                days=DEPRECATION_TIMEDELTA
+            )
+            provider.updated_by = updated_by
+            session.add(provider)
+            session.commit()
+            bg_tasks.add_task(
+                task_remove_deprecated_provider, session=session, provider=provider
+            )
+        case ProviderStatus.deprecated:
+            if not remove_deprecated_provider(
+                session=session, provider=provider, updated_by=updated_by
+            ):
+                raise Exception(
+                    f"Expiration date '{provider.expiration_date}' not reached."
+                )
+        case _:
+            raise Exception(
+                f"Current state '{provider.status}' does not support deletion"
+            )
+
+
+def start_tasks_to_remove_deprecated_providers(session: Session) -> None:
+    """Start background tasks to remove deprecated providers from the database.
+
+    This function retrieves a list of providers from the database,
+    and initiates a background removal task for each deprecated provider.
+
+    Args:
+        session (Session): The database session used to query providers and start
+            removal tasks.
+
+    Returns:
+        None
+
+    """
+    providers, _ = get_providers(
+        session=session, skip=0, limit=1000, sort="-created_at"
+    )
+    for provider in providers:
+        task_remove_deprecated_provider(session=session, provider=provider)
 
 
 def is_provider_ready(provider: Provider) -> bool:

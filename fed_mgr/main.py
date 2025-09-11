@@ -14,6 +14,7 @@ from fed_mgr.config import API_V1_STR, get_settings
 from fed_mgr.db import create_db_and_tables, dispose_engine
 from fed_mgr.kafka import start_kafka_listeners, stop_kafka_listeners
 from fed_mgr.logger import get_logger
+from fed_mgr.v1.providers.crud import start_tasks_to_remove_deprecated_providers
 from fed_mgr.v1.router import public_router_v1, secured_router_v1
 from fed_mgr.v1.users.crud import create_fake_user, delete_fake_user
 
@@ -69,12 +70,15 @@ async def lifespan(app: FastAPI):
             create_fake_user(session)
         else:
             delete_fake_user(session)
+        start_tasks_to_remove_deprecated_providers(session)
 
-    kafka_tasks = await start_kafka_listeners(settings, logger)
+    if settings.KAFKA_ENABLE:
+        kafka_tasks = await start_kafka_listeners(settings, logger)
 
     yield {"logger": logger}
 
-    await stop_kafka_listeners(kafka_tasks, logger)
+    if settings.KAFKA_ENABLE:
+        await stop_kafka_listeners(kafka_tasks, logger)
     dispose_engine(logger)
 
 

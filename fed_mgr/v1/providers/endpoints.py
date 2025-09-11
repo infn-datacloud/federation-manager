@@ -19,10 +19,10 @@ from fed_mgr.v1.providers.crud import (
     add_site_admins,
     add_site_testers,
     change_provider_state,
-    delete_provider,
     get_providers,
     remove_site_admins,
     remove_site_testers,
+    revoke_provider,
     submit_provider,
     unsubmit_provider,
     update_provider,
@@ -308,9 +308,13 @@ def edit_provider(
 
 @provider_router.delete(
     "/{provider_id}",
-    summary="Delete resource provider with given sub",
-    description="Delete a resource provider with the given subject, for this issuer, "
-    "from the DB.",
+    summary="Delete resource provider",
+    description="If the provider is in the draft or ready state, delete a "
+    "resource provider with the given ID, from the DB. If the provider is in the "
+    "active, degraded or maintenance status, change its state to deprecated. If the "
+    "provider is in the deprecated state and the expiration date has been reached, or "
+    "the provider is in the submitted, evaluation o pre-production state, change its "
+    "state to removed.",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
@@ -340,8 +344,8 @@ def remove_provider(
     msg = f"Delete resource provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
     try:
-        delete_provider(session=session, provider_id=provider_id)
-    except DeleteFailedError as e:
+        revoke_provider(session=session, provider_id=provider_id)
+    except (DeleteFailedError, Exception) as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
