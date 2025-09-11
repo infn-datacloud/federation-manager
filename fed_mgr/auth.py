@@ -156,7 +156,7 @@ async def check_opa_authorization(
         )
     except (requests.Timeout, ConnectionError) as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Authentication failed: OPA server is not reachable",
         ) from e
     match resp.status_code:

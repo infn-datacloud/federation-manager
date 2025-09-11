@@ -309,7 +309,7 @@ async def test_check_opa_authorization_timeout(mock_post, user_infos, settings, 
         await auth.check_opa_authorization(
             request=request, user_infos=user_infos, settings=settings, logger=logger
         )
-    assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert exc.value.status_code == status.HTTP_504_GATEWAY_TIMEOUT
 
 
 @pytest.mark.asyncio
