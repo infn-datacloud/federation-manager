@@ -1,0 +1,6 @@
+services:
+  devcontainer:
+    image: mcr.microsoft.com/vscode/devcontainers/python:3
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
