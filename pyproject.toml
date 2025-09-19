@@ -12,6 +12,7 @@ pydantic-settings = "^2.9.1"
 pydantic = {extras = ["email"], version = "^2.11.4"}
 sqlmodel = "^0.0.24"
 aiokafka = "^0.12.0"
+starlette = "^0.48.0"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.5.0"
