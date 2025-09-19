@@ -1,8 +1,9 @@
 """Endpoints to manage User details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from fed_mgr.auth import AuthenticationDep
 from fed_mgr.db import SessionDep
@@ -17,7 +18,7 @@ from fed_mgr.v1 import USERS_PREFIX
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
 from fed_mgr.v1.users.crud import add_user, delete_user, get_users, update_user
 from fed_mgr.v1.users.dependencies import UserDep
-from fed_mgr.v1.users.schemas import UserCreate, UserList, UserQueryDep, UserRead
+from fed_mgr.v1.users.schemas import UserCreate, UserList, UserQuery, UserRead
 
 user_router = APIRouter(prefix=USERS_PREFIX, tags=["users"])
 
@@ -110,7 +111,7 @@ def create_user(
     description="Retrieve a paginated list of users.",
 )
 def retrieve_users(
-    request: Request, session: SessionDep, params: UserQueryDep
+    request: Request, session: SessionDep, params: Annotated[UserQuery, Query()]
 ) -> UserList:
     """Retrieve a paginated list of users based on query parameters.
 
@@ -120,7 +121,7 @@ def retrieve_users(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (UserQueryDep): Dependency containing query parameters for filtering,
+        params (UserQuery): Dependency containing query parameters for filtering,
             sorting, and pagination.
         session (SessionDep): Database session dependency.
 

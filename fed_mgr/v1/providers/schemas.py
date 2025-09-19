@@ -6,7 +6,6 @@ from datetime import date
 from enum import Enum
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
@@ -337,6 +336,3 @@ class ProviderQuery(
         list[uuid.UUID] | None,
         Field(default=None, description="List of the provider/site testers IDs"),
     ]
-
-
-ProviderQueryDep = Annotated[ProviderQuery, Query()]

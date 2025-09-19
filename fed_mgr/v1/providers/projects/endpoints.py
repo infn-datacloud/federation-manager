@@ -1,8 +1,9 @@
 """Endpoints to manage project details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -24,7 +25,7 @@ from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
 from fed_mgr.v1.providers.projects.schemas import (
     ProjectCreate,
     ProjectList,
-    ProjectQueryDep,
+    ProjectQuery,
     ProjectRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -137,7 +138,7 @@ def retrieve_projects(
     request: Request,
     session: SessionDep,
     provider: ProviderRequiredDep,
-    params: ProjectQueryDep,
+    params: Annotated[ProjectQuery, Query()],
 ) -> ProjectList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -148,7 +149,7 @@ def retrieve_projects(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProjectQueryDep): Dependency containing query parameters for
+        params (ProjectQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         provider: Parent provider ID

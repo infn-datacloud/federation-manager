@@ -1,8 +1,9 @@
 """Endpoints to manage location details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -23,7 +24,7 @@ from fed_mgr.v1.locations.dependencies import LocationDep
 from fed_mgr.v1.locations.schemas import (
     LocationCreate,
     LocationList,
-    LocationQueryDep,
+    LocationQuery,
     LocationRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -119,7 +120,7 @@ def create_location(
     description="Retrieve a paginated list of locations.",
 )
 def retrieve_locations(
-    request: Request, session: SessionDep, params: LocationQueryDep
+    request: Request, session: SessionDep, params: Annotated[LocationQuery, Query()]
 ) -> LocationList:
     """Retrieve a paginated list of locations based on query parameters.
 
@@ -130,7 +131,7 @@ def retrieve_locations(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (LocationQueryDep): Dependency containing query parameters for
+        params (LocationQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
 

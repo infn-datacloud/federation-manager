@@ -3,7 +3,6 @@
 import urllib.parse
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -149,6 +148,3 @@ class IdentityProviderQuery(
             description="Identity Provider audience must contain this string",
         ),
     ]
-
-
-IdentityProviderQueryDep = Annotated[IdentityProviderQuery, Query()]

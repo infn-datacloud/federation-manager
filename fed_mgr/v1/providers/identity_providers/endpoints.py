@@ -1,8 +1,9 @@
 """Endpoints to manage identity provider details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -26,7 +27,7 @@ from fed_mgr.v1.providers.identity_providers.schemas import (
     IdpOverridesBase,
     ProviderIdPConnectionCreate,
     ProviderIdPConnectionList,
-    ProviderIdPConnectionQueryDep,
+    ProviderIdPConnectionQuery,
     ProviderIdPConnectionRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage
@@ -141,7 +142,7 @@ def retrieve_prov_idp_connections(
     request: Request,
     session: SessionDep,
     provider: ProviderRequiredDep,
-    params: ProviderIdPConnectionQueryDep,
+    params: Annotated[ProviderIdPConnectionQuery, Query()],
 ) -> ProviderIdPConnectionList:
     """Retrieve a paginated list of identity providers based on query parameters.
 
@@ -152,7 +153,7 @@ def retrieve_prov_idp_connections(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (IdentityProviderQueryDep): Dependency containing query parameters for
+        params (IdentityProviderQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         provider: Parent provider ID

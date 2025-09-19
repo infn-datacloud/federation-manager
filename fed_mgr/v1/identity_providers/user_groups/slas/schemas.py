@@ -4,7 +4,6 @@ import urllib.parse
 from datetime import date
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import TIMESTAMP, Field, SQLModel
 
@@ -135,6 +134,3 @@ class SLAQuery(
             description="Item's end date must be greater than or equal to this value",
         ),
     ]
-
-
-SLAQueryDep = Annotated[SLAQuery, Query()]

@@ -1,11 +1,13 @@
 """Endpoints to manage user group details."""
 
 import uuid
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -34,7 +36,7 @@ from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupRequ
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupCreate,
     UserGroupList,
-    UserGroupQueryDep,
+    UserGroupQuery,
     UserGroupRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -146,7 +148,7 @@ def retrieve_user_groups(
     request: Request,
     session: SessionDep,
     idp: IdentityProviderRequiredDep,
-    params: UserGroupQueryDep,
+    params: Annotated[UserGroupQuery, Query()],
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 
@@ -157,7 +159,7 @@ def retrieve_user_groups(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (UserGroupQueryDep): Dependency containing query parameters for
+        params (UserGroupQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         idp: Parent identity Provider ID

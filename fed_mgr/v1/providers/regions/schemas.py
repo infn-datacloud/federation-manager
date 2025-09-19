@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-from fastapi import Query
 from sqlmodel import Field
 
 from fed_mgr.v1.schemas import (
@@ -138,6 +137,3 @@ class RegionQuery(
             description="Output network bandwidth must be lower than or equal.",
         ),
     ]
-
-
-RegionQueryDep = Annotated[RegionQuery, Query()]

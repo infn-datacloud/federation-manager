@@ -1,8 +1,9 @@
 """Endpoints to manage region details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -24,7 +25,7 @@ from fed_mgr.v1.providers.regions.dependencies import RegionRequiredDep
 from fed_mgr.v1.providers.regions.schemas import (
     RegionCreate,
     RegionList,
-    RegionQueryDep,
+    RegionQuery,
     RegionRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -132,7 +133,7 @@ def retrieve_regions(
     request: Request,
     session: SessionDep,
     provider: ProviderRequiredDep,
-    params: RegionQueryDep,
+    params: Annotated[RegionQuery, Query()],
 ) -> RegionList:
     """Retrieve a paginated list of regions based on query parameters.
 
@@ -143,7 +144,7 @@ def retrieve_regions(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (RegionQueryDep): Dependency containing query parameters for
+        params (RegionQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         provider: Parent provider ID

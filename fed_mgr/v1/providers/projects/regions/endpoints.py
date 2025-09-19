@@ -1,8 +1,9 @@
 """Endpoints to manage project-region config details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -30,7 +31,7 @@ from fed_mgr.v1.providers.projects.regions.dependencies import (
 from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionCreate,
     ProjRegConnectionList,
-    ProjRegConnectionQueryDep,
+    ProjRegConnectionQuery,
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
@@ -154,7 +155,7 @@ def retrieve_project_configs(
     session: SessionDep,
     provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
-    params: ProjRegConnectionQueryDep,
+    params: Annotated[ProjRegConnectionQuery, Query()],
 ) -> ProjRegConnectionList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -165,7 +166,7 @@ def retrieve_project_configs(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProjRegConfigQueryDep): Dependency containing query parameters for
+        params (ProjRegConfigQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         project (uuid.UUID): Parent project ID.

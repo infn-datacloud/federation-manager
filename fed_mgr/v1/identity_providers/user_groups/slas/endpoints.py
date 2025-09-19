@@ -1,11 +1,13 @@
 """Endpoints to manage sla details."""
 
 import uuid
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -35,7 +37,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLARequi
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLACreate,
     SLAList,
-    SLAQueryDep,
+    SLAQuery,
     SLARead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -151,7 +153,7 @@ def retrieve_slas(
     request: Request,
     session: SessionDep,
     user_group: UserGroupRequiredDep,
-    params: SLAQueryDep,
+    params: Annotated[SLAQuery, Query()],
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 
@@ -162,7 +164,7 @@ def retrieve_slas(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (SLAQueryDep): Dependency containing query parameters for
+        params (SLAQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         user_group: Parent user group ID
