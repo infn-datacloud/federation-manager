@@ -7,7 +7,6 @@ from typing import Annotated
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import TIMESTAMP, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1 import PROJECTS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
@@ -15,6 +14,7 @@ from fed_mgr.v1.schemas import (
     DescriptionQuery,
     EditableQuery,
     EditableRead,
+    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,

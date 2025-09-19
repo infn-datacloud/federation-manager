@@ -9,7 +9,6 @@ from typing import Annotated
 from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType, check_list_not_empty
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
@@ -17,11 +16,13 @@ from fed_mgr.v1.schemas import (
     DescriptionQuery,
     EditableQuery,
     EditableRead,
+    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,
     PaginationQuery,
     SortQuery,
+    check_list_not_empty,
 )
 
 

@@ -5,10 +5,10 @@ from typing import Annotated
 from pydantic import AnyHttpUrl, EmailStr
 from sqlmodel import AutoString, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationTimeQuery,
     CreationTimeRead,
+    HttpUrlType,
     ItemID,
     PaginatedList,
     PaginationQuery,
