@@ -1,21 +1,7 @@
 ARG PYTHON_VERSION=3.12
-ARG PYTHON_VARIANT=slim
+ARG POETRY_VERSION=2.1
 
-# Install poetry
-FROM python:${PYTHON_VERSION}-${PYTHON_VARIANT} AS poetry
-
-ARG POETRY_VERSION=2.1.4
-
-ENV POETRY_HOME=/opt/poetry \
-    POETRY_VERSION=${POETRY_VERSION} \
-    POETRY_VIRTUALENVS_CREATE=false \
-    PATH=${PATH}:/opt/poetry/bin
-
-RUN python -m ensurepip --upgrade \
-    && python -m pip install --upgrade setuptools pip poetry
-
-# Stage used in production with the service
-FROM poetry
+FROM harbor.cloud.infn.it/datacloud-middleware/poetry:${POETRY_VERSION}-python${PYTHON_VERSION} AS base
 
 WORKDIR /app
 
