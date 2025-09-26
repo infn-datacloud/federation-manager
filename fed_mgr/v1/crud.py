@@ -72,7 +72,6 @@ def raise_from_integrity_error(
     # Search for 'Duplicate entry ' string and catch anything till the end of line
     match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", error.args[0])
     if match is not None:
-        # raise ConflictError(element_str, "is_root", True)
         if "unique_projid_provider_couple" in match.group(0):
             attr = "provider_id"
         elif "ix_unique_provider_root" in match.group(0):

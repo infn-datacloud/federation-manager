@@ -18,10 +18,10 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
 from fed_mgr.kafka import send_provider_to_be_evaluated
 from fed_mgr.logger import get_logger
-from fed_mgr.utils import check_list_not_empty
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
+from fed_mgr.v1.schemas import check_list_not_empty
 from fed_mgr.v1.users.crud import get_user
 
 DEPRECATION_TIMEDELTA = 14  # days
