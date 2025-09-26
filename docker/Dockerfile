@@ -10,4 +10,6 @@ COPY ./fed_mgr /app/fed_mgr
 
 RUN poetry install --without dev --with rest-api,mysql
 
+USER ${USERNAME}
+
 CMD ["fastapi", "run", "/app/fed_mgr/main.py", "--port", "80"]
