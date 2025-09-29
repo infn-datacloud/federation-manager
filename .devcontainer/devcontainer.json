@@ -17,5 +17,6 @@
   },
   "forwardPorts": [
     8080
-  ]
+  ],
+  "shutdownAction": "stopCompose"
 }
