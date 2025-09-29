@@ -1,349 +1,130 @@
-"""Backgound and asynchronous functions used to send data to kafka."""
-
+from typing import Callable
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+import aiokafka as ak
 import asyncio
 import json
-from logging import Logger
-from typing import Any
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from aiokafka.errors import (
-    ConsumerStoppedError,
-    KafkaConnectionError,
-    RecordTooLargeError,
-    UnsupportedVersionError,
-)
-
-from fed_mgr.config import Settings
-from fed_mgr.v1.models import Provider
-from fed_mgr.v1.schemas import (
-    KafkaEvaluateProviderMessage,
-    KafkaFederationResultsMessage,
-    KafkaMonitoringResultsMessage,
-)
+from fed_mgr.config import get_settings
+from fed_mgr.logger import get_logger
 
 
-def add_ssl_parameters(settings: Settings) -> dict[str, Any]:
-    """Add SSL configuration parameters for Kafka connection based on provided settings.
+class KafkaHandler:
+    def __init__(self):
+        self._settings = get_settings()
+        self._consumer_context = self.__create_consumer_context()
+        self._producer_context = self.__create_producer_context()
+        self._logger = get_logger(self._settings, "kafka")
 
-    This function constructs a dictionary of SSL-related keyword arguments required for
-    secure Kafka communication.
+    def __create_consumer_context(self):
+        context = {
+            "client_id": self._settings.KAFKA_CLIENT_NAME,
+            "bootstrap_servers": self._settings.KAFKA_BOOTSTRAP_SERVERS,
+            "value_deserializer": lambda x: json.loads(x.decode("utf-8")),
+            "fetch_max_bytes": self._settings.KAFKA_MAX_REQUEST_SIZE,
+            "consumer_timeout_ms": self._settings.KAFKA_TIMEOUT,
+            "auto_offset_reset": "earliest",
+            "enable_auto_commit": False,
+            "group_id": "fed-mgr-group",
+            "max_poll_records": 1,
+        }
+        if self._settings.KAFKA_SSL_CERT_PATH is not None:
+            ssl_context = self.__create_ssl_context()
+            context = {**context, **ssl_context}
+        return context
 
-    Args:
-        settings (Settings): The settings object containing Kafka SSL configurations.
+    def __create_producer_context(self):
+        context = {
+            "client_id": self._settings.KAFKA_CLIENT_NAME,
+            "bootstrap_servers": self._settings.KAFKA_BOOTSTRAP_SERVERS,
+            "value_serializer": lambda x: json.dumps(x, sort_keys=True).encode("utf-8"),
+            "max_request_size": self._settings.KAFKA_MAX_REQUEST_SIZE,
+            "acks": "all",
+            "enable_idempotence": True,
+        }
+        if self._settings.KAFKA_SSL_CERT_PATH is not None:
+            ssl_context = self.__create_ssl_context()
+            context = {**context, **ssl_context}
+        return context
 
-    Returns:
-        dict[str, Any]: A dictionary containing SSL configuration parameters for Kafka.
+    def __create_ssl_context(self) -> dict[str, str | dict[str, str | None]]:
+        """Create AIOKafka SSL context
 
-    Raises:
-        ValueError: If the KAFKA_SSL_PASSWORD is None when SSL is enabled.
+        Returns:
+          dict[str, str]: AIOKafka SSL context
+        """
+        return {
+            "security_protocol": "SSL",
+            "ssl_context": {
+                "ssl_cafile": self._settings.KAFKA_SSL_CERT_PATH,
+                "ssl_certfile": self._settings.KAFKA_SSL_CERT_PATH,
+                "ssl_keyfile": self._settings.KAFKA_SSL_KEY_PATH,
+                "ssl_password": self._settings.KAFKA_SSL_PASSWORD
+            }
+        }
 
-    """
-    if settings.KAFKA_SSL_PASSWORD is None:
-        raise ValueError(
-            "KAFKA_SSL_PASSWORD can't be None when KAFKA_SSL_ENABLE is True"
-        )
-    kwargs = {
-        "security_protocol": "SSL",
-        "ssl_check_hostname": False,
-        "ssl_cafile": settings.KAFKA_SSL_CACERT_PATH,
-        "ssl_certfile": settings.KAFKA_SSL_CERT_PATH,
-        "ssl_keyfile": settings.KAFKA_SSL_KEY_PATH,
-        "ssl_password": settings.KAFKA_SSL_PASSWORD,
-    }
-    return kwargs
+    def settings(self):
+        return self._settings
 
+    def listen_topic(self, *topic, callback: Callable[[ak.ConsumerRecord], None]) -> None:
+        """Register an AIOKafkaConsumer"""
+        asyncio.create_task(self._start_consumer(*topic, callback=callback))
 
-def create_kafka_producer(
-    settings: Settings, logger: Logger
-) -> AIOKafkaProducer | None:
-    """Create and configure a KafkaProducer instance based on the provided settings.
-
-    This function sets up a Kafka producer with JSON value serialization, idempotence,
-    and other options as specified in the `settings` object. If SSL is enabled, it loads
-    the necessary SSL certificates and password from the provided paths.
-
-    Args:
-        settings (Settings): Configuration object containing Kafka connection and
-            security settings.
-        logger (Logger): Logger instance for logging errors and information.
-
-    Returns:
-        AIOKafkaProducer: Configured Kafka producer instance.
-
-    """
-    kwargs = {
-        "client_id": settings.KAFKA_CLIENT_NAME,
-        "bootstrap_servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-        "value_serializer": lambda x: json.dumps(x, sort_keys=True).encode("utf-8"),
-        "max_request_size": settings.KAFKA_MAX_REQUEST_SIZE,
-        "acks": "all",
-        "enable_idempotence": True,
-    }
-
-    try:
-        if settings.KAFKA_SSL_ENABLE:
-            logger.info("SSL enabled")
-            ssl_kwargs = add_ssl_parameters(settings=settings)
-            kwargs = {**kwargs, **ssl_kwargs}
-
-        return AIOKafkaProducer(**kwargs)
-
-    except Exception as e:
-        msg = f"Failed to create producer: {e.args[0]}"
-        logger.error(msg)
-
-
-async def send(producer: AIOKafkaProducer, topic: str, message: dict[str, Any]) -> None:
-    """Send a message to a specified Kafka topic using an asynchronous producer.
-
-    This function starts the given AIOKafkaProducer, sends the provided message to the
-    specified topic, and ensures the producer is stopped after the operation, regardless
-    of success or failure.
-
-    Args:
-        producer (AIOKafkaProducer): The asynchronous Kafka producer instance.
-        topic (str): The name of the Kafka topic to send the message to.
-        message (dict[str, Any]): The message payload to send.
-
-    Returns:
-        None
-
-    Raises:
-        Any exceptions raised by producer.start(), producer.send_and_wait(), or
-        producer.stop() will propagate.
-
-    """
-    await producer.start()
-    try:
-        await producer.send_and_wait(topic, message)
-    finally:
-        await producer.stop()
-
-
-async def send_provider_to_be_evaluated(
-    provider: Provider, settings: Settings, logger: Logger
-) -> None:
-    """Asynchronously send evaluation messages for a provider to Kafka for each region.
-
-    Args:
-        provider (Provider): The provider object containing projects and regions to be
-            evaluated.
-        settings (Settings): Application settings including Kafka configuration and
-            message version.
-        logger (Logger): Logger instance for logging events.
-
-    Returns:
-        None
-
-    Raises:
-        StopIteration: If no root project is found in provider.projects.
-        Exception: Propagates exceptions from Kafka producer creation or message sending
-
-    """
-    producer = create_kafka_producer(settings, logger)
-    root_project = next(filter(lambda p: p.is_root, provider.projects))
-    for region in provider.regions:
-        message = KafkaEvaluateProviderMessage(
-            msg_version=settings.KAFKA_EVALUATE_PROVIDERS_MSG_VERSION,
-            auth_endpoint=provider.auth_endpoint,
-            region_name=region.name,
-            project_name=root_project.name,
-            flavor_name=None,
-            public_net_name=None,
-            cinder_net_id=None,
-            floating_ips_enable=False,
-        )
-        await send(producer, settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, message)
-
-
-def consume_results_of_federation_tests(message: KafkaFederationResultsMessage) -> None:
-    """Consume a Kafka message and processes it based on its topic.
-
-    Logs the received message for debugging purposes. Depending on the topic of the
-    message, performs specific actions such as updating request state, storing results,
-    or notifying errors. Handles JSON decoding and validation errors by raising
-    ValueError with appropriate messages.
-
-    Args:
-        message (KafkaFederationResultsMessage): The Kafka message to be consumed.
-
-    """
-    # TODO: update request state. Store results
-
-
-def consume_results_of_monitored_providers(
-    message: KafkaMonitoringResultsMessage,
-) -> None:
-    """Consume a Kafka message and processes it based on its topic.
-
-    Logs the received message for debugging purposes. Depending on the topic of the
-    message, performs specific actions such as updating request state, storing results,
-    or notifying errors. Handles JSON decoding and validation errors by raising
-    ValueError with appropriate messages.
-
-    Args:
-        message (KafkaMonitoringResultsMessage): The Kafka message to be consumed.
-
-    """
-    # TODO: update request state. Store results
-
-
-async def consume(
-    kafka_consumer: AIOKafkaConsumer, settings: Settings, logger: Logger
-) -> None:
-    """Consume messages from the Kafka topic.
-
-    Passing each message to the corresponding `consume` function along with the logger.
-    Errors during message reading are catched.
-
-    Args:
-        kafka_consumer (AIOKafkaConsumer): The registered consumer.
-        settings (Settings): Configuration settings for the Kafka consumer.
-        logger (Logger): Logger instance for logging information and errors.
-
-    """
-    async for message in kafka_consumer:
+    async def _start_consumer(self, *topic, callback: Callable[[ak.ConsumerRecord], None]) -> None:
+        consumer = AIOKafkaConsumer(*topic, **self._consumer_context)
+        await consumer.start()
         try:
-            logger.debug("Message: %s", message)
-            match message.topic:
-                case settings.KAFKA_FEDERATION_TESTS_RESULT_TOPIC:
-                    data = KafkaFederationResultsMessage(**message.value)
-                    consume_results_of_federation_tests(data, logger)
-                case settings.KAFKA_PROVIDERS_MONITORING_TOPIC:
-                    data = KafkaMonitoringResultsMessage(**message.value)
-                    consume_results_of_monitored_providers(data, logger)
-        except ValueError as e:
-            msg = f"Failed to consume kafka message on topic: {e.args[0]}"
-            logger.error(msg)
+            async for message in consumer:
+                callback(message)
+                await consumer.commit()
+        finally:
+            self._logger.info("Stopping KafkaConsumer")
+            await consumer.stop()
+
+    async def send_one(self, topic: str, message: bytes):
+        producer = AIOKafkaProducer(bootstrap_servers=self._producer_context["bootstrap_servers"])
+        # Get cluster layout and initial topic/partition leadership information
+        await producer.start()
+        try:
+            # Produce message
+            await producer.send_and_wait(topic, message)
+            self._logger.debug("all messages dispatched")
+        finally:
+            # Wait for all pending messages to be delivered or expire.
+            await producer.stop()
+
+    def logger(self):
+        return self._logger
 
 
-async def start_kafka_consumer(
-    topic: str, settings: Settings, logger: Logger
-) -> AIOKafkaConsumer | None:
-    """Start an asynchronous Kafka consumer for the specified topic.
+class KafkaApp:
+    def __init__(self):
+        self._handler = KafkaHandler()
+        self.__start()
 
-    This function initializes an AIOKafkaConsumer with the given configuration,
-    including SSL parameters if enabled. Errors during consumer startup are logged.
+    def __del__(self):
+        self._handler.logger().info("KafkaApp exited")
 
-    Args:
-        topic (str): The Kafka topic to consume messages from.
-        settings (Settings): Configuration settings for the Kafka consumer.
-        logger (Logger): Logger instance for logging information and errors.
+    def __start(self):
+        settings = self._handler.settings()
+        self._handler.listen_topic(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, callback=self.on_message)
+        self._handler.logger().info("KafkaApp started")
 
-    """
-    kwargs = {
-        "client_id": settings.KAFKA_CLIENT_NAME,
-        "bootstrap_servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-        "value_deserializer": lambda x: json.loads(x.decode("utf-8")),
-        "fetch_max_bytes": settings.KAFKA_MAX_REQUEST_SIZE,
-        "consumer_timeout_ms": settings.KAFKA_TOPIC_TIMEOUT,
-        "auto_offset_reset": "earliest",
-        "enable_auto_commit": True,
-        "group_id": None,
-        "max_poll_records": 1,
-    }
-    if settings.KAFKA_SSL_ENABLE:
-        logger.info("SSL enabled")
-        ssl_kwargs = add_ssl_parameters(settings)
-        kwargs = {**kwargs, **ssl_kwargs}
+    def send(self, topic: str, message: bytes):
+        asyncio.create_task(self._handler.send_one(topic, message))
 
-    kafka_consumer = AIOKafkaConsumer(topic, **kwargs)
+    def on_message(self, message: ak.ConsumerRecord) -> None:
+        self._handler.logger().debug(f"message arrived on topic {message.topic}, value: {message.value}")
+
+
+async def main():
+    app = KafkaApp()
+    while True:
+        app.send("evaluate-providers", b'{"msg": "hello!"}')
+        await asyncio.sleep(2)
+
+
+if __name__ == "__main__":
     try:
-        await kafka_consumer.start()
-        msg = f"Consumer on topic '{topic}' started"
-        logger.info(msg)
-        return kafka_consumer
-    except (KafkaConnectionError, UnsupportedVersionError, ValueError) as e:
-        msg = f"Failed to start Kafka consumer: {e.args[0]}"
-        logger.error(msg)
-        await kafka_consumer.stop()
-        return None
-
-
-async def start_kafka_listener(topic: str, settings: Settings, logger: Logger) -> None:
-    """Start an asynchronous Kafka consumer for the specified topic and consume msg.
-
-    Args:
-        topic (str): The Kafka topic to consume messages from.
-        settings (Settings): Configuration settings for the Kafka consumer.
-        logger (Logger): Logger instance for logging information and errors.
-
-    Raises:
-        KafkaError: If the Kafka consumer fails to start or during message consumption.
-
-    """
-    kafka_consumer = await start_kafka_consumer(topic, settings, logger)
-    if kafka_consumer is not None:
-        try:
-            await consume(kafka_consumer, settings, logger)
-        except (ConsumerStoppedError, RecordTooLargeError) as e:
-            msg = f"Error reading messages from topic '{topic}': {e.args[0]}"
-            logger.error(msg)
-            await kafka_consumer.stop()
-
-
-async def start_kafka_listeners(
-    settings: Settings, logger: Logger
-) -> dict[str, asyncio.Task]:
-    """Start asynchronous Kafka topic listeners and return a dictionary of tasks.
-
-    Args:
-        settings (Settings): Configuration object containing Kafka settings.
-        logger (Logger): Logger instance for logging messages.
-
-    Returns:
-        dict[str, asyncio.Task]: A dictionary mapping Kafka topic names to their
-            corresponding asyncio tasks.
-
-    Raises:
-        Any exceptions raised by `start_kafka_consumer` or `asyncio.create_task` will
-            propagate.
-
-    """
-    logger.info("Start listening on Kafka topics")
-    tasks = {}
-    # TODO verify message and DB are aligned on startup
-    tasks[settings.KAFKA_EVALUATE_PROVIDERS_TOPIC] = asyncio.create_task(
-        start_kafka_consumer(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, settings, logger)
-    )
-    tasks[settings.KAFKA_FEDERATION_TESTS_RESULT_TOPIC] = asyncio.create_task(
-        start_kafka_consumer(
-            settings.KAFKA_FEDERATION_TESTS_RESULT_TOPIC, settings, logger
-        )
-    )
-    tasks[settings.KAFKA_PROVIDERS_MONITORING_TOPIC] = asyncio.create_task(
-        start_kafka_consumer(
-            settings.KAFKA_PROVIDERS_MONITORING_TOPIC, settings, logger
-        )
-    )
-    return tasks
-
-
-async def stop_kafka_listeners(
-    kafka_tasks: dict[str, asyncio.Task], logger: Logger
-) -> None:
-    """Cancel and await all running Kafka consumer tasks.
-
-    Iterates over the provided dictionary of Kafka consumer tasks, cancels each task,
-    and awaits its completion. Logs the cancellation status for each topic.
-
-    Args:
-        kafka_tasks (dict[str, asyncio.Task]): A dictionary mapping Kafka topic names
-            to their corresponding asyncio tasks.
-        logger (Logger): Logger instance for logging cancellation events.
-
-    Returns:
-        None
-
-    """
-    logger.info("Cancel Kafka consumers")
-    for topic, kafka_task in kafka_tasks.items():
-        kafka_task.cancel()
-        try:
-            await kafka_task
-        except asyncio.CancelledError:
-            msg = f"Kafka consumer on topic '{topic}' cancelled"
-            logger.info(msg)
-        except Exception as e:
-            msg = f"Failed to cancel Kafka consumer on topic '{topic}': {e}"
-            logger.error(msg)
+        asyncio.run(main())
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        pass

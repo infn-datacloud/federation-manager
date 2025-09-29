@@ -133,106 +133,63 @@ class Settings(BaseSettings):
             description="JSON-formatted list of allowed origins",
         ),
     ]
-    KAFKA_ENABLE: Annotated[
-        bool, Field(default=False, description="Enable kafka communication")
-    ]
-    KAFKA_BOOTSTRAP_SERVERS: Annotated[
-        str,
-        Field(
-            default="localhost:9092",
-            description="Kafka server hostnames. DNS name and port. Can be comma "
-            "separeted list",
-        ),
-    ]
+    KAFKA_BOOTSTRAP_SERVERS: Annotated[str, Field(
+        default="host.docker.internal:9092",
+        description="Kafka address or comma separated list of addresses"
+    )]
     KAFKA_EVALUATE_PROVIDERS_TOPIC: Annotated[
         str,
         Field(
             default="evaluate-providers",
-            description="Kafka topic with the providers to evaluate before federation "
-            "request approval.",
-        ),
+            description="Kafka topic with for providers to evaluated before federation request approval.",
+        )
     ]
     KAFKA_FEDERATION_TESTS_RESULT_TOPIC: Annotated[
         str,
         Field(
             default="federation-tests-result",
-            description="Kafka topic with rally tests results",
-        ),
+            description="Kafka topic for rally tests results",
+        )
     ]
     KAFKA_PROVIDERS_MONITORING_TOPIC: Annotated[
         str,
         Field(
             default="providers-monitoring",
-            description="Kafka topic with the results of the periodic tests execute "
-            "on federated providers.",
-        ),
+            description="Kafka topic for periodic tests results of the federated providers.",
+        )
     ]
-    KAFKA_TOPIC_TIMEOUT: Annotated[
+    KAFKA_TIMEOUT: Annotated[
         int,
         Field(
             default=1000,
             ge=0,
-            description="Number of ms to wait when reading published messages",
-        ),
+            description="Message timeout in milliseconds.",
+        )
     ]
     KAFKA_MAX_REQUEST_SIZE: Annotated[
         int,
         Field(
             default=104857600,
-            description="Maximum size of a request to send to kafka (B).",
+            description="Maximum size of the request to send in bytes.",
         ),
     ]
     KAFKA_CLIENT_NAME: Annotated[
         str,
         Field(
-            default="fedmgr", description="Client name to use when connecting to kafka"
-        ),
-    ]
-    KAFKA_SSL_ENABLE: Annotated[
-        bool, Field(default=False, description="Enable SSL connection with kafka")
+            default="fedmgr", description="Kafka client name."
+        )
     ]
     KAFKA_SSL_CACERT_PATH: Annotated[
-        str | None, Field(default=None, descrption="Path to the SSL CA cert file")
+        str | None, Field(default=None, description="Path to the SSL CA cert file.")
     ]
     KAFKA_SSL_CERT_PATH: Annotated[
-        str | None, Field(default=None, descrption="Path to the SSL cert file")
+        str | None, Field(default=None, description="Path to the SSL cert file.")
     ]
     KAFKA_SSL_KEY_PATH: Annotated[
-        str | None, Field(default=None, descrption="Path to the SSL Key file")
+        str | None, Field(default=None, description="Path to the SSL Key file.")
     ]
     KAFKA_SSL_PASSWORD: Annotated[
-        str | None, Field(default=None, descrption="SSL password")
-    ]
-    KAFKA_ALLOW_AUTO_CREATE_TOPICS: Annotated[
-        bool,
-        Field(
-            default=False,
-            description="Enable automatic creation of new topics if not yet in kafka",
-        ),
-    ]
-    KAFKA_EVALUATE_PROVIDERS_MSG_VERSION: Annotated[
-        str,
-        Field(
-            default="1.0.0",
-            description="Message version for evaluate-providers topic. "
-            "It defines the fields in the message sent to kafka",
-        ),
-    ]
-    KAFKA_FEDERATION_TESTS_RESULT_MSG_VERSION: Annotated[
-        str,
-        Field(
-            default="1.0.0",
-            description="Message version for federation-tests-result topic. "
-            "It defines the fields in the message sent to kafka",
-        ),
-    ]
-    KAFKA_PROVIDERS_MONITORING_MSG_VERSION: Annotated[
-        str,
-        Field(
-            default="1.0.0",
-            description="Message version for providers-monitoring topic. "
-            "It defines the fields in the message sent to kafka",
-        ),
+        str | None, Field(default=None, description="Private key decryption password.")
     ]
 
     model_config = SettingsConfigDict(env_file=".env")
@@ -260,7 +217,7 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Retrieve cached settings."""
-    return Settings()
+    return Settings() # type: ignore
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]

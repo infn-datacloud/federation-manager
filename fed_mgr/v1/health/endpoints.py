@@ -8,7 +8,6 @@ from requests.exceptions import ConnectionError
 
 from fed_mgr.config import AuthorizationMethodsEnum, SettingsDep
 from fed_mgr.db import SessionDep
-from fed_mgr.kafka import start_kafka_consumer
 from fed_mgr.v1 import HEALTH_PREFIX
 from fed_mgr.v1.health.schemas import Health
 
@@ -45,11 +44,5 @@ async def liveness_probe(
             data["opa_connection"] = resp.status_code == status.HTTP_200_OK
         except ConnectionError:
             data["opa_connection"] = False
-    if settings.KAFKA_ENABLE:
-        kafka_consumer = await start_kafka_consumer(
-            settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, settings, request.state.logger
-        )
-        data["kafka_connection"] = kafka_consumer is not None
-        if kafka_consumer is not None:
-            await kafka_consumer.stop()
+    # TODO: Add support for kafka health
     return Health(**data).model_dump()

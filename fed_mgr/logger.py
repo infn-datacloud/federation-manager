@@ -5,7 +5,7 @@ import logging
 from fed_mgr.config import Settings
 
 
-def get_logger(settings: Settings) -> logging.Logger:
+def get_logger(settings: Settings, name: str | None = None) -> logging.Logger:
     """Create and configure a logger for the fed-mgr API service.
 
     The logger outputs log messages to the console with a detailed format including
@@ -27,7 +27,7 @@ def get_logger(settings: Settings) -> logging.Logger:
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
 
-    logger = logging.getLogger("fed-mgr-api")
+    logger = logging.getLogger(name if name is not None else "fed-mgr-api")
     logger.setLevel(level=settings.LOG_LEVEL)
     logger.addHandler(stream_handler)
 

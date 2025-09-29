@@ -13,7 +13,6 @@ from sqlmodel import Session
 from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
-from fed_mgr.kafka import send_provider_to_be_evaluated
 from fed_mgr.logger import get_logger
 from fed_mgr.utils import check_list_not_empty
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
@@ -430,7 +429,7 @@ async def update_provider_status(provider: Provider) -> Provider:
         case ProviderStatus.submitted:
             if provider_can_be_evaluated(provider):
                 provider.status = ProviderStatus.evaluation
-                await send_provider_to_be_evaluated(provider, settings, logger)
+                # await send_provider_to_be_evaluated(provider, settings, logger) FIXME: restore this
     return provider
 
 
