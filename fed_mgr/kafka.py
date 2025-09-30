@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Set
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 import aiokafka as ak
 import asyncio
@@ -15,6 +15,12 @@ class KafkaHandler:
         self._consumer_context = self.__create_consumer_context(ssl_context)
         self._producer_context = self.__create_producer_context(ssl_context)
         self._logger = get_logger(self._settings, "kafka")
+        self._tasks: Set[asyncio.Task] = set()
+
+    def __del__(self):
+        for task in self._tasks:
+            if not task.done():
+                task.cancel()
 
     def __create_consumer_context(self, ssl_context):
         context = {
@@ -69,13 +75,7 @@ class KafkaHandler:
             self._logger.info("Stopping KafkaConsumer")
             await consumer.stop()
 
-    def settings(self):
-        return self._settings
-
-    def listen_topic(self, *topic, callback: Callable[[ak.ConsumerRecord], None]) -> None:
-        asyncio.create_task(self.__start_consumer(*topic, callback=callback))
-
-    async def send_one(self, topic: str, message: bytes):
+    async def __send_one(self, topic: str, message: bytes):
         producer = AIOKafkaProducer(bootstrap_servers=self._producer_context["bootstrap_servers"])
         await producer.start()
         try:
@@ -84,8 +84,24 @@ class KafkaHandler:
         finally:
             await producer.stop()
 
+    def __on_task_complete(self, task):
+        self._tasks.remove(task)
+
+    def settings(self):
+        return self._settings
+
     def logger(self):
         return self._logger
+
+    def listen_topic(self, *topic, callback: Callable[[ak.ConsumerRecord], None]) -> None:
+        task = asyncio.create_task(self.__start_consumer(*topic, callback=callback))
+        task.add_done_callback(self.__on_task_complete)
+        self._tasks.add(task)
+
+    def send(self, topic: str, message: bytes):
+        task = asyncio.create_task(self.__send_one(topic, message))
+        task.add_done_callback(self.__on_task_complete)
+        self._tasks.add(task)
 
 
 class KafkaApp:
@@ -102,7 +118,7 @@ class KafkaApp:
         self._handler.logger().info("KafkaApp started")
 
     def send(self, topic: str, message: bytes):
-        asyncio.create_task(self._handler.send_one(topic, message))
+        self._handler.send(topic, message)
 
     def on_message(self, message: ak.ConsumerRecord) -> None:
         self._handler.logger().debug(f"message arrived on topic {message.topic}, value: {message.value}")
