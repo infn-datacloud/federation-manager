@@ -75,8 +75,8 @@ class KafkaHandler:
             self._logger.info("Stopping KafkaConsumer")
             await consumer.stop()
 
-    async def __send_one(self, topic: str, message: bytes):
-        producer = AIOKafkaProducer(bootstrap_servers=self._producer_context["bootstrap_servers"])
+    async def __send_one(self, topic: str, message: str):
+        producer = AIOKafkaProducer(**self._producer_context)
         await producer.start()
         try:
             await producer.send_and_wait(topic, message)
@@ -98,7 +98,7 @@ class KafkaHandler:
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
 
-    def send(self, topic: str, message: bytes):
+    def send(self, topic: str, message: str):
         task = asyncio.create_task(self.__send_one(topic, message))
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
@@ -117,7 +117,7 @@ class KafkaApp:
         self._handler.listen_topic(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, callback=self.on_message)
         self._handler.logger().info("KafkaApp started")
 
-    def send(self, topic: str, message: bytes):
+    def send(self, topic: str, message: str):
         self._handler.send(topic, message)
 
     def on_message(self, message: ak.ConsumerRecord) -> None:
@@ -127,7 +127,7 @@ class KafkaApp:
 async def main():
     app = KafkaApp()
     while True:
-        app.send("evaluate-providers", b'{"msg": "hello!"}')
+        app.send("evaluate-providers", '{"msg": "hello!"}')
         await asyncio.sleep(2)
 
 
