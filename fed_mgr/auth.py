@@ -71,11 +71,15 @@ def check_flaat_authentication(
     """
     logger.debug("Authentication through flaat")
     try:
-        return flaat.get_user_infos_from_access_token(authz_creds.credentials)
+        user_infos = flaat.get_user_infos_from_access_token(authz_creds.credentials)
     except FlaatUnauthenticated as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=e.render()
         ) from e
+    if user_infos is None:
+        msg = "User details can't be retrieved"
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=msg)
+    return user_infos
 
 
 def check_authentication(
