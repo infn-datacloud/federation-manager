@@ -394,7 +394,7 @@ def remove_deprecated_provider(
     return False
 
 
-async def task_remove_deprecated_provider(*, session: Session, provider: Provider):
+def task_remove_deprecated_provider(*, session: Session, provider: Provider):
     """If the expiration date has been reached, remove the deprecated provider.
 
     Calculate remaining time to provider expiration, wait then remove the deprecated
