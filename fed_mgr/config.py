@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     OPA_TIMEOUT: Annotated[
         int, Field(default=5, description="Communication timeout for OPA")
     ]
+    API_KEY: Annotated[
+        str,
+        Field(
+            default="changeit",
+            description="API Key to set into the header field 'X-API-Key'",
+        ),
+    ]
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyHttpUrl | Literal["*"]],
         Field(

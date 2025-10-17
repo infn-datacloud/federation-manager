@@ -5,7 +5,7 @@ from typing import Annotated
 
 import requests
 from fastapi import HTTPException, Request, Security, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from flaat.exceptions import FlaatUnauthenticated
 from flaat.fastapi import Flaat
 from flaat.user_infos import UserInfos
@@ -36,21 +36,18 @@ def configure_flaat(settings: Settings, logger: Logger) -> None:
         "Trusted IDPs have been configured. Total count: %d",
         len(settings.TRUSTED_IDP_LIST),
     )
+
     if settings.AUTHN_MODE is None:
         logger.warning("No authentication")
-    else:
+    elif settings.AUTHN_MODE is AuthenticationMethodsEnum.local:
         logger.info("Authentication mode is %s", settings.AUTHN_MODE.value)
+        flaat.set_request_timeout(settings.IDP_TIMEOUT)
+        flaat.set_trusted_OP_list([str(i) for i in settings.TRUSTED_IDP_LIST])
+
     if settings.AUTHZ_MODE is None:
         logger.warning("No authorization")
     else:
         logger.info("Authorization mode is %s", settings.AUTHZ_MODE.value)
-    flaat.set_request_timeout(settings.IDP_TIMEOUT)
-    flaat.set_trusted_OP_list([str(i) for i in settings.TRUSTED_IDP_LIST])
-
-
-security = HTTPBearer()
-
-HttpAuthzCredsDep = Annotated[HTTPAuthorizationCredentials, Security(security)]
 
 
 def check_flaat_authentication(
@@ -74,17 +71,58 @@ def check_flaat_authentication(
         user_infos = flaat.get_user_infos_from_access_token(authz_creds.credentials)
     except FlaatUnauthenticated as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=e.render()
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=e.render()["error_description"],
         ) from e
     if user_infos is None:
-        msg = "User details can't be retrieved"
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=msg)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User details can't be retrieved",
+        )
     return user_infos
 
 
+def check_api_key_authentication(
+    api_key: str, settings: Settings, logger: Logger
+) -> None:
+    """Verify that the provided access token belongs to a trusted issuer.
+
+    Args:
+        api_key (str): API key read from header.
+        settings (Settings): settings instance.
+        logger (Logger): Logger instance for logging authorization steps.
+
+    Returns:
+        UserInfos: The user information extracted from the access token.
+
+    Raises:
+        HTTPException: If the token is not valid or not from a trusted issuer.
+
+    """
+    logger.debug("Authentication through API Key")
+    if api_key != settings.API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API Key"
+        )
+
+
+http_bearer = HTTPBearer(auto_error=False)
+
+HttpAuthzCredsDep = Annotated[
+    HTTPAuthorizationCredentials | None, Security(http_bearer)
+]
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+ApiKeyDep = Annotated[str | None, Security(api_key_header)]
+
+
 def check_authentication(
-    request: Request, authz_creds: HttpAuthzCredsDep, settings: SettingsDep
-) -> UserInfos:
+    request: Request,
+    authz_creds: HttpAuthzCredsDep,
+    api_key: ApiKeyDep,
+    settings: SettingsDep,
+) -> UserInfos | None:
     """Check user authentication.
 
     Depending on the authentication mode specified in the settings, this function
@@ -93,8 +131,9 @@ def check_authentication(
 
     Args:
         request (Request): The current FastAPI request object.
-        authz_creds (HttpAuthzCredsDep): The authorization credentials dependency
-            required for authentication.
+        authz_creds (HTTPAuthorizationCredentials): The authorization credentials
+            required for authentication when using access token.
+        api_key (str): The API key sent into the request's header.
         settings (SettingsDep): The application settings dependency containing
             authentication configuration.
 
@@ -106,9 +145,18 @@ def check_authentication(
 
     """
     if settings.AUTHN_MODE == AuthenticationMethodsEnum.local:
-        return check_flaat_authentication(
-            authz_creds=authz_creds, logger=request.state.logger
-        )
+        if authz_creds is not None:
+            return check_flaat_authentication(
+                authz_creds=authz_creds, logger=request.state.logger
+            )
+        elif api_key is not None:
+            return check_api_key_authentication(
+                api_key=api_key, settings=settings, logger=request.state.logger
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated"
+            )
     request.state.logger.debug(
         "No authentication mode. Providing fake user credentials"
     )
@@ -119,7 +167,7 @@ def check_authentication(
     )
 
 
-AuthenticationDep = Annotated[UserInfos, Security(check_authentication)]
+AuthenticationDep = Annotated[UserInfos | None, Security(check_authentication)]
 
 
 async def check_opa_authorization(
@@ -167,7 +215,7 @@ async def check_opa_authorization(
         case status.HTTP_200_OK:
             resp = resp.json().get("result", {"allow": False})
             if resp["allow"]:
-                return
+                return None
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized to perform this operation",
@@ -206,11 +254,20 @@ async def check_authorization(
         HTTPException: If the user does not have user-level access.
 
     """
-    if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
-        return await check_opa_authorization(
-            user_infos=user_infos,
-            request=request,
-            settings=settings,
-            logger=request.state.logger,
-        )
+    if user_infos is None:
+        # Script based authentication
+        if request.method != "GET":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API Key credentials can be used only for GET requests",
+            )
+    else:
+        # User based authentication.
+        if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
+            return await check_opa_authorization(
+                user_infos=user_infos,
+                request=request,
+                settings=settings,
+                logger=request.state.logger,
+            )
     return None
