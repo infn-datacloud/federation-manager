@@ -71,12 +71,12 @@ def check_flaat_authentication(
         user_infos = flaat.get_user_infos_from_access_token(authz_creds.credentials)
     except FlaatUnauthenticated as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=e.render()["error_description"],
         ) from e
     if user_infos is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User details can't be retrieved",
         )
     return user_infos
@@ -102,7 +102,7 @@ def check_api_key_authentication(
     logger.debug("Authentication through API Key")
     if api_key != settings.API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API Key"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key"
         )
 
 
@@ -217,7 +217,7 @@ async def check_opa_authorization(
             if resp["allow"]:
                 return None
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Unauthorized to perform this operation",
             )
         case status.HTTP_400_BAD_REQUEST:
@@ -258,7 +258,7 @@ async def check_authorization(
         # Script based authentication
         if request.method != "GET":
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="API Key credentials can be used only for GET requests",
             )
     else:
