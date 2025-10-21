@@ -18,6 +18,7 @@ from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
 from fed_mgr.kafka import send_provider_to_be_evaluated
 from fed_mgr.logger import get_logger
+from fed_mgr.utils import encrypt
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
@@ -92,7 +93,7 @@ def get_providers(
 
 
 def add_provider(
-    *, session: Session, provider: ProviderCreate, created_by: User
+    *, session: Session, provider: ProviderCreate, created_by: User, secret_key: str
 ) -> Provider:
     """Add a new provider to the database.
 
@@ -102,12 +103,14 @@ def add_provider(
         session: The database session.
         provider: The ProviderCreate model instance to add.
         created_by: The User instance representing the creator of the provider.
+        secret_key: Secret key used to encrypt rally user's password.
 
     Returns:
         Provider: The identifier of the newly created provider.
 
     """
     site_admins = check_users_exist(session=session, user_ids=provider.site_admins)
+    provider.rally_password = encrypt(secret_key, provider.rally_password)
     return add_item(
         session=session,
         entity=Provider,
@@ -124,6 +127,7 @@ def update_provider(
     provider_id: uuid.UUID,
     new_provider: ProviderUpdate,
     updated_by: User,
+    secret_key: str,
 ) -> None:
     """Update an provider by their unique provider_id from the database.
 
@@ -134,11 +138,13 @@ def update_provider(
         provider_id: The UUID of the provider to update.
         new_provider: The new data to update the provider with.
         updated_by: The User instance representing the updater of the provider.
+        secret_key: Secret key used to encrypt rally user's password.
 
     Returns:
         None
 
     """
+    new_provider.rally_password = encrypt(secret_key, new_provider.rally_password)
     return update_item(
         session=session,
         entity=Provider,

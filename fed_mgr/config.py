@@ -259,6 +259,7 @@ class Settings(BaseSettings):
             "It defines the fields in the message sent to kafka",
         ),
     ]
+    SECRET_KEY: Annotated[str, Field(description="Secret key used to encrypt values")]
 
     model_config = SettingsConfigDict(env_file=".env")
 

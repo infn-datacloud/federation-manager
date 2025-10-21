@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
+from fed_mgr.config import SettingsDep
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -80,6 +81,7 @@ def create_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    settings: SettingsDep,
     provider: ProviderCreate,
 ) -> ItemID:
     """Create a new resource provider in the system.
@@ -93,6 +95,7 @@ def create_provider(
         provider (ProviderCreate | None): The resource provider data to create.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
+        settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
 
     Returns:
@@ -109,7 +112,10 @@ def create_provider(
     request.state.logger.info(msg)
     try:
         db_provider = add_provider(
-            session=session, provider=provider, created_by=current_user
+            session=session,
+            provider=provider,
+            created_by=current_user,
+            secret_key=settings.SECRET_KEY,
         )
     except ItemNotFoundError as e:
         request.state.logger.error(e.message)
@@ -257,6 +263,7 @@ def edit_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    settings: SettingsDep,
     provider_id: uuid.UUID,
     new_provider: ProviderUpdate,
 ) -> None:
@@ -267,6 +274,7 @@ def edit_provider(
         provider_id (uuid.UUID): The unique identifier of the resource provider to
             update.
         new_provider (UserCreate): The new resource provider data to update.
+        settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
@@ -287,6 +295,7 @@ def edit_provider(
             provider_id=provider_id,
             new_provider=new_provider,
             updated_by=current_user,
+            secret_key=settings.SECRET_KEY,
         )
     except ItemNotFoundError as e:
         request.state.logger.error(e.message)

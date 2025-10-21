@@ -99,6 +99,8 @@ class ProviderBase(ItemDescription):
             "'openstack' provider types)",
         ),
     ]
+    rally_username: Annotated[str, Field(description="Rally service user's name")]
+    rally_password: Annotated[str, Field(description="Rally service user's password")]
 
 
 class ProviderInternal(SQLModel):
@@ -187,6 +189,12 @@ class ProviderUpdate(SQLModel):
             description="List of tags used to filter provider networks (used only with "
             "'openstack' provider types)",
         ),
+    ]
+    rally_username: Annotated[
+        str | None, Field(default=None, description="Rally service user's name")
+    ]
+    rally_password: Annotated[
+        str | None, Field(default=None, description="Rally service user's password")
     ]
 
 
@@ -324,6 +332,20 @@ class ProviderQuery(
             default=None,
             description="Any of the resource provider network tagss must contain this "
             "string",
+        ),
+    ]
+    rally_username: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Rally service user's name must contain this string",
+        ),
+    ]
+    rally_password: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Rally service user's password must contain this string",
         ),
     ]
     status: Annotated[
