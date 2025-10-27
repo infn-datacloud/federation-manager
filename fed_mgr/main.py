@@ -63,10 +63,11 @@ async def lifespan(app: FastAPI):
     configure_flaat(settings, logger)
     engine = create_db_and_tables(logger)
 
-    _ = KafkaApp()
-
+    kafka = None
     # At application startup create or delete fake user based on authn mode
     with Session(engine) as session:
+        if settings.KAFKA_ENABLED:
+            kafka = KafkaApp(session)
         if settings.AUTHN_MODE is None:
             create_fake_user(session)
         else:

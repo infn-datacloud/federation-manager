@@ -133,6 +133,10 @@ class Settings(BaseSettings):
             description="JSON-formatted list of allowed origins",
         ),
     ]
+    KAFKA_ENABLED: Annotated[bool, Field(
+      default=True,
+      description="Enable Kafka consumer"
+    )]
     KAFKA_BOOTSTRAP_SERVERS: Annotated[str, Field(
         default="host.docker.internal:9092",
         description="Kafka address or comma separated list of addresses"
@@ -161,7 +165,7 @@ class Settings(BaseSettings):
     KAFKA_TIMEOUT: Annotated[
         int,
         Field(
-            default=1000,
+            default=10000,
             ge=0,
             description="Message timeout in milliseconds.",
         )

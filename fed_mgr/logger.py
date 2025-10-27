@@ -14,6 +14,7 @@ def get_logger(settings: Settings, name: str | None = None) -> logging.Logger:
 
     Args:
         settings: The application settings instance containing the log level.
+        name: Name of the logger (optional).
 
     Returns:
         logging.Logger: The configured logger instance.
