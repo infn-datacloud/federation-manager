@@ -1,6 +1,8 @@
 """Endpoints to manage sla details."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -23,10 +25,12 @@ from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
 )
 from fed_mgr.v1.identity_providers.user_groups.slas.projects.schemas import (
     ProjSLAConnectionCreate,
+    ProjSLAQuery,
 )
 from fed_mgr.v1.providers.endpoints import update_provider_state
 from fed_mgr.v1.providers.projects.crud import get_project
 from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
+from fed_mgr.v1.providers.projects.schemas import ProjectList, ProjectRead
 from fed_mgr.v1.providers.schemas import ProviderStatus
 from fed_mgr.v1.schemas import ErrorMessage
 from fed_mgr.v1.users.dependencies import CurrenUserDep
@@ -150,6 +154,67 @@ def connect_sla_to_proj(
         provider=project.provider,
         current_user=current_user,
         next_state=ProviderStatus.ready,
+    )
+
+
+@sla_proj_conn_router.get(
+    "/",
+    summary="Retrieve projects pointed by this SLA",
+    description="Retrieve a paginated list of projects pointed by this SLA",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
+        status.HTTP_409_CONFLICT: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
+    },
+)
+def retrieve_projects(
+    request: Request,
+    session: SessionDep,
+    sla: SLARequiredDep,
+    params: Annotated[ProjSLAQuery, Query()],
+) -> None:
+    """Retrieve a paginated list of projects pointed by the target SLA.
+
+    Fetches projects from the database using pagination, sorting. Returns the projects
+    in a paginated response format.
+
+    Args:
+        request (Request): The HTTP request object, used for logging and URL generation.
+        session (Session): Database session dependency.
+        sla (SLA): Parent SLA
+        params (ProjSLAQuery): Dependency containing query parameters for
+            sorting, and pagination.
+
+    Returns:
+        ProjectList: A paginated list of slas matching the query parameters.
+
+    Raises:
+        401 Unauthorized: If the user is not authenticated (handled by dependencies).
+        403 Forbidden: If the user does not have permission (handled by dependencies).
+        404 Not Found: If the parent identity provider does not exists.
+
+    """
+    msg = f"Retrieve projects. Query params: {params.model_dump_json()}"
+    request.state.logger.info(msg)
+    msg = f"{len(sla.projects)} retrieved projects: "
+    msg += f"{[project.model_dump_json() for project in sla.projects]}"
+    request.state.logger.info(msg)
+    new_projects = []
+    for project in sla.projects:
+        new_project = ProjectRead(
+            **project.model_dump(),  # Does not return sla, created_by and updated_by
+            created_by=project.created_by_id,
+            updated_by=project.created_by_id,
+            sla=project.sla.id,
+            base_url=str(request.url),
+        )
+        new_projects.append(new_project)
+    return ProjectList(
+        data=new_projects,
+        resource_url=str(request.url),
+        page_number=params.page,
+        page_size=params.size,
+        tot_items=len(sla.projects),
     )
 
 
