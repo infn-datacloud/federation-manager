@@ -88,7 +88,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_sla(
@@ -137,7 +137,7 @@ def create_sla(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"User created: {db_sla.model_dump_json()}"
     request.state.logger.info(msg)
@@ -257,7 +257,7 @@ def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_sla(
@@ -304,7 +304,7 @@ def edit_sla(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"SLA with ID '{sla_id!s}' updated"
     request.state.logger.info(msg)

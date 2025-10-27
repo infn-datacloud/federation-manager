@@ -81,7 +81,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_project_config(
@@ -138,7 +138,7 @@ def create_project_config(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Project with ID '{project.id!s}' connected with region with ID "
     msg += f"'{config.region_id!s}' with params: {db_overrides.model_dump_json()}"
@@ -279,7 +279,7 @@ def retrieve_project_config(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_project(
@@ -335,7 +335,7 @@ def edit_project(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Configuration detail for region with ID '{region.id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}' updated"

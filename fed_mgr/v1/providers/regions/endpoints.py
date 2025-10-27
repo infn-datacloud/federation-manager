@@ -69,7 +69,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_region(
@@ -117,7 +117,7 @@ def create_region(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Region created: {db_region.model_dump_json()}"
     request.state.logger.info(msg)
@@ -249,7 +249,7 @@ def retrieve_region(request: Request, region: RegionRequiredDep) -> RegionRead:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_region(
@@ -300,7 +300,7 @@ def edit_region(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Region with ID '{region_id!s}' updated"
     request.state.logger.info(msg)

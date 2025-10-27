@@ -69,7 +69,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_prov_idp_connection(
@@ -125,7 +125,7 @@ def create_prov_idp_connection(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider.id!s}' connected with identity "
     msg += f"provider with ID '{config.idp_id!s}' with params: "
@@ -263,7 +263,7 @@ def retrieve_prov_idp_connection(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_prov_idp_connection(
@@ -315,7 +315,7 @@ def edit_prov_idp_connection(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Configuration detail for identity provider with ID '{idp.id!s}' "
     msg += f"overwritten by provider with ID '{provider_id!s}' updated"

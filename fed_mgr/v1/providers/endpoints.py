@@ -74,7 +74,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_provider(
@@ -130,7 +130,7 @@ def create_provider(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Resource provider created: {db_provider.model_dump_json()}"
     request.state.logger.info(msg)
@@ -256,7 +256,7 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_provider(
@@ -310,7 +310,7 @@ def edit_provider(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)
