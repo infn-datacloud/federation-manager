@@ -1,11 +1,15 @@
-# Testing OPA within container
+# Run OPA
 
-The containerized instance of OPA needs the policies (`opa/example-policy.rego`) and the data (`opa/example-data.json`) used to evaluate the input.
+If you want to test the communication with OPA, you can use the [opa](https://hub.docker.com/r/openpolicyagent/opa) docker image. The containerized instance of OPA needs the policies (`opa/policy.rego`) and the data (`opa/data.json`) used to evaluate the input.
 
-The following docker-compose file:
-- copies in the `/fed-mgr` folder the `../opa/data` folder contained in this repository.
+The following command:
+- copies in the `/fedmgr` folder the `./opa/data` folder contained in this repository.
 - starts opa in server mode
-- loads the `fed-mgr` package and serves it on `localhost:8181/v1/data/fed-mgr`.
+- loads the `fedmgr` package and serves it on `localhost:8181/v1/data/fedmgr`.
+
+```bash
+docker run -p 8181:8181 --v ./opa/data:/fedmgr:ro openpolicyagent/opa run --server --log-level debug /fedmgr
+```
 
 Once OPA is up and running we can interrogate its endpoints to evaluate if a token has the correct access rights.
 
@@ -27,4 +31,4 @@ curl -X POST http://localhost:8181/v1/data/fed-mgr/allow \
 }'
 ```
 
-The expected result should be: `{"result":true}`
+The expected result should be: `{"result":true}`.

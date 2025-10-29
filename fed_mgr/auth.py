@@ -100,7 +100,7 @@ def check_api_key_authentication(
 
     """
     logger.debug("Authentication through API Key")
-    if api_key != settings.API_KEY:
+    if settings.API_KEY is None or api_key != settings.API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key"
         )

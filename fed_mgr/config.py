@@ -145,9 +145,9 @@ class Settings(BaseSettings):
         int, Field(default=5, description="Communication timeout for OPA")
     ]
     API_KEY: Annotated[
-        str,
+        str | None,
         Field(
-            default="changeit",
+            default=None,
             description="API Key to set into the header field 'X-API-Key'",
         ),
     ]

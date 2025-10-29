@@ -1,6 +1,6 @@
 services:
   fed-mgr:
-    image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:devel-python3.12
+    image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:PR-20-python3.12
     container_name: fed-mgr
     restart: unless-stopped
     depends_on:
@@ -20,6 +20,9 @@ services:
       AUTHZ_MODE: opa 
       TRUSTED_IDP_LIST: '["https://iam.cloud.infn.it/"]'
       OPA_AUTHZ_URL: http://opa:8181/v1/data/fed_mgr
+      SECRET_KEY: changeit
+    volumes:
+      - ../certs:/certs:ro
     networks:
       - fed-mgr-net
 
