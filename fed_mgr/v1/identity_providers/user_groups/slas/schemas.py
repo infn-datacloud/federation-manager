@@ -5,7 +5,7 @@ from datetime import date
 from typing import Annotated
 
 from pydantic import AnyHttpUrl, computed_field
-from sqlmodel import TIMESTAMP, Field, SQLModel
+from sqlmodel import DATE, Field, SQLModel
 
 from fed_mgr.v1 import PROJECTS_PREFIX
 from fed_mgr.v1.schemas import (
@@ -38,14 +38,14 @@ class SLABase(ItemDescription):
     start_date: Annotated[
         date,
         Field(
-            sa_type=TIMESTAMP(timezone=True),
+            sa_type=DATE,
             description="The SLA is valid starting from this date",
         ),
     ]
     end_date: Annotated[
         date,
         Field(
-            sa_type=TIMESTAMP(timezone=True),
+            sa_type=DATE,
             description="The SLA is valid before this date",
         ),
     ]
