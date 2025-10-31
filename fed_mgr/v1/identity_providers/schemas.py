@@ -21,13 +21,13 @@ from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
 from fed_mgr.v1 import USER_GROUPS_PREFIX
+from fed_mgr.v1.adapters import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
-    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,

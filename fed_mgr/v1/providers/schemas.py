@@ -10,13 +10,13 @@ from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1.adapters import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
-    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -339,13 +339,6 @@ class ProviderQuery(
         Field(
             default=None,
             description="Rally service user's name must contain this string",
-        ),
-    ]
-    rally_password: Annotated[
-        str | None,
-        Field(
-            default=None,
-            description="Rally service user's password must contain this string",
         ),
     ]
     status: Annotated[

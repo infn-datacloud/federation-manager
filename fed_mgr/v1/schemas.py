@@ -6,10 +6,8 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from pydantic import AnyHttpUrl, BeforeValidator, computed_field
-from sqlmodel import TIMESTAMP, Field, SQLModel, String, TypeDecorator
+from sqlmodel import TIMESTAMP, Field, SQLModel
 from starlette.datastructures import URL
-
-MAX_LEN = 255
 
 
 def check_list_not_empty(items: list[Any]) -> list[Any]:
@@ -54,53 +52,6 @@ def isoformat(d: datetime) -> str:
         raise ValueError(
             f"Input value is not a datetime instance. Type: {type(d)}"
         ) from e
-
-
-class HttpUrlType(TypeDecorator):
-    """SQL Adapter to translate an HttpUrl into a string and vice versa."""
-
-    impl = String(MAX_LEN)
-    cache_ok = True
-    python_type = AnyHttpUrl
-
-    def process_bind_param(self, value, dialect) -> str:
-        """Convert the AnyHttpUrl value to a string before storing in the database.
-
-        Args:
-            value: The AnyHttpUrl value to be stored.
-            dialect: The database dialect in use.
-
-        Returns:
-            str: The string representation of the URL.
-
-        """
-        return str(value)
-
-    def process_result_value(self, value, dialect) -> AnyHttpUrl:
-        """Convert the string value from the database back to an AnyHttpUrl.
-
-        Args:
-            value: The string value retrieved from the database.
-            dialect: The database dialect in use.
-
-        Returns:
-            AnyHttpUrl: The reconstructed AnyHttpUrl object.
-
-        """
-        return AnyHttpUrl(url=value)
-
-    def process_literal_param(self, value, dialect) -> str:
-        """Convert the AnyHttpUrl value to a string for literal SQL statements.
-
-        Args:
-            value: The AnyHttpUrl value to be used in a literal SQL statement.
-            dialect: The database dialect in use.
-
-        Returns:
-            str: The string representation of the URL.
-
-        """
-        return str(value)
 
 
 class ItemID(SQLModel):

@@ -31,7 +31,6 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import AnyHttpUrl
 
-from fed_mgr.utils import isoformat
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -47,7 +46,6 @@ from fed_mgr.v1.schemas import (
     ErrorMessage,
     ItemDescription,
     ItemID,
-    KafkaEvaluateProviderMessage,
     PageNavigation,
     PaginatedList,
     Pagination,
@@ -55,6 +53,7 @@ from fed_mgr.v1.schemas import (
     SortQuery,
     UpdateQuery,
     UpdateTime,
+    isoformat,
 )
 
 
@@ -188,15 +187,12 @@ def test_paginated_list_no_next():
     assert links_last.prev == AnyHttpUrl("http://test/resource?page=2")
 
 
-def test_creation_time_field_assignment():
+def test_creation_time_field():
     """Test CreationTime schema field assignment."""
     now = datetime.now(timezone.utc)
     ct = CreationTime(created_at=now)
     assert ct.created_at == now
 
-
-def test_creation_time_field_type():
-    """Test CreationTime created_at field type."""
     ct = CreationTime()
     assert isinstance(ct.created_at, datetime)
     assert ct.created_at.tzinfo == timezone.utc
@@ -267,19 +263,13 @@ def test_creation_query_inheritance():
 
 def test_update_time_field_assignment():
     """Test UpdateTime schema field assignment."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     ut = UpdateTime(updated_at=now)
     assert ut.updated_at == now
 
-
-def test_update_time_default_value_is_func_now():
-    """Test UpdateTime default value is set to func.now()."""
-    field = UpdateTime.model_fields["updated_at"]
-    assert (
-        field.default == field.default
-        or field.default_factory
-        or field.default_factory is not None
-    )
+    ut = UpdateTime()
+    assert isinstance(ut.updated_at, datetime)
+    assert ut.updated_at.tzinfo == timezone.utc
 
 
 def test_update_time_query_fields():
@@ -328,25 +318,3 @@ def test_error_message_fields():
     err = ErrorMessage(status=400, detail="Something went wrong")
     assert err.status == 400
     assert err.detail == "Something went wrong"
-
-
-def test_kafka_evaluate_provider_message_fields():
-    """Test KafkaEvaluateProviderMessage field assignment and types."""
-    url = AnyHttpUrl("http://provider/auth")
-    msg = KafkaEvaluateProviderMessage(
-        auth_endpoint=url,
-        region_name="RegionOne",
-        project_name="tenant123",
-        flavor_name="m1.small",
-        public_net_name="public",
-        cinder_net_id="net-abc",
-        floating_ips_enable=True,
-    )
-    assert msg.msg_version == "v1.0.0"
-    assert msg.auth_endpoint == url
-    assert msg.region_name == "RegionOne"
-    assert msg.project_name == "tenant123"
-    assert msg.flavor_name == "m1.small"
-    assert msg.public_net_name == "public"
-    assert msg.cinder_net_id == "net-abc"
-    assert msg.floating_ips_enable

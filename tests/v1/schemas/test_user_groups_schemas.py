@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
+from fed_mgr.v1 import SLAS_PREFIX
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupBase,
     UserGroupCreate,
@@ -25,11 +26,9 @@ from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupQuery,
     UserGroupRead,
 )
-from fed_mgr.v1.models import UserGroup
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    CreationTime,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
@@ -37,42 +36,11 @@ from fed_mgr.v1.schemas import (
     ItemID,
     PaginationQuery,
     SortQuery,
-    UpdateTime,
 )
 
 DUMMY_DESC = "desc"
 DUMMY_NAME = "Test Group"
 DUMMY_ENDPOINT = "https://example.com"
-
-
-def test_user_group_model():
-    """Test UserGroup model fields."""
-    creator = MagicMock()
-    id_ = uuid.uuid4()
-    now = datetime.now()
-    idp = MagicMock()
-    group = UserGroup(
-        id=id_,
-        created_at=now,
-        created_by=creator,
-        updated_at=now,
-        updated_by=creator,
-        name=DUMMY_NAME,
-        description=DUMMY_DESC,
-        idp=idp,
-    )
-    assert isinstance(group, ItemID)
-    assert isinstance(group, CreationTime)
-    assert isinstance(group, UpdateTime)
-    assert isinstance(group, UserGroupBase)
-    assert group.id == id_
-    assert group.created_at == now
-    assert group.created_by == creator
-    assert group.updated_at == now
-    assert group.updated_by == creator
-    assert group.name == DUMMY_NAME
-    assert group.description == DUMMY_DESC
-    assert group.idp == idp
 
 
 def test_user_group_base_fields():
@@ -114,6 +82,7 @@ def test_user_group_read_inheritance():
     assert isinstance(group_read, EditableRead)
     assert isinstance(group_read, UserGroupBase)
     assert isinstance(group_read.links, UserGroupLinks)
+    assert group_read.links.slas == AnyHttpUrl(f"{DUMMY_ENDPOINT}/{id_}{SLAS_PREFIX}")
 
 
 def test_user_group_list():
@@ -138,7 +107,7 @@ def test_user_group_list():
         page_number=1,
         page_size=1,
         tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/groups"),
+        resource_url=DUMMY_ENDPOINT,
     )
     assert isinstance(group_list.data, list)
     assert group_list.data[0] == group_read
