@@ -9,30 +9,29 @@ These tests cover:
 import logging
 import re
 
-from fed_mgr.logger import get_logger
+from fed_mgr.logger import LogLevelEnum, get_logger
 
 
-class DummySettings:
-    """Dummy settings class for testing logger configuration."""
+def test_log_level_enum_values():
+    """Test that LogLevelEnum values match the standard logging levels."""
+    assert LogLevelEnum.DEBUG == logging.DEBUG
+    assert LogLevelEnum.INFO == logging.INFO
+    assert LogLevelEnum.WARNING == logging.WARNING
+    assert LogLevelEnum.ERROR == logging.ERROR
+    assert LogLevelEnum.CRITICAL == logging.CRITICAL
 
-    def __init__(self, log_level):
-        """Initialize DummySettings with a log level."""
-        self.LOG_LEVEL = log_level
 
-
-def test_get_logger_returns_logger_and_sets_level(monkeypatch):
+def test_get_logger_returns_logger_and_sets_level():
     """Test that get_logger returns a logger with the correct name and log level."""
-    settings = DummySettings(logging.WARNING)
-    logger = get_logger(settings)
+    logger = get_logger(logging.WARNING)
     assert isinstance(logger, logging.Logger)
     assert logger.name == "fed-mgr-api"
     assert logger.level == logging.WARNING
 
 
-def test_get_logger_adds_stream_handler_and_formatter(monkeypatch):
+def test_get_logger_adds_stream_handler_and_formatter():
     """Test that get_logger adds a StreamHandler with the correct formatter."""
-    settings = DummySettings(logging.INFO)
-    logger = get_logger(settings)
+    logger = get_logger(logging.INFO)
     # There should be at least one StreamHandler
     handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler)]
     assert handlers, "No StreamHandler attached to logger"

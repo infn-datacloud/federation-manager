@@ -10,7 +10,7 @@ These tests cover:
 import pytest
 from fastapi import APIRouter, Response
 
-from fed_mgr.utils import add_allow_header_to_resp, split_camel_case
+from fed_mgr.utils import add_allow_header_to_resp, encrypt, split_camel_case
 
 
 def test_add_allow_header_to_resp_sets_methods():
@@ -62,3 +62,43 @@ def test_add_allow_header_to_resp_sets_methods():
 def test_split_camel_case_various_cases(input_text, expected):
     """Test split_camel_case with a variety of camel case and edge case strings."""
     assert split_camel_case(input_text) == expected
+
+
+def test_encrypt_different_keys():
+    """Test that encrypt produces different outputs for same value with diff keys."""
+    value = "secret"
+    key1 = "key1"
+    key2 = "key2"
+
+    enc1 = encrypt(value, key1)
+    enc2 = encrypt(value, key2)
+    assert enc1 != enc2
+
+
+def test_encrypt_different_values():
+    """Test that encrypt produces different outputs for diff values with same key."""
+    key = "key"
+    value1 = "secret1"
+    value2 = "secret2"
+
+    enc1 = encrypt(value1, key)
+    enc2 = encrypt(value2, key)
+    assert enc1 != enc2
+
+
+def test_encrypt_empty():
+    """Test that encrypt handles empty strings."""
+    key = "key"
+    value = ""
+    enc = encrypt(value, key)
+    assert isinstance(enc, str)
+    assert enc != ""
+
+
+def test_encrypt_special_chars():
+    """Test that encrypt handles special characters."""
+    key = "key!@#$%"
+    value = "secret!@#$%^&*()"
+    enc = encrypt(value, key)
+    assert isinstance(enc, str)
+    assert enc != value

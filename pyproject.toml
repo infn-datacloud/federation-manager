@@ -46,6 +46,7 @@ build-backend = "poetry.core.masonry.api"
 # ruff specific rules (RUF),
 # flake8-bugbear (B), flake8-logging-format (G), flake8-quotes (Q)
 extend-select = ["B", "C90", "E", "D", "F", "G", "I", "N", "Q", "RUF", "UP", "W"]
+ignore = ["D203", "D213"]
 
 [tool.coverage.run]
 relative_files = true

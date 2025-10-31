@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
         dict: A dictionary with the logger instance, available in the request state.
 
     """
-    logger = get_logger(settings)
+    logger = get_logger(settings.LOG_LEVEL)
     configure_flaat(settings, logger)
     engine = create_db_and_tables(logger)
 
