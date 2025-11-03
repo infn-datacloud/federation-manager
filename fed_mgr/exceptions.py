@@ -1,8 +1,5 @@
 """Custom common exceptions."""
 
-import uuid
-from typing import Any
-
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
@@ -55,31 +52,13 @@ class UnauthorizedError(Exception):
         super().__init__(self.message, *args)
 
 
-class NotNullError(Exception):
-    """Exception raised when a None value is not acceptale during DB insertion."""
-
-    def __init__(self, entity: str, attr: str):
-        """Initialize NotNullError with a specific error message."""
-        self.entity = entity
-        self.attr = attr
-        self.message = f"Attribute '{attr}' of {entity} can't be NULL"
-        super().__init__(self.message)
-
-
 class ConflictError(Exception):
     """Exception raised when there is a CONFLICT during a DB insertion."""
 
-    def __init__(self, entity: str, attr: str, value: Any):
+    def __init__(self, message: str, *args):
         """Initialize ConflictError with a specific error message."""
-        self.entity = entity
-        self.attr = attr
-        self.value = value
-        if self.value is None:
-            self.message = f"{self.entity} with {self.attr} already exists"
-        else:
-            self.message = f"{self.entity} with {self.attr}={self.value!s} already "
-            self.message += "exists"
-        super().__init__(self.message)
+        self.message = message
+        super().__init__(self.message, *args)
 
 
 class ProviderStateError(Exception):
@@ -103,31 +82,17 @@ class ItemNotFoundError(Exception):
 class DeleteFailedError(Exception):
     """Exception raised when the delete operations has no effect."""
 
-    def __init__(
-        self,
-        entity: str,
-        *,
-        id: uuid.UUID | None = None,
-        params: dict[str, Any] | None = None,
-    ):
+    def __init__(self, message: str, *args):
         """Initialize DeleteFailedError with a specific error message."""
-        self.entity = entity
-        self.entity_id = id
-        self.entity_params = params
-        if id is not None:
-            self.message = f"{self.entity} with ID '{self.entity_id}' can't be deleted."
-        else:
-            self.message = f"{self.entity} with given key-value pairs does not exist: "
-            self.message += f"{self.entity_params!s}."
-        self.message += f" Check target {self.entity} has no children entities."
-        super().__init__(self.message)
+        self.message = message
+        super().__init__(self.message, *args)
 
 
-class BadRequestError(Exception):
-    """Exception raised when input request is invalid."""
+class DatabaseOperationError(Exception):
+    """Generic Database erorr raised by an invalid operation."""
 
     def __init__(self, message: str):
-        """Initialize BadRequest with a specific error message."""
+        """Initialize KafkaError with a specific error message."""
         self.message = message
         super().__init__(self.message)
 
@@ -138,15 +103,6 @@ class KafkaError(Exception):
     def __init__(self):
         """Initialize KafkaError with a specific error message."""
         self.message = "Communication with kafka failed."
-        super().__init__(self.message)
-
-
-class DatabaseOperationError(Exception):
-    """Generic Database erorr raised by an invalid operation."""
-
-    def __init__(self, message: str):
-        """Initialize KafkaError with a specific error message."""
-        self.message = message
         super().__init__(self.message)
 
 
@@ -173,7 +129,7 @@ class ServiceUnreachableError(Exception):
         super().__init__(self.message, *args)
 
 
-class ServiceUnexpectedResponse(Exception):  # noqa: N818
+class ServiceUnexpectedResponseError(Exception):
     """Exception raised when a service returns unexpected response.
 
     Attributes:
@@ -196,8 +152,8 @@ class ServiceUnexpectedResponse(Exception):  # noqa: N818
         super().__init__(self.message, *args)
 
 
-def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
-    """Add exception handlers to app."""
+def add_auth_exception_handlers(app: FastAPI) -> None:
+    """Add exception handlers related to authn and authz to app."""
 
     @app.exception_handler(UnauthenticatedError)
     def unauthenticated_exception_handler(
@@ -244,6 +200,10 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
             status_code=status.HTTP_403_FORBIDDEN,
             content={"status": status.HTTP_403_FORBIDDEN, "detail": exc.message},
         )
+
+
+def add_db_exception_handlers(app: FastAPI) -> None:
+    """Add exception handlers related to db operations to app."""
 
     @app.exception_handler(ItemNotFoundError)
     def item_not_found_exception_handler(
@@ -315,7 +275,7 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
         )
 
     @app.exception_handler(ProviderStateError)
-    def flaat_unauthenticated_exception_handler(
+    def provider_status_exception_handler(
         request: Request, exc: ProviderStateError
     ) -> JSONResponse:
         """Handle ProviderStateError errors by returning a JSON response.
@@ -336,6 +296,36 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"status": status.HTTP_400_BAD_REQUEST, "detail": exc.message},
         )
+
+    @app.exception_handler(DatabaseOperationError)
+    def generic_db_error_exception_handler(
+        request: Request, exc: DatabaseOperationError
+    ) -> JSONResponse:
+        """Handle ProviderStateError errors by returning a JSON response.
+
+        The new object contains the exception's status code and detail.
+
+        Args:
+            request (Request): The incoming HTTP request that caused the exception.
+            exc (ProviderStateError): The exception instance.
+
+        Returns:
+            JSONResponse: A JSON response with the status code and detail of the
+                exception.
+
+        """
+        request.state.logger.error(exc.message)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "detail": "Internal server error: Unmanaged DB exception",
+            },
+        )
+
+
+def add_service_exception_handlers(app: FastAPI) -> None:
+    """Add exception handlers related to external services comm to app."""
 
     @app.exception_handler(ServiceUnreachableError)
     def service_ureachable_exception_handler(
@@ -360,17 +350,17 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
             content={"status": status.HTTP_504_GATEWAY_TIMEOUT, "detail": exc.message},
         )
 
-    @app.exception_handler(ServiceUnexpectedResponse)
+    @app.exception_handler(ServiceUnexpectedResponseError)
     def service_unexpected_resp_exception_handler(
-        request: Request, exc: ServiceUnexpectedResponse
+        request: Request, exc: ServiceUnexpectedResponseError
     ) -> JSONResponse:
-        """Handle ServiceUnexpectedResponse errors by returning a JSON response.
+        """Handle ServiceUnexpectedResponseError errors by returning a JSON response.
 
         The new object contains the exception's status code and detail.
 
         Args:
             request (Request): The incoming HTTP request that caused the exception.
-            exc (ServiceUnexpectedResponse): The exception instance.
+            exc (ServiceUnexpectedResponseError): The exception instance.
 
         Returns:
             JSONResponse: A JSON response with the status code and detail of the
@@ -382,6 +372,10 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             content={"status": status.HTTP_504_GATEWAY_TIMEOUT, "detail": exc.message},
         )
+
+
+def add_rest_exception_handlers(app: FastAPI) -> None:
+    """Add exception handlers related to REST API errors to app."""
 
     @app.exception_handler(HTTPException)
     def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -402,27 +396,6 @@ def add_exception_handlers(app: FastAPI) -> None:  # noqa: C901
         return JSONResponse(
             status_code=exc.status_code,
             content={"status": exc.status_code, "detail": exc.detail},
-        )
-
-    @app.exception_handler(BadRequestError)
-    def bad_request_handler(request: Request, exc: BadRequestError) -> JSONResponse:
-        """Handle BadRequestError errors by returning a JSON response.
-
-        The new object contains the exception's status code and detail.
-
-        Args:
-            request (Request): The incoming HTTP request that caused the exception.
-            exc (BadRequestError): The exception instance.
-
-        Returns:
-            JSONResponse: A JSON response with the status code and detail of the
-                exception.
-
-        """
-        request.state.logger.error(exc.message)
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"status": status.HTTP_400_BAD_REQUEST, "detail": exc.message},
         )
 
     # @app.exception_handler(KafkaConnectionError)

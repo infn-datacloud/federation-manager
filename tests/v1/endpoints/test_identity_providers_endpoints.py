@@ -17,18 +17,17 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
+from typing import Any
+from unittest.mock import patch
 
-from pydantic import AnyHttpUrl
-from sqlmodel import SQLModel
+import pytest
 
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ConflictError, DeleteFailedError, ItemNotFoundError
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.identity_providers.crud import get_idp
+from fed_mgr.v1.identity_providers.schemas import IdentityProviderCreate
+from fed_mgr.v1.models import IdentityProvider
+from fed_mgr.v1.schemas import ItemID
 
 DUMMY_DESC = "desc"
 DUMMY_ENDPOINT = "https://idp.example.com"
@@ -39,13 +38,17 @@ DUMMY_AUD = "aud1"
 DUMMY_CREATED_AT = datetime.now()
 
 
-def fake_add_idp(fake_id):
-    """Return a fake identity provider object with the given id."""
-
-    class FakeIdp(SQLModel):
-        id: uuid.UUID = fake_id
-
-    return FakeIdp()
+@pytest.fixture()
+def idp_data() -> dict[str, Any]:
+    """Return dict with IDP data."""
+    return {
+        "description": DUMMY_DESC,
+        "endpoint": DUMMY_ENDPOINT,
+        "name": DUMMY_NAME,
+        "groups_claim": DUMMY_CLAIM,
+        "protocol": DUMMY_PROTOCOL,
+        "audience": DUMMY_AUD,
+    }
 
 
 def test_options_idps(client):
@@ -55,251 +58,199 @@ def test_options_idps(client):
     assert "allow" in resp.headers or "Allow" in resp.headers
 
 
-def test_create_idp_success(client, monkeypatch):
+def test_create_idp_success(client, session, current_user, idp_data):
     """Test POST /idps/ creates an identity provider and returns 201 with id."""
-    fake_id = str(uuid.uuid4())
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    monkeypatch.setattr(
+    fake_id = uuid.uuid4()
+    with patch(
         "fed_mgr.v1.identity_providers.endpoints.add_idp",
-        lambda session, idp, created_by: fake_add_idp(fake_id),
-    )
+        return_value=ItemID(id=fake_id),
+    ) as mock_create:
+        resp = client.post("/api/v1/idps/", json=idp_data)
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
+        mock_create.assert_called_once_with(
+            session=session,
+            idp=IdentityProviderCreate(**idp_data),
+            created_by=current_user,
+        )
 
-    resp = client.post("/api/v1/idps/", json=idp_data)
-    assert resp.status_code == 201
-    assert resp.json() == {"id": fake_id}
 
-
-def test_create_idp_conflict(client, monkeypatch):
+def test_create_idp_conflict(client, session, current_user, idp_data):
     """Test POST /idps/ returns 409 if identity provider already exists."""
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_add_idp(session, idp, created_by):
-        raise ConflictError("Identity provider", "endpoint", "https://example.com")
-
-    monkeypatch.setattr("fed_mgr.v1.identity_providers.endpoints.add_idp", fake_add_idp)
-
-    resp = client.post("/api/v1/idps/", json=idp_data)
-    assert resp.status_code == 409
-    assert (
-        resp.json()["detail"]
-        == "Identity provider with endpoint=https://example.com already exists"
-    )
+    err_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.add_idp",
+        side_effect=ConflictError(err_msg),
+    ) as mock_create:
+        resp = client.post("/api/v1/idps/", json=idp_data)
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_create.assert_called_once_with(
+            session=session,
+            idp=IdentityProviderCreate(**idp_data),
+            created_by=current_user,
+        )
 
 
-def test_create_idp_not_null_error(client, monkeypatch):
-    """Test POST /idps/ returns 409 if a not null error occurs."""
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_add_idp(session, idp, created_by):
-        raise NotNullError("Identity provider", "endpoint")
-
-    monkeypatch.setattr("fed_mgr.v1.identity_providers.endpoints.add_idp", fake_add_idp)
-
-    resp = client.post("/api/v1/idps/", json=idp_data)
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
-
-
-def test_get_idps_success(client, monkeypatch):
+def test_get_idps_success(client, session, idp_data):
     """Test GET /idps/ returns paginated identity provider list."""
-    fake_idps = []
-    fake_total = 0
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.get_idps", return_value=([], 0)
+    ) as mock_get:
+        resp = client.get("/api/v1/idps/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
 
-    def fake_get_idps(session, skip, limit, sort, **kwargs):
-        return fake_idps, fake_total
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.get_idps", fake_get_idps
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    idp1 = IdentityProvider(
+        **idp_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
     )
-    resp = client.get("/api/v1/idps/")
-    assert resp.status_code == 200
-    assert "data" in resp.json()
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.get_idps", return_value=([idp1], 1)
+    ) as mock_get:
+        resp = client.get("/api/v1/idps/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
+
+    idp2 = IdentityProvider(
+        **idp_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
+    )
+
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.get_idps",
+        return_value=([idp1, idp2], 2),
+    ) as mock_get:
+        resp = client.get("/api/v1/idps/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
 
 
-def test_get_idp_success(client):
+def test_get_idp_success(client, session, idp_data):
     """Test GET /idps/{idp_id} returns identity provider if found."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeIdp(SQLModel):
-        id: uuid.UUID = fake_id
-        description: str = DUMMY_DESC
-        endpoint: AnyHttpUrl = DUMMY_ENDPOINT
-        name: str = DUMMY_NAME
-        groups_claim: str = DUMMY_CLAIM
-        protocol: str = DUMMY_PROTOCOL
-        audience: str = DUMMY_AUD
-        created_at: datetime = DUMMY_CREATED_AT
-        created_by_id: uuid.UUID = fake_id
-        updated_at: datetime = DUMMY_CREATED_AT
-        updated_by_id: uuid.UUID = fake_id
-
-    def fake_get_idp(idp_id, session=None):
-        return FakeIdp()
-
-    sub_app_v1.dependency_overrides[get_idp] = fake_get_idp
-
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    idp = IdentityProvider(
+        **idp_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
+    )
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=session: idp
     resp = client.get(f"/api/v1/idps/{fake_id}")
     assert resp.status_code == 200
-    assert resp.json()["id"] == fake_id
+    assert resp.json()["id"] == str(fake_id)
 
 
-def test_get_idp_not_found(client):
+def test_get_idp_not_found(client, session):
     """Test GET /idps/{idp_id} returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
+    fake_id = uuid.uuid4()
 
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=session: None
 
     resp = client.get(f"/api/v1/idps/{fake_id}")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_id}' does not exist" == resp.json()["detail"]
+    )
 
 
-def test_edit_idp_success(client, monkeypatch):
+def test_edit_idp_success(client, session, current_user, idp_data):
     """Test PUT /idps/{idp_id} returns 204 on successful update."""
-    fake_id = str(uuid.uuid4())
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_update_idp(session, idp_id, new_idp, updated_by):
-        return None
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
-    )
-
-    resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
-    assert resp.status_code == 204
+    fake_id = uuid.uuid4()
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.update_idp", return_value=None
+    ) as mock_edit:
+        resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
+        assert resp.status_code == 204
+        mock_edit.assert_called_once_with(
+            session=session,
+            idp_id=fake_id,
+            new_idp=IdentityProviderCreate(**idp_data),
+            updated_by=current_user,
+        )
 
 
-def test_edit_idp_not_found(client, monkeypatch):
+def test_edit_idp_not_found(client, session, current_user, idp_data):
     """Test PUT /idps/{idp_id} returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise ItemNotFoundError("Identity provider", id=idp_id)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
-    )
-
-    resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
-    assert resp.status_code == 404
-    assert (
-        resp.json()["detail"] == f"Identity provider with ID '{fake_id}' does not exist"
-    )
+    fake_id = uuid.uuid4()
+    err_msg = "Error err_msg"
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.update_idp",
+        side_effect=ItemNotFoundError(err_msg),
+    ) as mock_edit:
+        resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
+        mock_edit.assert_called_once_with(
+            session=session,
+            idp_id=fake_id,
+            new_idp=IdentityProviderCreate(**idp_data),
+            updated_by=current_user,
+        )
 
 
-def test_edit_idp_conflict(client, monkeypatch):
+def test_edit_idp_conflict(client, session, current_user, idp_data):
     """Test PUT /idps/{idp_id} returns 409 if conflict error occurs."""
-    fake_id = str(uuid.uuid4())
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise ConflictError("Identity Provider", "endpoint", DUMMY_ENDPOINT)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
-    )
-
-    resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
-    assert resp.status_code == 409
-    assert (
-        resp.json()["detail"]
-        == f"Identity Provider with endpoint={DUMMY_ENDPOINT} already exists"
-    )
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.update_idp",
+        side_effect=ConflictError(err_msg),
+    ) as mock_edit:
+        resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_edit.assert_called_once_with(
+            session=session,
+            idp_id=fake_id,
+            new_idp=IdentityProviderCreate(**idp_data),
+            updated_by=current_user,
+        )
 
 
-def test_edit_idp_not_null_error(client, monkeypatch):
-    """Test PUT /idps/{idp_id} returns 422 if not null error occurs."""
-    fake_id = str(uuid.uuid4())
-    idp_data = {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
-
-    def fake_update_idp(session, idp_id, new_idp, updated_by):
-        raise NotNullError("Identity provider", "endpoint")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.update_idp", fake_update_idp
-    )
-
-    resp = client.put(f"/api/v1/idps/{fake_id}", json=idp_data)
-    assert resp.status_code == 422
-    assert (
-        resp.json()["detail"]
-        == "Attribute 'endpoint' of Identity provider can't be NULL"
-    )
-
-
-def test_delete_idp_success(client, monkeypatch):
+def test_delete_idp_success(client, session):
     """Test DELETE /idps/{idp_id} returns 204 on success."""
-    fake_id = str(uuid.uuid4())
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.delete_idp",
-        lambda session, idp_id: None,
-    )
-    resp = client.delete(f"/api/v1/idps/{fake_id}")
-    assert resp.status_code == 204
+    fake_id = uuid.uuid4()
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.delete_idp", return_value=None
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/idps/{fake_id}")
+        assert resp.status_code == 204
+        mock_delete.assert_called_once_with(session=session, idp_id=fake_id)
 
 
-def test_delete_idp_fail(client, monkeypatch):
+def test_delete_idp_fail(client, session):
     """Test DELETE /idps/{idp_id} returns 400 on fail."""
-    fake_id = str(uuid.uuid4())
-
-    def fake_delete_idp(session, idp_id):
-        raise DeleteFailedError("Failed to delete item")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.endpoints.delete_idp", fake_delete_idp
-    )
-
-    resp = client.delete(f"/api/v1/idps/{fake_id}")
-    assert resp.status_code == 400
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.identity_providers.endpoints.delete_idp",
+        side_effect=DeleteFailedError(err_msg),
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/idps/{fake_id}")
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_delete.assert_called_once_with(session=session, idp_id=fake_id)
