@@ -1,9 +1,11 @@
 """Endpoints to manage resource provider details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
+from fed_mgr.config import SettingsDep
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
     ConflictError,
@@ -19,10 +21,10 @@ from fed_mgr.v1.providers.crud import (
     add_site_admins,
     add_site_testers,
     change_provider_state,
-    delete_provider,
     get_providers,
     remove_site_admins,
     remove_site_testers,
+    revoke_provider,
     submit_provider,
     unsubmit_provider,
     update_provider,
@@ -31,7 +33,7 @@ from fed_mgr.v1.providers.dependencies import ProviderRequiredDep
 from fed_mgr.v1.providers.schemas import (
     ProviderCreate,
     ProviderList,
-    ProviderQueryDep,
+    ProviderQuery,
     ProviderRead,
     ProviderStatus,
     ProviderUpdate,
@@ -72,13 +74,14 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    settings: SettingsDep,
     provider: ProviderCreate,
 ) -> ItemID:
     """Create a new resource provider in the system.
@@ -92,6 +95,7 @@ def create_provider(
         provider (ProviderCreate | None): The resource provider data to create.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
+        settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
 
     Returns:
@@ -108,7 +112,10 @@ def create_provider(
     request.state.logger.info(msg)
     try:
         db_provider = add_provider(
-            session=session, provider=provider, created_by=current_user
+            session=session,
+            provider=provider,
+            created_by=current_user,
+            secret_key=settings.SECRET_KEY,
         )
     except ItemNotFoundError as e:
         request.state.logger.error(e.message)
@@ -123,7 +130,7 @@ def create_provider(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Resource provider created: {db_provider.model_dump_json()}"
     request.state.logger.info(msg)
@@ -136,7 +143,7 @@ def create_provider(
     description="Retrieve a paginated list of resource providers.",
 )
 def retrieve_providers(
-    request: Request, session: SessionDep, params: ProviderQueryDep
+    request: Request, session: SessionDep, params: Annotated[ProviderQuery, Query()]
 ) -> ProviderList:
     """Retrieve a paginated list of resource providers based on query parameters.
 
@@ -147,7 +154,7 @@ def retrieve_providers(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProviderQueryDep): Dependency containing query parameters for
+        params (ProviderQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
 
@@ -249,13 +256,14 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_provider(
     request: Request,
     session: SessionDep,
     current_user: CurrenUserDep,
+    settings: SettingsDep,
     provider_id: uuid.UUID,
     new_provider: ProviderUpdate,
 ) -> None:
@@ -266,6 +274,7 @@ def edit_provider(
         provider_id (uuid.UUID): The unique identifier of the resource provider to
             update.
         new_provider (UserCreate): The new resource provider data to update.
+        settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
         current_user (CurrenUserDep): The DB user matching the current user retrieved
             from the access token.
@@ -286,6 +295,7 @@ def edit_provider(
             provider_id=provider_id,
             new_provider=new_provider,
             updated_by=current_user,
+            secret_key=settings.SECRET_KEY,
         )
     except ItemNotFoundError as e:
         request.state.logger.error(e.message)
@@ -300,7 +310,7 @@ def edit_provider(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Resource provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)
@@ -308,9 +318,13 @@ def edit_provider(
 
 @provider_router.delete(
     "/{provider_id}",
-    summary="Delete resource provider with given sub",
-    description="Delete a resource provider with the given subject, for this issuer, "
-    "from the DB.",
+    summary="Delete resource provider",
+    description="If the provider is in the draft or ready state, delete a "
+    "resource provider with the given ID, from the DB. If the provider is in the "
+    "active, degraded or maintenance status, change its state to deprecated. If the "
+    "provider is in the deprecated state and the expiration date has been reached, or "
+    "the provider is in the submitted, evaluation o pre-production state, change its "
+    "state to removed.",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
@@ -340,8 +354,8 @@ def remove_provider(
     msg = f"Delete resource provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
     try:
-        delete_provider(session=session, provider_id=provider_id)
-    except DeleteFailedError as e:
+        revoke_provider(session=session, provider_id=provider_id)
+    except (DeleteFailedError, Exception) as e:
         request.state.logger.error(e.message)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=e.message

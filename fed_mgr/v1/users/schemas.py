@@ -2,14 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, EmailStr
 from sqlmodel import AutoString, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationTimeQuery,
     CreationTimeRead,
+    HttpUrlType,
     ItemID,
     PaginatedList,
     PaginationQuery,
@@ -65,6 +64,3 @@ class UserQuery(CreationTimeQuery, PaginationQuery, SortQuery):
         str | None,
         Field(default=None, description="User's issuer URL must contain this string"),
     ]
-
-
-UserQueryDep = Annotated[UserQuery, Query()]

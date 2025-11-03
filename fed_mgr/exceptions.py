@@ -95,3 +95,12 @@ class KafkaError(Exception):
         """Initialize KafkaError with a specific error message."""
         self.message = "Communication with kafka failed."
         super().__init__(self.message)
+
+
+class DatabaseOperationError(Exception):
+    """Generic Database erorr raised by an invalid operation."""
+
+    def __init__(self, message: str):
+        """Initialize KafkaError with a specific error message."""
+        self.message = message
+        super().__init__(self.message)

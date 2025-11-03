@@ -89,6 +89,24 @@ class Settings(BaseSettings):
             description="DB URL. By default it use an in memory SQLite DB.",
         ),
     ]
+    DB_SCHEME: Annotated[
+        str | None,
+        Field(
+            default=None, description="Database type and library (i.e mysql+pymysql)"
+        ),
+    ]
+    DB_USER: Annotated[str | None, Field(default=None, description="Database user")]
+    DB_PASSWORD: Annotated[
+        str | None, Field(default=None, description="Database user password")
+    ]
+    DB_HOST: Annotated[str | None, Field(default=None, description="Database hostname")]
+    DB_PORT: Annotated[
+        int | None, Field(default=None, description="Database exposed port")
+    ]
+    DB_NAME: Annotated[
+        str | None,
+        Field(default=None, description="Name of the database's schema to use"),
+    ]
     DB_ECO: Annotated[
         bool, Field(default=False, description="Eco messages exchanged with the DB")
     ]
@@ -125,6 +143,13 @@ class Settings(BaseSettings):
     ]
     OPA_TIMEOUT: Annotated[
         int, Field(default=5, description="Communication timeout for OPA")
+    ]
+    API_KEY: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="API Key to set into the header field 'X-API-Key'",
+        ),
     ]
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyHttpUrl | Literal["*"]],
@@ -195,6 +220,7 @@ class Settings(BaseSettings):
     KAFKA_SSL_PASSWORD: Annotated[
         str | None, Field(default=None, description="Private key decryption password.")
     ]
+    SECRET_KEY: Annotated[str, Field(description="Secret key used to encrypt values")]
 
     model_config = SettingsConfigDict(env_file=".env")
 
@@ -215,6 +241,30 @@ class Settings(BaseSettings):
                 "If authorization mode is defined, authentication mode can't be "
                 "undefined."
             )
+        return self
+
+    @model_validator(mode="after")
+    def build_db_url(self) -> Self:
+        """Replace DB_URL with one build from the single values.
+
+        If any of the involved value is None, keep the existing one. If port is None,
+        the default one, for that DB type, is used.
+
+        Returns:
+            Self: Returns the current instance for method chaining.
+
+        """
+        if (
+            self.DB_SCHEME is not None
+            and self.DB_USER is not None
+            and self.DB_PASSWORD is not None
+            and self.DB_HOST is not None
+            and self.DB_NAME is not None
+        ):
+            if self.DB_PORT is None:
+                self.DB_URL = f"{self.DB_SCHEME}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}/{self.DB_NAME}"
+            else:
+                self.DB_URL = f"{self.DB_SCHEME}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         return self
 
 

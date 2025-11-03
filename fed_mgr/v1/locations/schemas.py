@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-from fastapi import Query
 from sqlmodel import Field
 
 from fed_mgr.v1.schemas import (
@@ -100,6 +99,3 @@ class LocationQuery(
             description="Location's longitude must be lower than or equal.",
         ),
     ]
-
-
-LocationQueryDep = Annotated[LocationQuery, Query()]

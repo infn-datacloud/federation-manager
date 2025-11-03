@@ -7,6 +7,13 @@ import aiokafka as ak
 import sqlmodel
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from aiokafka.errors import (
+    ConsumerStoppedError,
+    KafkaConnectionError,
+    RecordTooLargeError,
+    UnsupportedVersionError,
+)
+
 from fed_mgr.config import Settings, get_settings
 from fed_mgr.logger import get_logger
 

@@ -1,11 +1,13 @@
 """Endpoints to manage sla details."""
 
 import uuid
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -35,7 +37,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLARequi
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLACreate,
     SLAList,
-    SLAQueryDep,
+    SLAQuery,
     SLARead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -86,7 +88,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_sla(
@@ -135,7 +137,7 @@ def create_sla(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"User created: {db_sla.model_dump_json()}"
     request.state.logger.info(msg)
@@ -151,7 +153,7 @@ def retrieve_slas(
     request: Request,
     session: SessionDep,
     user_group: UserGroupRequiredDep,
-    params: SLAQueryDep,
+    params: Annotated[SLAQuery, Query()],
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 
@@ -162,7 +164,7 @@ def retrieve_slas(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (SLAQueryDep): Dependency containing query parameters for
+        params (SLAQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         user_group: Parent user group ID
@@ -255,7 +257,7 @@ def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_sla(
@@ -302,7 +304,7 @@ def edit_sla(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"SLA with ID '{sla_id!s}' updated"
     request.state.logger.info(msg)

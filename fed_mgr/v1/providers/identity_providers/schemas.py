@@ -4,7 +4,6 @@ import urllib.parse
 import uuid
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -160,6 +159,3 @@ class ProviderIdPConnectionQuery(
             "string",
         ),
     ]
-
-
-ProviderIdPConnectionQueryDep = Annotated[ProviderIdPConnectionQuery, Query()]

@@ -1,8 +1,9 @@
 """Endpoints to manage project-region config details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import (
@@ -30,7 +31,7 @@ from fed_mgr.v1.providers.projects.regions.dependencies import (
 from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionCreate,
     ProjRegConnectionList,
-    ProjRegConnectionQueryDep,
+    ProjRegConnectionQuery,
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
@@ -80,7 +81,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_project_config(
@@ -137,7 +138,7 @@ def create_project_config(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Project with ID '{project.id!s}' connected with region with ID "
     msg += f"'{config.region_id!s}' with params: {db_overrides.model_dump_json()}"
@@ -154,7 +155,7 @@ def retrieve_project_configs(
     session: SessionDep,
     provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
-    params: ProjRegConnectionQueryDep,
+    params: Annotated[ProjRegConnectionQuery, Query()],
 ) -> ProjRegConnectionList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -165,7 +166,7 @@ def retrieve_project_configs(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProjRegConfigQueryDep): Dependency containing query parameters for
+        params (ProjRegConfigQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         project (uuid.UUID): Parent project ID.
@@ -278,7 +279,7 @@ def retrieve_project_config(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_project(
@@ -334,7 +335,7 @@ def edit_project(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"Configuration detail for region with ID '{region.id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}' updated"
