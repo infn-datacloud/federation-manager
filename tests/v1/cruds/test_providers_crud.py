@@ -117,16 +117,14 @@ def test_add_provider_user_not_found(session):
     created_by.id = uuid.uuid4()
     provider = MagicMock(spec=ProviderCreate)
     provider.site_admins = [created_by.id]
-    with (
-        patch("fed_mgr.v1.providers.crud.get_user", return_value=None),
-        pytest.raises(ItemNotFoundError, match=f"User with ID '{created_by.id}"),
-    ):
-        add_provider(
-            session=session,
-            provider=provider,
-            created_by=created_by,
-            secret_key=random_lower_string(),
-        )
+    with patch("fed_mgr.v1.providers.crud.get_user", return_value=None):
+        with pytest.raises(ItemNotFoundError, match=f"User with ID '{created_by.id}"):
+            add_provider(
+                session=session,
+                provider=provider,
+                created_by=created_by,
+                secret_key=random_lower_string(),
+            )
 
 
 def test_update_provider(session):
@@ -244,11 +242,9 @@ def test_check_users_exist_user_not_found():
     user_ids = [uuid.uuid4(), uuid.uuid4()]
 
     # First user found, second user not found (returns None)
-    with (
-        patch("fed_mgr.v1.providers.crud.get_user", side_effect=[MagicMock(), None]),
-        pytest.raises(ItemNotFoundError, match=f"User with ID '{user_ids[1]}"),
-    ):
-        check_users_exist(session=session, user_ids=user_ids)
+    with patch("fed_mgr.v1.providers.crud.get_user", side_effect=[MagicMock(), None]):
+        with pytest.raises(ItemNotFoundError, match=f"User with ID '{user_ids[1]}"):
+            check_users_exist(session=session, user_ids=user_ids)
 
 
 def test_check_users_exist_empty_list(session):
@@ -444,18 +440,16 @@ def test_remove_site_admins_empty_list(session):
     updated_by = MagicMock(spec=User)
     del_site_admins = [site_admin.id]
 
-    with (
-        patch(
-            "fed_mgr.v1.providers.crud.get_user", return_value=site_admin
-        ) as mock_get_user,
-        pytest.raises(ValueError, match="List must not be empty"),
-    ):
-        remove_site_admins(
-            session=session,
-            provider=provider,
-            user_ids=del_site_admins,
-            updated_by=updated_by,
-        )
+    with patch(
+        "fed_mgr.v1.providers.crud.get_user", return_value=site_admin
+    ) as mock_get_user:
+        with pytest.raises(ValueError, match="List must not be empty"):
+            remove_site_admins(
+                session=session,
+                provider=provider,
+                user_ids=del_site_admins,
+                updated_by=updated_by,
+            )
         mock_get_user.assert_called_once()
 
 

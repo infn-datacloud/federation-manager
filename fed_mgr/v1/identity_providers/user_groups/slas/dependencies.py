@@ -3,15 +3,16 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
 
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
 from fed_mgr.v1.models import SLA
 
 SLADep = Annotated[SLA | None, Depends(get_sla)]
 
 
-def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLA:
+def sla_required(sla_id: uuid.UUID, sla: SLADep) -> SLA:
     """Dependency to ensure the specified SLA exists.
 
     Raises an HTTP 404 error if the SLA with the given sla_id does not
@@ -27,9 +28,7 @@ def sla_required(request: Request, sla_id: uuid.UUID, sla: SLADep) -> SLA:
 
     """
     if sla is None:
-        message = f"SLA with ID '{sla_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+        raise ItemNotFoundError(f"SLA with ID '{sla_id!s}' does not exist")
     return sla
 
 
