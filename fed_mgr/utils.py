@@ -46,7 +46,7 @@ def split_camel_case(text: str) -> str:
     return " ".join([m.group(0) for m in matches])
 
 
-def encrypt(secret_key: str, value: str) -> str:
+def encrypt(value: str, secret_key: str) -> str:
     """Encrpyt value using fernet method.
 
     Args:

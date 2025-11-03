@@ -13,7 +13,6 @@ from fed_mgr.exceptions import (
     DatabaseOperationError,
     DeleteFailedError,
     ItemNotFoundError,
-    NotNullError,
 )
 from fed_mgr.utils import split_camel_case
 from fed_mgr.v1.models import User
@@ -46,10 +45,11 @@ def raise_from_integrity_error(
     # SQLITE
     # Search for 'NOT NULL constraint failed: ' string and catch anything till the first
     # , or end of line
-    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
-    if match is not None:
-        attr = match.group(0).split(".")[1]
-        raise NotNullError(element_str, attr) from error
+    # match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)",
+    # error.args[0])
+    # if match is not None:
+    #     attr = match.group(0).split(".")[1]
+    #     raise NotNullError(element_str, attr) from error
 
     # Search for 'UNIQUE constraint failed: ' string and catch anything till the first
     # , or end of line
@@ -327,8 +327,9 @@ def update_item(
 
     if result.rowcount == 0:
         session.rollback()
-        element_str = split_camel_case(entity.__name__)
-        raise ItemNotFoundError(element_str, params=kwargs)
+        message = f"{split_camel_case(entity.__name__)} with given key-value pairs "
+        message += f"'{kwargs!s}' does not exist"
+        raise ItemNotFoundError(message)
     session.commit()
 
 

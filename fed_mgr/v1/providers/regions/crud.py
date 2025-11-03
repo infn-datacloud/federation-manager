@@ -127,7 +127,7 @@ def delete_region(*, session: Session, region_id: uuid.UUID) -> None:
         None
 
     """
-    delete_item(session=session, entity=Region, id=region_id)
+    return delete_item(session=session, entity=Region, id=region_id)
 
 
 # def check_location_exist(session: Session, region: RegionCreate) -> Location:

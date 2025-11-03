@@ -11,13 +11,7 @@ from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ItemNotFoundError
-from fed_mgr.v1.crud import (
-    add_item,
-    delete_item,
-    get_item,
-    get_items,
-    update_item,
-)
+from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.models import IdpOverrides, Provider, User
 from fed_mgr.v1.providers.identity_providers.schemas import (
@@ -101,7 +95,9 @@ def connect_prov_idp(
     """
     idp = get_idp(session=session, idp_id=config.idp_id)
     if idp is None:
-        raise ItemNotFoundError("Identity provider", id=config.idp_id)
+        raise ItemNotFoundError(
+            f"Identity provider with ID '{config.idp_id!s}' does not exist"
+        )
     return add_item(
         session=session,
         entity=IdpOverrides,
@@ -154,7 +150,7 @@ def disconnect_prov_idp(
         provider_id: The UUID of the relationship target resource provider.
 
     """
-    delete_item(
+    return delete_item(
         session=session,
         entity=IdpOverrides,
         idp_id=idp_id,

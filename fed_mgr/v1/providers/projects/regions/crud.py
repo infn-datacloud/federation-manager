@@ -94,7 +94,7 @@ def connect_project_region(
     """
     region = get_region(session=session, region_id=config.region_id)
     if region is None:
-        raise ItemNotFoundError("Region", id=config.region_id)
+        raise ItemNotFoundError(f"Region with ID '{config.region_id}' does not exist")
     return add_item(
         session=session,
         entity=RegionOverrides,
@@ -153,7 +153,7 @@ def disconnect_project_region(
         None
 
     """
-    delete_item(
+    return delete_item(
         session=session,
         entity=RegionOverrides,
         project_id=project_id,

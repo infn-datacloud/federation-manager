@@ -98,7 +98,7 @@ def delete_user(*, session: Session, user_id: uuid.UUID) -> None:
     return delete_item(session=session, entity=User, id=user_id)
 
 
-def create_fake_user(session: Session):
+def create_fake_user(session: Session) -> User:
     """Create a fake user in the database for testing or development purposes.
 
     If the fake user already exists return the ID of the existing user.
@@ -119,7 +119,7 @@ def create_fake_user(session: Session):
         issuer=FAKE_USER_ISSUER,
     )
     if tot_items == 0:
-        add_user(
+        return add_user(
             session=session,
             user=UserCreate(
                 name=FAKE_USER_NAME,
@@ -147,4 +147,4 @@ def delete_fake_user(session: Session) -> None:
         issuer=FAKE_USER_ISSUER,
     )
     if tot_items > 0:
-        delete_user(session=session, user_id=users[0].id)
+        return delete_user(session=session, user_id=users[0].id)

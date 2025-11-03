@@ -18,13 +18,14 @@ from fed_mgr.v1.identity_providers.user_groups.crud import (
     get_user_groups,
     update_user_group,
 )
-from fed_mgr.v1.models import UserGroup
+from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupCreate
+from fed_mgr.v1.models import IdentityProvider, User, UserGroup
 
 
 def test_get_user_group_found(session):
     """Test get_user_group returns the UserGroup if found."""
     user_group_id = uuid.uuid4()
-    expected_user_group = MagicMock()
+    expected_user_group = MagicMock(spec=UserGroup)
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.crud.get_item",
         return_value=expected_user_group,
@@ -52,7 +53,7 @@ def test_get_user_group_not_found(session):
 
 def test_get_user_groups(session):
     """Test get_user_groups calls get_items with correct arguments."""
-    expected_list = [MagicMock(), MagicMock()]
+    expected_list = [MagicMock(spec=UserGroup), MagicMock(spec=UserGroup)]
     expected_count = 2
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.crud.get_items",
@@ -67,10 +68,10 @@ def test_get_user_groups(session):
 
 def test_add_user_group(session):
     """Test add_user_group calls add_item with correct arguments."""
-    user_group = MagicMock()
-    created_by = MagicMock()
-    parent_idp = MagicMock()
-    expected_item = MagicMock()
+    user_group = MagicMock(spec=UserGroupCreate)
+    created_by = MagicMock(spec=User)
+    parent_idp = MagicMock(spec=IdentityProvider)
+    expected_item = MagicMock(spec=UserGroup)
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.crud.add_item",
         return_value=expected_item,
@@ -95,17 +96,18 @@ def test_add_user_group(session):
 def test_update_user_group(session):
     """Test update_user_group calls update_item with correct arguments."""
     user_group_id = uuid.uuid4()
-    new_user_group = MagicMock()
-    updated_by = MagicMock()
+    new_user_group = MagicMock(spec=UserGroupCreate)
+    updated_by = MagicMock(spec=User)
     with patch(
-        "fed_mgr.v1.identity_providers.user_groups.crud.update_item"
+        "fed_mgr.v1.identity_providers.user_groups.crud.update_item", return_value=None
     ) as mock_update_item:
-        update_user_group(
+        result = update_user_group(
             session=session,
             user_group_id=user_group_id,
             new_user_group=new_user_group,
             updated_by=updated_by,
         )
+        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
@@ -119,9 +121,10 @@ def test_delete_user_group_calls_delete_item(session):
     """Test delete_user_group calls delete_item with correct arguments."""
     user_group_id = uuid.uuid4()
     with patch(
-        "fed_mgr.v1.identity_providers.user_groups.crud.delete_item"
+        "fed_mgr.v1.identity_providers.user_groups.crud.delete_item", return_value=None
     ) as mock_delete_item:
-        delete_user_group(session=session, user_group_id=user_group_id)
+        result = delete_user_group(session=session, user_group_id=user_group_id)
+        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=UserGroup, id=user_group_id
         )
