@@ -68,12 +68,6 @@ def current_user():
     return current_user
 
 
-@pytest.fixture(autouse=True)
-def patch_logger(monkeypatch, mock_logger):
-    """Patch the logger to use a mock logger during tests."""
-    monkeypatch.setattr("fed_mgr.logger.get_logger", lambda *a, **kw: mock_logger)
-
-
 @pytest.fixture
 def idp_data() -> dict[str, Any]:
     """Return dict with IDP data."""

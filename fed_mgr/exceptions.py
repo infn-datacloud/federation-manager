@@ -110,22 +110,20 @@ class ServiceUnreachableError(Exception):
     """Exception raised when a service cannot be reached.
 
     Attributes:
-        service (str): Service name.
         message (str): Explanation of the error.
         *args: Additional arguments to pass to the base Exception class.
 
     """
 
-    def __init__(self, service: str, message: str, *args):
+    def __init__(self, message: str, *args):
         """Initialize error class instance.
 
         Args:
-            service (str): Service name.
             message (str): The error message describing the issue.
             *args: Variable length argument list to pass to parent class.
 
         """
-        self.message = f"{service}: {message}"
+        self.message = message
         super().__init__(self.message, *args)
 
 
@@ -133,22 +131,20 @@ class ServiceUnexpectedResponseError(Exception):
     """Exception raised when a service returns unexpected response.
 
     Attributes:
-        service (str): Service name.
         message (str): Explanation of the error.
         *args: Additional arguments to pass to the base Exception class.
 
     """
 
-    def __init__(self, service: str, message: str, *args):
+    def __init__(self, message: str, *args):
         """Initialize error class instance.
 
         Args:
-            service (str): Service name.
             message (str): The error message describing the issue.
             *args: Variable length argument list to pass to parent class.
 
         """
-        self.message = f"{service}: {message}"
+        self.message = message
         super().__init__(self.message, *args)
 
 

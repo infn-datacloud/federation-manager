@@ -164,7 +164,7 @@ def check_authentication(
 AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]
 
 
-async def check_opa_authorization(
+def check_opa_authorization(
     *, request: Request, user_info: dict[str, Any], settings: Settings, logger: Logger
 ) -> None:
     """Check user authorization via Open Policy Agent (OPA).
@@ -186,7 +186,7 @@ async def check_opa_authorization(
 
     """
     logger.debug("Authorization through OPA")
-    body = await request.body()
+    body = request.body()
     data = {
         "input": {
             "user_info": user_info,
@@ -201,7 +201,7 @@ async def check_opa_authorization(
             settings.OPA_AUTHZ_URL, json=data, timeout=settings.OPA_TIMEOUT
         )
     except (requests.Timeout, ConnectionError) as e:
-        raise ServiceUnreachableError("OPA", "Server is not reachable") from e
+        raise ServiceUnreachableError("OPA: Server is not reachable") from e
     match resp.status_code:
         case status.HTTP_200_OK:
             resp = resp.json().get("result", {"allow": False})
@@ -209,19 +209,16 @@ async def check_opa_authorization(
                 return None
             raise UnauthorizedError("Unauthorized to perform this operation")
         case status.HTTP_400_BAD_REQUEST:
-            raise ServiceUnexpectedResponseError(
-                "OPA", "Bad request sent to OPA server"
-            )
+            raise ServiceUnexpectedResponseError("OPA: Bad request sent to OPA server")
         case status.HTTP_500_INTERNAL_SERVER_ERROR:
-            raise ServiceUnexpectedResponseError("OPA", "OPA server internal error")
+            raise ServiceUnexpectedResponseError("OPA: OPA server internal error")
         case _:
             raise ServiceUnexpectedResponseError(
-                "OPA",
-                f"Unexpected response code '{resp.status_code}'",
+                f"OPA: Unexpected response code '{resp.status_code}'",
             )
 
 
-async def check_authorization(
+def check_authorization(
     request: Request, user_info: AuthenticationDep, settings: SettingsDep
 ) -> None:
     """Dependency to check user permissions.
@@ -246,7 +243,7 @@ async def check_authorization(
     else:
         # User based authentication.
         if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
-            return await check_opa_authorization(
+            return check_opa_authorization(
                 user_info=user_info,
                 request=request,
                 settings=settings,
