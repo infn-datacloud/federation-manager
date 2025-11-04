@@ -13,7 +13,8 @@ from fed_mgr.db import get_session
 from fed_mgr.main import app, sub_app_v1
 from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
-from fed_mgr.v1.models import IdentityProvider, User, UserGroup
+from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
+from fed_mgr.v1.models import SLA, IdentityProvider, User, UserGroup
 from fed_mgr.v1.users.dependencies import get_current_user
 
 
@@ -99,8 +100,33 @@ def user_group_dep(user_group_data: dict[str, Any]) -> UserGroup:
         id=uuid.uuid4(),
         created_by_id=user_id,
         updated_by_id=user_id,
-        # idp_id=uuid.uuid4(),
         **user_group_data,
     )
     sub_app_v1.dependency_overrides[get_user_group] = lambda idp_id, session=None: item
+    return item
+
+
+@pytest.fixture
+def sla_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {
+        "description": "desc",
+        "name": "Test UserGroup",
+        "url": "http://test.url.it",
+        "start_date": "2024-01-01",
+        "end_date": "2025-01-01",
+    }
+
+
+@pytest.fixture
+def sla_dep(sla_data: dict[str, Any]) -> SLA:
+    """Patch get_idp depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = SLA(
+        id=uuid.uuid4(),
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        **sla_data,
+    )
+    sub_app_v1.dependency_overrides[get_sla] = lambda user_group_id, session=None: item
     return item

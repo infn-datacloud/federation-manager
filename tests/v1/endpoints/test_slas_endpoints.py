@@ -17,593 +17,505 @@ Tests in this file:
 """
 
 import uuid
-from datetime import datetime
-from typing import Any
-
-from sqlmodel import Field, SQLModel
+from unittest.mock import patch
 
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
     ItemNotFoundError,
-    NotNullError,
 )
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
-
-DUMMY_DESC = "desc"
-DUMMY_NAME = "Test SLA"
-DUMMY_URL = "http://test.url.it"
-DUMMY_START_DATE = "2024-01-01"
-DUMMY_END_DATE = "2025-01-01"
-DUMMY_CREATED_AT = datetime.now()
-
-
-def get_fake_user_group_id() -> str:
-    """Patch get_idp depencency to return a dummy IDP."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeUserGroup:
-        id = fake_id
-
-    sub_app_v1.dependency_overrides[get_user_group] = (
-        lambda user_group_id, session=None: FakeUserGroup()
-    )
-
-    return fake_id
-
-
-def get_fake_idp_id() -> str:
-    """Patch get_idp depencency to return a dummy IDP."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeIdp:
-        id = fake_id
-
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: FakeIdp()
-
-    return fake_id
+from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLACreate
+from fed_mgr.v1.models import SLA
+from fed_mgr.v1.schemas import ItemID
 
 
 # OPTIONS endpoint
-def test_options_slas_parent_idp_not_found(client):
+def test_options_slas_parent_idp_not_found(client, user_group_dep):
     """Test OPTIONS returns 404 if parent_user_group is None."""
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = get_fake_user_group_id()
-
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
 
     resp = client.options(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_options_slas_parent_user_group_not_found(client):
+def test_options_slas_parent_user_group_not_found(client, idp_dep):
     """Test OPTIONS returns 404 if parent_user_group is None."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = (
         lambda user_group_id, session=None: None
     )
 
     resp = client.options(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_options_slas(client):
+def test_options_slas(client, idp_dep, user_group_dep):
     """Test OPTIONS /idps/{idp_id}/user-groups/ returns 204 and Allow header."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-
     resp = client.options(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
     )
     assert resp.status_code == 204
     assert "allow" in resp.headers or "Allow" in resp.headers
 
 
 # POST endpoint
-def test_create_sla_parent_idp_not_found(client):
+def test_create_sla_parent_idp_not_found(client, user_group_dep, sla_data):
     """Test POST returns 404 if parent_user_group is None."""
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = str(uuid.uuid4())
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
 
     resp = client.post(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/",
         json=sla_data,
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_create_sla_parent_user_group_not_found(client):
+def test_create_sla_parent_user_group_not_found(client, idp_dep, sla_data):
     """Test POST returns 404 if parent_user_group is None."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
+    fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = (
         lambda user_group_id, session=None: None
     )
 
     resp = client.post(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/",
         json=sla_data,
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_create_sla_success(client, monkeypatch):
+def test_create_sla_success(
+    client, session, current_user, idp_dep, user_group_dep, sla_data
+):
     """Test POST creates a user group and returns 201 with id."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
+    fake_id = uuid.uuid4()
 
-    def fake_add_sla(session, sla, created_by, user_group):
-        class FakeSLA(SQLModel):
-            id: uuid.UUID = fake_id
-
-        return FakeSLA()
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.add_sla",
-        fake_add_sla,
-    )
-    resp = client.post(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
-        json=sla_data,
-    )
-    assert resp.status_code == 201
-    assert resp.json() == {"id": fake_id}
+        return_value=ItemID(id=fake_id),
+    ) as mock_create:
+        resp = client.post(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/",
+            json=sla_data,
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
+        mock_create.assert_called_once_with(
+            session=session,
+            sla=SLACreate(**sla_data),
+            created_by=current_user,
+            user_group=user_group_dep,
+        )
 
 
-def test_create_sla_conflict(client, monkeypatch):
+def test_create_sla_conflict(
+    client, session, current_user, sla_data, idp_dep, user_group_dep
+):
     """Test POST returns 409 if user group already exists."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
-    def fake_add_sla(session, sla, created_by, user_group):
-        raise ConflictError("SLA", "url", DUMMY_URL)
-
-    monkeypatch.setattr(
+    err_msg = "Error message"
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.add_sla",
-        fake_add_sla,
-    )
-    resp = client.post(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
-        json=sla_data,
-    )
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == f"SLA with url={DUMMY_URL} already exists"
-
-
-def test_create_sla_not_null_error(client, monkeypatch):
-    """Test POST returns 409 if a not null error occurs."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
-    def fake_add_sla(session, sla, created_by, user_group):
-        raise NotNullError("SLA", "name")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.add_sla",
-        fake_add_sla,
-    )
-
-    resp = client.post(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/",
-        json=sla_data,
-    )
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
+        side_effect=ConflictError(err_msg),
+    ) as mock_create:
+        resp = client.post(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/",
+            json=sla_data,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_create.assert_called_once_with(
+            session=session,
+            sla=SLACreate(**sla_data),
+            created_by=current_user,
+            user_group=user_group_dep,
+        )
 
 
 # GET (list) endpoint
-def test_get_slas_parent_idp_not_found(client):
+def test_get_slas_parent_idp_not_found(client, user_group_dep):
     """Test GET returns 404 if parent_user_group is None."""
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
 
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_get_slas_parent_user_group_not_found(client):
+def test_get_slas_parent_user_group_not_found(client, idp_dep):
     """Test GET returns 404 if parent_user_group is None."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = (
         lambda user_group_id, session=None: None
     )
 
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_get_slas_success(client, monkeypatch):
+def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
     """Test GET returns paginated user group list."""
-    fake_slas = []
-    fake_total = 0
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-
-    def fake_get_slas(session, skip, limit, sort, **kwargs):
-        return fake_slas, fake_total
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.get_slas",
-        fake_get_slas,
+        return_value=([], 0),
+    ) as mock_get:
+        resp = client.get(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            user_group_id=user_group_dep.id,
+        )
+
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    sla1 = SLA(
+        **sla_data,
+        id=fake_id,
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        user_group_id=user_group_dep.id,
     )
-    resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/"
+    with patch(
+        "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.get_slas",
+        return_value=([sla1], 1),
+    ) as mock_get:
+        resp = client.get(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            user_group_id=user_group_dep.id,
+        )
+
+    sla2 = SLA(
+        **sla_data,
+        id=fake_id,
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        user_group_id=user_group_dep.id,
     )
-    assert resp.status_code == 200
-    assert "data" in resp.json()
+    with patch(
+        "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.get_slas",
+        return_value=([sla1, sla2], 2),
+    ) as mock_get:
+        resp = client.get(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            user_group_id=user_group_dep.id,
+        )
 
 
 # GET (by id) endpoint
-def test_get_sla_parent_idp_not_found(client):
+def test_get_sla_parent_idp_not_found(client, user_group_dep):
     """Test GET by id returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_id = uuid.uuid4()
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
-    sub_app_v1.dependency_overrides[get_sla] = lambda sla_id, session=None: None
 
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_get_sla_parent_user_group_not_found(client):
+def test_get_sla_parent_user_group_not_found(client, idp_dep):
     """Test GET by id returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_id = uuid.uuid4()
+    fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = (
         lambda user_group_id, session=None: None
     )
-    sub_app_v1.dependency_overrides[get_sla] = lambda sla_id, session=None: None
 
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_get_sla_success(client):
+def test_get_sla_success(client, idp_dep, user_group_dep, sla_dep):
     """Test GET by id returns user group."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-
-    class FakeSLA(SQLModel):
-        id: uuid.UUID = fake_id
-        name: str = DUMMY_NAME
-        description: str = DUMMY_DESC
-        url: str = DUMMY_URL
-        start_date: str = DUMMY_START_DATE
-        end_date: str = DUMMY_END_DATE
-        created_at: datetime = DUMMY_CREATED_AT
-        created_by_id: uuid.UUID = fake_id
-        updated_at: datetime = DUMMY_CREATED_AT
-        updated_by_id: uuid.UUID = fake_id
-        user_group: Any = Field(fake_user_group_id, exclude=True)
-
-    def fake_get_sla(user_group_id, session=None):
-        return FakeSLA()
-
-    sub_app_v1.dependency_overrides[get_sla] = fake_get_sla
-
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{sla_dep.id}"
     )
     assert resp.status_code == 200
-    assert resp.json()["id"] == fake_id
+    assert resp.json()["id"] == str(sla_dep.id)
 
 
-def test_get_sla_not_found(client):
+def test_get_sla_not_found(client, session, idp_dep, user_group_dep):
     """Test GET by id returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_sla] = (
+        lambda user_group_id, session=session: None
+    )
 
-    sub_app_v1.dependency_overrides[get_sla] = lambda sla_id, session=None: None
     resp = client.get(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert f"SLA with ID '{fake_id}' does not exist" == resp.json()["detail"]
 
 
 # PUT endpoint
-def test_edit_sla_parent_idp_not_found(client):
+def test_edit_sla_parent_idp_not_found(client, user_group_dep, sla_data):
     """Test PUT returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = str(uuid.uuid4())
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
+    fake_id = uuid.uuid4()
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
 
     resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
         json=sla_data,
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_edit_sla_parent_user_group_not_found(client):
+def test_edit_sla_parent_user_group_not_found(client, idp_dep, sla_data):
     """Test PUT returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
+    fake_id = uuid.uuid4()
+    fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = (
         lambda user_group_id, session=None: None
     )
 
     resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
         json=sla_data,
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_edit_sla_success(client, monkeypatch):
+def test_edit_sla_success(
+    client, session, current_user, idp_dep, user_group_dep, sla_data
+):
     """Test PUT returns 204 on success."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
+    fake_id = uuid.uuid4()
 
-    def fake_update_sla(session, sla_id, new_sla, updated_by):
-        return None
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
-        fake_update_sla,
-    )
+        return_value=None,
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
+            json=sla_data,
+        )
+        assert resp.status_code == 204
+        mock_edit.assert_called_once_with(
+            session=session,
+            sla_id=fake_id,
+            new_sla=SLACreate(**sla_data),
+            updated_by=current_user,
+        )
 
-    resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
-        json=sla_data,
-    )
-    assert resp.status_code == 204
 
-
-def test_edit_sla_not_found(client, monkeypatch):
+def test_edit_sla_not_found(
+    client, session, current_user, idp_dep, user_group_dep, sla_data
+):
     """Test PUT returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
 
-    def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise ItemNotFoundError("SLA", id=sla_id)
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
-        fake_update_sla,
-    )
+        side_effect=ItemNotFoundError(err_msg),
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
+            json=sla_data,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
+        mock_edit.assert_called_once_with(
+            session=session,
+            sla_id=fake_id,
+            new_sla=SLACreate(**sla_data),
+            updated_by=current_user,
+        )
 
-    resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
-        json=sla_data,
-    )
-    assert resp.status_code == 404
-    assert resp.json()["detail"] == f"SLA with ID '{fake_id}' does not exist"
 
-
-def test_edit_sla_conflict(client, monkeypatch):
+def test_edit_sla_conflict(
+    client, session, current_user, idp_dep, user_group_dep, sla_data
+):
     """Test PUT returns 409 if conflict."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
 
-    def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise ConflictError("SLA", "url", DUMMY_URL)
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
-        fake_update_sla,
-    )
-
-    resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
-        json=sla_data,
-    )
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == f"SLA with url={DUMMY_URL} already exists"
-
-
-def test_edit_sla_not_null_error(client, monkeypatch):
-    """Test PUT returns 422 if not null."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    sla_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "url": DUMMY_URL,
-        "start_date": DUMMY_START_DATE,
-        "end_date": DUMMY_END_DATE,
-    }
-
-    def fake_update_sla(session, sla_id, new_sla, updated_by):
-        raise NotNullError("SLA", "name")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.update_sla",
-        fake_update_sla,
-    )
-
-    resp = client.put(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}",
-        json=sla_data,
-    )
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
+        side_effect=ConflictError(err_msg),
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
+            json=sla_data,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_edit.assert_called_once_with(
+            session=session,
+            sla_id=fake_id,
+            new_sla=SLACreate(**sla_data),
+            updated_by=current_user,
+        )
 
 
 # DELETE endpoint
-def test_delete_sla_parent_idp_not_found(client):
+def test_delete_sla_parent_idp_not_found(client, user_group_dep):
     """Test DELETE returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = str(uuid.uuid4())
-    fake_user_group_id = str(uuid.uuid4())
-
+    fake_id = uuid.uuid4()
+    fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
 
     resp = client.delete(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{fake_idp_id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"Identity provider with ID '{fake_idp_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_delete_sla_parent_user_group_not_found(client):
+def test_delete_sla_parent_user_group_not_found(client, idp_dep):
     """Test DELETE returns 404 if parent_user_group is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_user_group] = (
-        lambda user_group_id, session=None: None
-    )
+    fake_id = uuid.uuid4()
+    fake_user_group_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_user_group] = lambda idp_id, session=None: None
 
     resp = client.delete(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
+        f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        f"User group with ID '{fake_user_group_id}' does not exist"
+        == resp.json()["detail"]
+    )
 
 
-def test_delete_sla_success(client, monkeypatch):
+def test_delete_sla_success(client, session, idp_dep, user_group_dep):
     """Test DELETE returns 204 on success."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
+    fake_id = uuid.uuid4()
 
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.delete_sla",
-        lambda session, sla_id: None,
-    )
+        return_value=None,
+    ) as mock_delete:
+        resp = client.delete(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
+        )
+        assert resp.status_code == 204
+        mock_delete.assert_called_once_with(session=session, sla_id=fake_id)
 
-    resp = client.delete(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
-    )
-    assert resp.status_code == 204
 
-
-def test_delete_sla_fail(client, monkeypatch):
+def test_delete_sla_fail(client, session, idp_dep, user_group_dep):
     """Test DELETE returns 400 on fail."""
-    fake_idp_id = get_fake_idp_id()
-    fake_user_group_id = get_fake_user_group_id()
-    fake_id = str(uuid.uuid4())
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
 
-    def fake_delete_sla(session, sla_id):
-        raise DeleteFailedError("Failed to delete item")
-
-    monkeypatch.setattr(
+    with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.endpoints.delete_sla",
-        fake_delete_sla,
-    )
-
-    resp = client.delete(
-        f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_user_group_id}/slas/{fake_id}"
-    )
-    assert resp.status_code == 400
+        side_effect=DeleteFailedError(err_msg),
+    ) as mock_delete:
+        resp = client.delete(
+            f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_delete.assert_called_once_with(session=session, sla_id=fake_id)
