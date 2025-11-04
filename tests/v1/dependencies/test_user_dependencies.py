@@ -3,7 +3,6 @@
 import uuid
 from unittest.mock import MagicMock, patch
 
-import flaat
 import pytest
 
 from fed_mgr.exceptions import ItemNotFoundError
@@ -38,29 +37,27 @@ def test_user_required_not_found():
 
 def test_get_current_user_found(session):
     """Test get_current_user returns the user when found."""
-    user_infos = MagicMock(spec=flaat.UserInfos)
-    user_infos.user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
+    user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
     fake_user = MagicMock(spec=User)
 
     with patch(
         "fed_mgr.v1.users.dependencies.get_users", return_value=([fake_user], 1)
     ) as mock_get_user:
-        result = get_current_user(user_infos, session)
+        result = get_current_user(user_info, session)
         mock_get_user.assert_called_once_with(
             session=session,
             skip=0,
             limit=1,
             sort="-created_at",
-            sub=user_infos.user_info["sub"],
-            issuer=user_infos.user_info["iss"],
+            sub=user_info["sub"],
+            issuer=user_info["iss"],
         )
         assert result is fake_user
 
 
 def test_get_current_user_not_found(session):
     """Test get_current_user raises HTTPException 400 when user is not found."""
-    user_infos = MagicMock()
-    user_infos.user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
+    user_info = {"sub": DUMMY_SUB, "iss": DUMMY_ISS}
 
     with patch(
         "fed_mgr.v1.users.dependencies.get_users", return_value=([], 0)
@@ -68,12 +65,12 @@ def test_get_current_user_not_found(session):
         with pytest.raises(
             ItemNotFoundError, match="No user with the given credentials was found"
         ):
-            get_current_user(user_infos, session)
+            get_current_user(user_info, session)
         mock_get_user.assert_called_once_with(
             session=session,
             skip=0,
             limit=1,
             sort="-created_at",
-            sub=user_infos.user_info["sub"],
-            issuer=user_infos.user_info["iss"],
+            sub=user_info["sub"],
+            issuer=user_info["iss"],
         )

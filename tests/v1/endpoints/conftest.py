@@ -15,6 +15,7 @@ from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
 from fed_mgr.v1.models import SLA, IdentityProvider, User, UserGroup
+from fed_mgr.v1.users.crud import get_user
 from fed_mgr.v1.users.dependencies import get_current_user
 
 
@@ -82,7 +83,7 @@ def idp_dep(idp_data: dict[str, Any]) -> IdentityProvider:
     item = IdentityProvider(
         id=uuid.uuid4(), created_by_id=user_id, updated_by_id=user_id, **idp_data
     )
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: item
+    sub_app_v1.dependency_overrides[get_idp] = lambda: item
     return item
 
 
@@ -102,7 +103,7 @@ def user_group_dep(user_group_data: dict[str, Any]) -> UserGroup:
         updated_by_id=user_id,
         **user_group_data,
     )
-    sub_app_v1.dependency_overrides[get_user_group] = lambda idp_id, session=None: item
+    sub_app_v1.dependency_overrides[get_user_group] = lambda: item
     return item
 
 
@@ -128,5 +129,25 @@ def sla_dep(sla_data: dict[str, Any]) -> SLA:
         updated_by_id=user_id,
         **sla_data,
     )
-    sub_app_v1.dependency_overrides[get_sla] = lambda user_group_id, session=None: item
+    sub_app_v1.dependency_overrides[get_sla] = lambda: item
+    return item
+
+
+@pytest.fixture
+def user_data() -> dict[str, Any]:
+    """Return dict with User data."""
+    return {
+        "sub": "Testsub",
+        "name": "Test User",
+        "email": "test@example.com",
+        "iss": "https://issuer.example.com",  # Used in Flaat UserInfos
+        "issuer": "https://issuer.example.com",  # Alias of 'iss' used in UserCreate
+    }
+
+
+@pytest.fixture
+def user_dep(user_data: dict[str, Any]) -> User:
+    """Patch get_idp depencency to return a dummy IDP."""
+    item = User(id=uuid.uuid4(), **user_data)
+    sub_app_v1.dependency_overrides[get_user] = lambda: item
     return item

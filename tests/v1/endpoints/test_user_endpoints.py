@@ -1,50 +1,16 @@
 """Integration tests for fed_mgr.v1.users.endpoints using FastAPI TestClient."""
 
 import uuid
-from datetime import datetime
-
-from flaat.user_infos import UserInfos
-from pydantic import AnyHttpUrl
-from sqlmodel import SQLModel
+from unittest.mock import patch
 
 from fed_mgr.auth import check_authentication
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ConflictError, DeleteFailedError
 from fed_mgr.main import sub_app_v1
+from fed_mgr.v1.models import User
+from fed_mgr.v1.schemas import ItemID
 from fed_mgr.v1.users.crud import get_user
-
-DUMMY_SUB = "testsub"
-DUMMY_NAME = "Test User"
-DUMMY_EMAIL = "test@example.com"
-DUMMY_ISSUER = "https://issuer.example.com"
-DUMMY_CREATED_AT = datetime.now()
-
-
-def fake_add_user(fake_id):
-    """Create a fake User object with the given ID."""
-
-    class FakeUser(SQLModel):
-        id: uuid.UUID = fake_id
-
-    return FakeUser()
-
-
-def fake_user_infos() -> UserInfos:
-    """Create a fake UserInfos object."""
-    return UserInfos(
-        access_token_info=None,
-        user_info={
-            "sub": DUMMY_SUB,
-            "iss": DUMMY_ISSUER,
-            "name": DUMMY_NAME,
-            "email": DUMMY_EMAIL,
-        },
-        introspection_info=None,
-    )
+from fed_mgr.v1.users.dependencies import get_current_user
+from fed_mgr.v1.users.schemas import UserCreate
 
 
 def test_options_users(client):
@@ -54,237 +20,146 @@ def test_options_users(client):
     assert "allow" in resp.headers or "Allow" in resp.headers
 
 
-def test_create_user_no_body(client, monkeypatch):
+def test_create_user(client, session, user_data):
     """Test POST /users/ with no body uses AuthenticationDep and returns 201."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeAuth:
-        subject = DUMMY_SUB
-        issuer = AnyHttpUrl(DUMMY_ISSUER)
-
-        def __init__(self):
-            self.user_info = {"name": DUMMY_NAME, "email": DUMMY_EMAIL}
-
-    def retrieve_info_from_fake_token(authz_creds=None):
-        return FakeAuth()
-
-    # Patch AuthenticationDep to return our fake auth info
-    sub_app_v1.dependency_overrides[check_authentication] = (
-        retrieve_info_from_fake_token
-    )
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.users.endpoints.add_user",
-        lambda session, user: fake_add_user(fake_id),
-    )
-
-    resp = client.post("/api/v1/users/")
-    assert resp.status_code == 201
-    assert resp.json() == {"id": fake_id}
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
+    with patch(
+        "fed_mgr.v1.users.endpoints.add_user", return_value=ItemID(id=fake_id)
+    ) as mock_create:
+        resp = client.post("/api/v1/users/")
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
+        mock_create.assert_called_once_with(
+            session=session, user=UserCreate(**user_data)
+        )
 
 
-def test_create_user_conflict(client, monkeypatch):
+def test_create_user_conflict(client, session, user_data):
     """Test POST /users/ returns 409 if user already exists."""
-
-    class FakeAuth:
-        subject = DUMMY_SUB
-        issuer = AnyHttpUrl(DUMMY_ISSUER)
-
-        def __init__(self):
-            self.user_info = {"name": DUMMY_NAME, "email": DUMMY_EMAIL}
-
-    def retrieve_info_from_fake_token(authz_creds=None):
-        return FakeAuth()
-
-    # Patch AuthenticationDep to return our fake auth info
-    sub_app_v1.dependency_overrides[check_authentication] = (
-        retrieve_info_from_fake_token
-    )
-
-    def fake_add_user(session, user):
-        raise ConflictError("User", "sub", DUMMY_SUB)
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.add_user", fake_add_user)
-
-    resp = client.post("/api/v1/users/")
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == f"User with sub={DUMMY_SUB} already exists"
+    err_msg = "Error message"
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
+    with patch(
+        "fed_mgr.v1.users.endpoints.add_user", side_effect=ConflictError(err_msg)
+    ) as mock_create:
+        resp = client.post("/api/v1/users/")
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_create.assert_called_once_with(
+            session=session, user=UserCreate(**user_data)
+        )
 
 
-def test_create_user_not_null(client, monkeypatch):
-    """Test POST /users/ returns 422 if user if creation triggers a not null error."""
-    user_data = {
-        "sub": DUMMY_SUB,
-        "name": DUMMY_NAME,
-        "email": DUMMY_EMAIL,
-        "issuer": DUMMY_ISSUER,
-    }
-
-    class FakeAuth:
-        subject = DUMMY_SUB
-        issuer = AnyHttpUrl(DUMMY_ISSUER)
-
-        def __init__(self):
-            self.user_info = {"name": DUMMY_NAME, "email": DUMMY_EMAIL}
-
-    def retrieve_info_from_fake_token(authz_creds=None):
-        return FakeAuth()
-
-    # Patch AuthenticationDep to return our fake auth info
-    sub_app_v1.dependency_overrides[check_authentication] = (
-        retrieve_info_from_fake_token
-    )
-
-    def fake_add_user(session, user):
-        raise NotNullError("User", "email")
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.add_user", fake_add_user)
-
-    resp = client.post("/api/v1/users/", json=user_data)
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
-
-
-def test_get_users_success(client, monkeypatch):
+def test_get_users_success(client, session, user_data):
     """Test GET /users/ returns paginated user list."""
-    fake_users = []
-    fake_total = 0
+    with patch(
+        "fed_mgr.v1.users.endpoints.get_users", return_value=([], 0)
+    ) as mock_get:
+        resp = client.get("/api/v1/users/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
 
-    def fake_get_users(session, skip, limit, sort, **kwargs):
-        return fake_users, fake_total
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    user1 = User(**user_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id)
+    with patch(
+        "fed_mgr.v1.users.endpoints.get_users", return_value=([user1], 1)
+    ) as mock_get:
+        resp = client.get("/api/v1/users/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
 
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.get_users", fake_get_users)
-    resp = client.get("/api/v1/users/")
-    assert resp.status_code == 200
-    assert "data" in resp.json()
+    user2 = User(**user_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id)
+    with patch(
+        "fed_mgr.v1.users.endpoints.get_users", return_value=([user1, user2], 2)
+    ) as mock_get:
+        resp = client.get("/api/v1/users/")
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
 
 
-def test_get_user_success(client):
+def test_get_user_success(client, user_dep, user_data):
     """Test GET /users/{user_id} returns user if found."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeUser(SQLModel):
-        id: uuid.UUID = fake_id
-        sub: str = DUMMY_SUB
-        name: str = DUMMY_NAME
-        email: str = DUMMY_EMAIL
-        issuer: str = DUMMY_ISSUER
-        created_at: datetime = DUMMY_CREATED_AT
-
-    def fake_get_user(user_id, session=None):
-        return FakeUser()
-
-    sub_app_v1.dependency_overrides[get_user] = fake_get_user
-
-    resp = client.get(f"/api/v1/users/{fake_id}")
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
+    resp = client.get(f"/api/v1/users/{user_dep.id}")
     assert resp.status_code == 200
-    assert resp.json()["id"] == fake_id
+    assert resp.json()["id"] == str(user_dep.id)
 
 
-def test_get_user_not_found(client):
+def test_get_me(client, user_dep):
+    """Test GET /users/{user_id} returns user if found."""
+    sub_app_v1.dependency_overrides[get_current_user] = lambda: user_dep
+    resp = client.get("/api/v1/users/me")
+    assert resp.status_code == 200
+    assert resp.json()["id"] == str(user_dep.id)
+
+
+def test_get_user_not_found(client, user_data):
     """Test GET /users/{user_id} returns 404 if user not found."""
-    fake_id = str(uuid.uuid4())
-
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
     sub_app_v1.dependency_overrides[get_user] = lambda user_id, session=None: None
 
     resp = client.get(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 404
+    assert resp.json()["status"] == 404
     assert resp.json()["detail"] == f"User with ID '{fake_id}' does not exist"
 
 
-def test_edit_user_success(client, monkeypatch):
-    """Test PUT /users/{user_id} returns 204 on successful update."""
-    fake_id = str(uuid.uuid4())
-    user_data = {
-        "sub": DUMMY_SUB,
-        "name": DUMMY_NAME,
-        "email": DUMMY_EMAIL,
-        "issuer": DUMMY_ISSUER,
-    }
-
-    def fake_update_user(session, user_id, new_user):
-        return None
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
-    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
-    assert resp.status_code == 204
-
-
-def test_edit_user_not_found(client, monkeypatch):
-    """Test PUT /users/{user_id} returns 404 if user does not exist."""
-    fake_id = str(uuid.uuid4())
-    user_data = {
-        "sub": DUMMY_SUB,
-        "name": DUMMY_NAME,
-        "email": DUMMY_EMAIL,
-        "issuer": DUMMY_ISSUER,
-    }
-
-    def fake_update_user(session, user_id, new_user):
-        raise ItemNotFoundError("User", id=user_id)
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
-    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
-    assert resp.status_code == 404
-    assert resp.json()["detail"] == f"User with ID '{fake_id}' does not exist"
-
-
-def test_edit_user_conflict_error(client, monkeypatch):
-    """Test PUT /users/{user_id} returns 409 if update triggers a conflict error."""
-    fake_id = str(uuid.uuid4())
-    user_data = {
-        "sub": DUMMY_SUB,
-        "name": DUMMY_NAME,
-        "email": DUMMY_EMAIL,
-        "issuer": DUMMY_ISSUER,
-    }
-
-    def fake_update_user(session, user_id, new_user):
-        raise ConflictError("User", "sub", DUMMY_SUB)
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
-    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
-    assert resp.status_code == 409
-    assert resp.json()["detail"] == f"User with sub={DUMMY_SUB} already exists"
-
-
-def test_edit_user_not_null_error(client, monkeypatch):
-    """Test PUT /users/{user_id} returns 422 if update triggers a not null error."""
-    fake_id = str(uuid.uuid4())
-    user_data = {
-        "sub": DUMMY_SUB,
-        "name": DUMMY_NAME,
-        "email": DUMMY_EMAIL,
-        "issuer": DUMMY_ISSUER,
-    }
-
-    def fake_update_user(session, user_id, new_user):
-        raise NotNullError("User", "email")
-
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.update_user", fake_update_user)
-    resp = client.put(f"/api/v1/users/{fake_id}", json=user_data)
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
-
-
-def test_delete_user_success(client, monkeypatch):
+def test_delete_user_success(client, session, user_data):
     """Test DELETE /users/{user_id} returns 204 on success."""
-    fake_id = str(uuid.uuid4())
-    monkeypatch.setattr(
-        "fed_mgr.v1.users.endpoints.delete_user", lambda session, user_id: None
-    )
-    resp = client.delete(f"/api/v1/users/{fake_id}")
-    assert resp.status_code == 204
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
+
+    with patch(
+        "fed_mgr.v1.users.endpoints.delete_user", return_value=None
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/users/{fake_id}")
+        assert resp.status_code == 204
+        mock_delete.assert_called_once_with(session=session, user_id=fake_id)
 
 
-def test_delete_user_fail(client, monkeypatch):
+def test_delete_user_fail(client, session, user_data):
     """Test DELETE /users/{user_id} returns 400 on fail."""
-    fake_id = str(uuid.uuid4())
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+    sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
 
-    def fake_delete_user(session, user_id):
-        raise DeleteFailedError("Failed to delete item")
+    with patch(
+        "fed_mgr.v1.users.endpoints.delete_user", side_effect=DeleteFailedError(err_msg)
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/users/{fake_id}")
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+        mock_delete.assert_called_once_with(session=session, user_id=fake_id)
 
-    monkeypatch.setattr("fed_mgr.v1.users.endpoints.delete_user", fake_delete_user)
 
-    resp = client.delete(f"/api/v1/users/{fake_id}")
-    assert resp.status_code == 400
+def test_delete_me(client, user_dep):
+    """Delete me."""
+    sub_app_v1.dependency_overrides[get_current_user] = lambda: user_dep
+    resp = client.delete(f"/api/v1/users/{user_dep.id}")
+    assert resp.status_code == 403
+    assert resp.json()["status"] == 403
+    assert resp.json()["detail"] == "User can't delete themselves"
