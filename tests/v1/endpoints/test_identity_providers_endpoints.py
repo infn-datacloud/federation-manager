@@ -16,11 +16,7 @@ Tests in this file:
 """
 
 import uuid
-from datetime import datetime
-from typing import Any
 from unittest.mock import patch
-
-import pytest
 
 from fed_mgr.exceptions import ConflictError, DeleteFailedError, ItemNotFoundError
 from fed_mgr.main import sub_app_v1
@@ -28,27 +24,6 @@ from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderCreate
 from fed_mgr.v1.models import IdentityProvider
 from fed_mgr.v1.schemas import ItemID
-
-DUMMY_DESC = "desc"
-DUMMY_ENDPOINT = "https://idp.example.com"
-DUMMY_NAME = "Test IdP"
-DUMMY_CLAIM = "groups"
-DUMMY_PROTOCOL = "openid"
-DUMMY_AUD = "aud1"
-DUMMY_CREATED_AT = datetime.now()
-
-
-@pytest.fixture()
-def idp_data() -> dict[str, Any]:
-    """Return dict with IDP data."""
-    return {
-        "description": DUMMY_DESC,
-        "endpoint": DUMMY_ENDPOINT,
-        "name": DUMMY_NAME,
-        "groups_claim": DUMMY_CLAIM,
-        "protocol": DUMMY_PROTOCOL,
-        "audience": DUMMY_AUD,
-    }
 
 
 def test_options_idps(client):
@@ -130,7 +105,6 @@ def test_get_idps_success(client, session, idp_data):
     idp2 = IdentityProvider(
         **idp_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
     )
-
     with patch(
         "fed_mgr.v1.identity_providers.endpoints.get_idps",
         return_value=([idp1, idp2], 2),
@@ -147,23 +121,16 @@ def test_get_idps_success(client, session, idp_data):
         )
 
 
-def test_get_idp_success(client, session, idp_data):
+def test_get_idp_success(client, idp_dep):
     """Test GET /idps/{idp_id} returns identity provider if found."""
-    fake_id = uuid.uuid4()
-    user_id = uuid.uuid4()
-    idp = IdentityProvider(
-        **idp_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
-    )
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=session: idp
-    resp = client.get(f"/api/v1/idps/{fake_id}")
+    resp = client.get(f"/api/v1/idps/{idp_dep.id}")
     assert resp.status_code == 200
-    assert resp.json()["id"] == str(fake_id)
+    assert resp.json()["id"] == str(idp_dep.id)
 
 
 def test_get_idp_not_found(client, session):
     """Test GET /idps/{idp_id} returns 404 if not found."""
     fake_id = uuid.uuid4()
-
     sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=session: None
 
     resp = client.get(f"/api/v1/idps/{fake_id}")
