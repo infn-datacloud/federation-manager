@@ -14,7 +14,18 @@ from fed_mgr.main import app, sub_app_v1
 from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
 from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
-from fed_mgr.v1.models import SLA, IdentityProvider, User, UserGroup
+from fed_mgr.v1.models import (
+    SLA,
+    IdentityProvider,
+    Project,
+    Provider,
+    Region,
+    User,
+    UserGroup,
+)
+from fed_mgr.v1.providers.crud import get_provider
+from fed_mgr.v1.providers.projects.crud import get_project
+from fed_mgr.v1.providers.regions.crud import get_region
 from fed_mgr.v1.users.crud import get_user
 from fed_mgr.v1.users.dependencies import get_current_user
 
@@ -150,4 +161,61 @@ def user_dep(user_data: dict[str, Any]) -> User:
     """Patch get_idp depencency to return a dummy IDP."""
     item = User(id=uuid.uuid4(), **user_data)
     sub_app_v1.dependency_overrides[get_user] = lambda: item
+    return item
+
+
+@pytest.fixture
+def provider_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {
+        "description": "desc",
+        "name": "Test Provider",
+        "type": "openstack",
+        "auth_endpoint": "https://example.com/auth",
+        "support_emails": ["admin@example.com"],
+    }
+
+
+@pytest.fixture
+def provider_dep(provider_data: dict[str, Any]) -> Provider:
+    """Patch get_idp depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = Provider(
+        id=uuid.uuid4(), created_by_id=user_id, updated_by_id=user_id, **provider_data
+    )
+    sub_app_v1.dependency_overrides[get_provider] = lambda: item
+    return item
+
+
+@pytest.fixture
+def region_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {"description": "desc", "name": "Test Region"}
+
+
+@pytest.fixture
+def region_dep(region_data: dict[str, Any]) -> Region:
+    """Patch get_idp depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = Region(
+        id=uuid.uuid4(), created_by_id=user_id, updated_by_id=user_id, **region_data
+    )
+    sub_app_v1.dependency_overrides[get_region] = lambda: item
+    return item
+
+
+@pytest.fixture
+def project_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {"description": "desc", "name": "Test Project", "iaas_project_id": "12345"}
+
+
+@pytest.fixture
+def project_dep(project_data: dict[str, Any]) -> Project:
+    """Patch get_idp depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = Project(
+        id=uuid.uuid4(), created_by_id=user_id, updated_by_id=user_id, **project_data
+    )
+    sub_app_v1.dependency_overrides[get_project] = lambda: item
     return item

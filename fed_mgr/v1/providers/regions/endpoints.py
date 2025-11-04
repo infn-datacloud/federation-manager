@@ -3,15 +3,9 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
@@ -29,7 +23,7 @@ from fed_mgr.v1.providers.regions.schemas import (
     RegionRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 region_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + REGIONS_PREFIX,
@@ -75,7 +69,7 @@ def available_methods(response: Response) -> None:
 def create_region(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     region: RegionCreate,
 ) -> ItemID:
@@ -88,7 +82,7 @@ def create_region(
     Args:
         request (Request): The incoming HTTP request object, used for logging.
         region (RegionCreate | None): The resource region data to create.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         session (SessionDep): The database session dependency.
         provider (Provider): The region's parent provider.
@@ -105,20 +99,9 @@ def create_region(
     """
     msg = f"Creating region with params: {region.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_region = add_region(
-            session=session, region=region, created_by=current_user, provider=provider
-        )
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
+    db_region = add_region(
+        session=session, region=region, created_by=current_user, provider=provider
+    )
     msg = f"Region created: {db_region.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_region.id}
@@ -255,7 +238,7 @@ def retrieve_region(request: Request, region: RegionRequiredDep) -> RegionRead:
 def edit_region(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     region_id: uuid.UUID,
     new_region: RegionCreate,
 ) -> None:
@@ -267,7 +250,7 @@ def edit_region(
             update.
         new_region (UserCreate): The new resource region data to update.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -280,28 +263,12 @@ def edit_region(
     """
     msg = f"Update region with ID '{region_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_region(
-            session=session,
-            region_id=region_id,
-            new_region=new_region,
-            updated_by=current_user,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
+    update_region(
+        session=session,
+        region_id=region_id,
+        new_region=new_region,
+        updated_by=current_user,
+    )
     msg = f"Region with ID '{region_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -337,12 +304,6 @@ def remove_region(request: Request, session: SessionDep, region_id: uuid.UUID) -
     """
     msg = f"Delete region with ID '{region_id!s}'"
     request.state.logger.info(msg)
-    try:
-        delete_region(session=session, region_id=region_id)
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    delete_region(session=session, region_id=region_id)
     msg = f"Region with ID '{region_id!s}' deleted"
     request.state.logger.info(msg)

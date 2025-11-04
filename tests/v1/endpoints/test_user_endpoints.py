@@ -119,7 +119,7 @@ def test_get_user_not_found(client, user_data):
     """Test GET /users/{user_id} returns 404 if user not found."""
     fake_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[check_authentication] = lambda: user_data
-    sub_app_v1.dependency_overrides[get_user] = lambda user_id, session=None: None
+    sub_app_v1.dependency_overrides[get_user] = lambda: None
 
     resp = client.get(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 404

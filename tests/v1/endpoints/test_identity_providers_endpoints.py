@@ -128,10 +128,10 @@ def test_get_idp_success(client, idp_dep):
     assert resp.json()["id"] == str(idp_dep.id)
 
 
-def test_get_idp_not_found(client, session):
+def test_get_idp_not_found(client):
     """Test GET /idps/{idp_id} returns 404 if not found."""
     fake_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=session: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.get(f"/api/v1/idps/{fake_id}")
     assert resp.status_code == 404

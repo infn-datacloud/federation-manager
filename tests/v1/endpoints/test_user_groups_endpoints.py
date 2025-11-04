@@ -36,7 +36,7 @@ from fed_mgr.v1.schemas import ItemID
 def test_options_user_groups_parent_idp_not_found(client):
     """Test OPTIONS returns 404 if parent_idp is None."""
     fake_idp_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.options(f"/api/v1/idps/{fake_idp_id}/user-groups/")
     assert resp.status_code == 404
@@ -58,7 +58,7 @@ def test_options_user_groups(client, idp_dep):
 def test_create_user_group_parent_idp_not_found(client, user_group_data):
     """Test POST returns 404 if parent_idp is None."""
     fake_idp_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.post(f"/api/v1/idps/{fake_idp_id}/user-groups/", json=user_group_data)
     assert resp.status_code == 404
@@ -122,7 +122,7 @@ def test_create_user_group_conflict(
 def test_get_user_groups_parent_idp_not_found(client):
     """Test GET returns 404 if parent_idp is None."""
     fake_idp_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/")
     assert resp.status_code == 404
@@ -199,12 +199,10 @@ def test_get_user_groups_success(client, session, user_group_data, idp_dep):
 # GET (by id) endpoint
 def test_get_user_group_parent_idp_not_found(client):
     """Test GET by id returns 404 if parent_idp is None."""
-    fake_id = str(uuid.uuid4())
-    fake_idp_id = str(uuid.uuid4())
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
-    sub_app_v1.dependency_overrides[get_user_group] = (
-        lambda user_group_id, session=None: None
-    )
+    fake_id = uuid.uuid4()
+    fake_idp_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
+    sub_app_v1.dependency_overrides[get_user_group] = lambda: None
 
     resp = client.get(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
     assert resp.status_code == 404
@@ -222,12 +220,10 @@ def test_get_user_group_success(client, idp_dep, user_group_dep):
     assert resp.json()["id"] == str(user_group_dep.id)
 
 
-def test_get_user_group_not_found(client, session, idp_dep):
+def test_get_user_group_not_found(client, idp_dep):
     """Test GET by id returns 404 if not found."""
     fake_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_user_group] = (
-        lambda user_group_id, session=session: None
-    )
+    sub_app_v1.dependency_overrides[get_user_group] = lambda: None
 
     resp = client.get(f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}")
     assert resp.status_code == 404
@@ -240,7 +236,7 @@ def test_edit_user_group_parent_idp_not_found(client, user_group_data):
     """Test PUT returns 404 if parent_idp is None."""
     fake_id = uuid.uuid4()
     fake_idp_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.put(
         f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}", json=user_group_data
@@ -330,7 +326,7 @@ def test_delete_user_group_parent_idp_not_found(client):
     """Test DELETE returns 404 if parent_idp is None."""
     fake_id = uuid.uuid4()
     fake_idp_id = uuid.uuid4()
-    sub_app_v1.dependency_overrides[get_idp] = lambda idp_id, session=None: None
+    sub_app_v1.dependency_overrides[get_idp] = lambda: None
 
     resp = client.delete(f"/api/v1/idps/{fake_idp_id}/user-groups/{fake_id}")
     assert resp.status_code == 404
