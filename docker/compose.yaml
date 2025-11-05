@@ -49,9 +49,7 @@ services:
 
   opa:
     image: openpolicyagent/opa
-    container_name: opa
-    ports:
-      - 8181:8181
+    container_name: fed-mgr-opa
     volumes:
       - ../opa/data:/fed_mgr:ro
     command: run --server --log-level debug --addr 0.0.0.0:8181 /fed_mgr
