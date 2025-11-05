@@ -10,6 +10,7 @@ Tests in this file:
 - test_region_query_with_values
 """
 
+import math
 import uuid
 from datetime import datetime
 
@@ -159,11 +160,11 @@ def test_region_query_with_values():
         bandwidth_out_lte=8.0,
     )
     assert query.name == "eu-west-3"
-    assert query.overbooking_cpu_gte == 1.0
-    assert query.overbooking_cpu_lte == 2.0
-    assert query.overbooking_ram_gte == 3.0
-    assert query.overbooking_ram_lte == 4.0
-    assert query.bandwidth_in_gte == 5.0
-    assert query.bandwidth_in_lte == 6.0
-    assert query.bandwidth_out_gte == 7.0
-    assert query.bandwidth_out_lte == 8.0
+    assert math.isclose(query.overbooking_cpu_gte, 1.0)
+    assert math.isclose(query.overbooking_cpu_lte, 2.0)
+    assert math.isclose(query.overbooking_ram_gte, 3.0)
+    assert math.isclose(query.overbooking_ram_lte, 4.0)
+    assert math.isclose(query.bandwidth_in_gte, 5.0)
+    assert math.isclose(query.bandwidth_in_lte, 6.0)
+    assert math.isclose(query.bandwidth_out_gte, 7.0)
+    assert math.isclose(query.bandwidth_out_lte, 8.0)
