@@ -11,6 +11,7 @@ import sqlmodel
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from fed_mgr.config import Settings, get_settings
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.logger import get_logger
 from fed_mgr.v1.providers.crud import handle_rally_result
 
@@ -173,7 +174,7 @@ class KafkaHandler:
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
 
-    def send(self, topic: str, message: str):
+    def send(self, topic: str, message: str | dict[str, typing.Any]):
         task = asyncio.create_task(self.__send_one(topic, message))
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
@@ -214,7 +215,16 @@ class KafkaApp:
             self._logger.warning("empty message from kafka")
             return
 
-    def send(self, topic: str, message: str):
+        handle_rally_result(
+            session=self._session,
+            provider_id=uuid.UUID(rally_result["provider_id"]),
+            status=rally_result["status"],
+            success=rally_result["success"],
+            timestamp=rally_result["timestamp"],
+            logger=self._logger,
+        )
+
+    def send(self, topic: str, message: dict[str, typing.Any]):
         self._handler.send(topic, message)
 
 
@@ -224,8 +234,19 @@ async def main():
     app = KafkaApp(listen=False)
 
     while True:
-        app.send("evaluate-providers", '{"msg": "hello!"}')
-        await asyncio.sleep(2)
+        message = {
+            "msg_version": "1.0",
+            "provider_id": "344c326a-05bf-4e4e-b42b-bb5ed3d99fb3",
+            "provider_name": "cnaf",
+            "provider_type": "openstack",
+            "status": "finished",
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "subtasks": ["task1", "task2"],
+        }
+        print(message["timestamp"])
+        app.send(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, message)
+        await asyncio.sleep(5)
 
 
 if __name__ == "__main__":

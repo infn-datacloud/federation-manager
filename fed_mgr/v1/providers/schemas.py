@@ -2,11 +2,12 @@
 
 import urllib.parse
 import uuid
-from datetime import date
+import datetime
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, override
 
 from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
+from sqlalchemy import TIMESTAMP
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
@@ -47,6 +48,10 @@ class ProviderStatus(int, Enum):
     degraded = 8
     maintenance = 9
     re_evaluation = 10
+
+    @override
+    def __str__(self) -> str:
+        return self.name
 
 
 class ProviderBase(ItemDescription):
@@ -111,10 +116,25 @@ class ProviderInternal(SQLModel):
         Field(default=ProviderStatus.draft, description="Resource provider status"),
     ]
     expiration_date: Annotated[
-        date | None,
+        datetime.date | None,
         Field(
             default=None,
             description="Date of when the provider will be no more available",
+        ),
+    ]
+    total_tests: Annotated[
+        int, Field(default=0, description="Total number of tests executed by Rally")
+    ]
+    failed_tests: Annotated[
+        int,
+        Field(default=0, description="Total number of failed tests executed by Rally"),
+    ]
+    tested_at: Annotated[
+        datetime.datetime | None,
+        Field(
+            default=None,
+            description="Date of when the provider was last tested",
+            sa_type=TIMESTAMP,
         ),
     ]
 
