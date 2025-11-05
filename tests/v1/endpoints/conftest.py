@@ -21,12 +21,14 @@ from fed_mgr.v1.models import (
     Project,
     Provider,
     Region,
+    RegionOverrides,
     User,
     UserGroup,
 )
 from fed_mgr.v1.providers.crud import get_provider
 from fed_mgr.v1.providers.identity_providers.crud import get_idp_overrides
 from fed_mgr.v1.providers.projects.crud import get_project
+from fed_mgr.v1.providers.projects.regions.crud import get_region_overrides
 from fed_mgr.v1.providers.regions.crud import get_region
 from fed_mgr.v1.users.crud import get_user
 from fed_mgr.v1.users.dependencies import get_current_user
@@ -239,4 +241,29 @@ def idp_overrides_dep(idp_overrides_data: dict[str, Any]) -> IdpOverrides:
         **idp_overrides_data,
     )
     sub_app_v1.dependency_overrides[get_idp_overrides] = lambda: item
+    return item
+
+
+@pytest.fixture
+def reg_overrides_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {
+        "default_public_net": "pub-net",
+        "default_private_net": "priv-net",
+        "private_net_proxy_host": "host",
+        "private_net_proxy_user": "user",
+    }
+
+
+@pytest.fixture
+def reg_overrides_dep(reg_overrides_data: dict[str, Any]) -> RegionOverrides:
+    """Patch get_reg depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = RegionOverrides(
+        region_id=uuid.uuid4(),
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        **reg_overrides_data,
+    )
+    sub_app_v1.dependency_overrides[get_region_overrides] = lambda: item
     return item

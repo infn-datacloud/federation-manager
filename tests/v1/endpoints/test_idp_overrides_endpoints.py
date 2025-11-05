@@ -240,7 +240,6 @@ def test_get_rel_parent_provider_not_found(client, idp_dep):
     """Test GET by id returns 404 if parent_idp is None."""
     fake_provider_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_provider] = lambda: None
-    sub_app_v1.dependency_overrides[get_idp_overrides] = lambda: None
 
     resp = client.get(f"/api/v1/providers/{fake_provider_id}/idps/{idp_dep.id}")
     assert resp.status_code == 404
@@ -254,7 +253,6 @@ def test_get_rel_target_idp_not_found(client, provider_dep):
     """Test GET by id returns 404 if parent_idp is None."""
     fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda: None
-    sub_app_v1.dependency_overrides[get_idp_overrides] = lambda: None
 
     resp = client.get(f"/api/v1/providers/{provider_dep.id}/idps/{fake_idp_id}")
     assert resp.status_code == 404
