@@ -17,6 +17,7 @@ from fed_mgr.v1.identity_providers.user_groups.slas.crud import get_sla
 from fed_mgr.v1.models import (
     SLA,
     IdentityProvider,
+    IdpOverrides,
     Project,
     Provider,
     Region,
@@ -24,6 +25,7 @@ from fed_mgr.v1.models import (
     UserGroup,
 )
 from fed_mgr.v1.providers.crud import get_provider
+from fed_mgr.v1.providers.identity_providers.crud import get_idp_overrides
 from fed_mgr.v1.providers.projects.crud import get_project
 from fed_mgr.v1.providers.regions.crud import get_region
 from fed_mgr.v1.users.crud import get_user
@@ -212,4 +214,29 @@ def project_dep(project_data: dict[str, Any]) -> Project:
         id=uuid.uuid4(), created_by_id=user_id, updated_by_id=user_id, **project_data
     )
     sub_app_v1.dependency_overrides[get_project] = lambda: item
+    return item
+
+
+@pytest.fixture
+def idp_overrides_data() -> dict[str, Any]:
+    """Return dict with User group data."""
+    return {
+        "name": "Test IdP",
+        "groups_claim": "groups",
+        "protocol": "openid",
+        "audience": "aud1",
+    }
+
+
+@pytest.fixture
+def idp_overrides_dep(idp_overrides_data: dict[str, Any]) -> IdpOverrides:
+    """Patch get_idp depencency to return a dummy IDP."""
+    user_id = uuid.uuid4()
+    item = IdpOverrides(
+        idp_id=uuid.uuid4(),
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        **idp_overrides_data,
+    )
+    sub_app_v1.dependency_overrides[get_idp_overrides] = lambda: item
     return item

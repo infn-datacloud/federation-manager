@@ -220,3 +220,37 @@ curl -X POST http://localhost:8181/v1/data/fed-mgr/allow \
 ```
 
 The expected result should be: `{"result":true}`.
+
+### Run tests
+
+The application's tests makes use of the [pytest](https://docs.pytest.org/en/stable/) library. Tests are located in the `tests` directory and largely expolit fixtures and mocks. Here some examples on how to run tests:
+
+To run all tests:
+
+```bash
+pytest
+```
+
+To run all the tests in a specific folder and subfolder:
+
+```bash
+pytest /tests/v1/models/
+```
+
+To run all the tests in a specific file:
+
+```bash
+pytest /tests/auth.py
+```
+
+To run a specific test:
+
+```bash
+pytest /tests/auth.py::test_check_authentication_none
+```
+
+The coverage calculation is available thorugh the [pytest-cov](https://pytest-cov.readthedocs.io/en/latest/) library. To check the tests' coverage:
+
+```bash
+pytest --cov
+```
