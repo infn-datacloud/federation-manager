@@ -1,12 +1,8 @@
 """Utility functions and adapters for specific pydantic types."""
 
-import base64
-import os
 import re
 
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from fastapi import APIRouter, Response
 from fastapi.routing import APIRoute
 
@@ -46,7 +42,7 @@ def split_camel_case(text: str) -> str:
     return " ".join([m.group(0) for m in matches])
 
 
-def encrypt(value: str, secret_key: str) -> str:
+def encrypt(value: str, secret_key: bytes) -> str:
     """Encrpyt value using fernet method.
 
     Args:
@@ -54,17 +50,23 @@ def encrypt(value: str, secret_key: str) -> str:
         value (str): value to encrypt
 
     Returns:
-        encrypted string.
+        str: encrypted value.
 
     """
-    password = secret_key.encode()
-    salt = os.urandom(16)
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=1_200_000,
-    )
-    key = base64.urlsafe_b64encode(kdf.derive(password))
-    fernet = Fernet(key)
+    fernet = Fernet(secret_key)
     return fernet.encrypt(value.encode()).decode()
+
+
+def decrypt(value: str, secret_key: bytes) -> str:
+    """Decrypt value using fernet method.
+
+    Args:
+        secret_key (str): secret key used to decrypt value
+        value (str): value to decrypt
+
+    Returns:
+        str: decrypted value.
+
+    """
+    fernet = Fernet(secret_key)
+    return fernet.decrypt(value.encode()).decode()

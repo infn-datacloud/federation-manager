@@ -4,8 +4,16 @@ from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Literal
 
+from cryptography.fernet import Fernet
 from fastapi import Depends
-from pydantic import AnyHttpUrl, BeforeValidator, EmailStr, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AnyHttpUrl,
+    BeforeValidator,
+    EmailStr,
+    Field,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -250,7 +258,16 @@ class Settings(BaseSettings):
             "It defines the fields in the message sent to kafka",
         ),
     ]
-    SECRET_KEY: Annotated[str, Field(description="Secret key used to encrypt values")]
+    SECRET_KEY: Annotated[
+        bytes,
+        Field(
+            description="Secret key used to encrypt values. To generate a valid key "
+            "run the following command in shell and copy the generated output: "
+            '`python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"`'
+        ),
+        AfterValidator(lambda x: Fernet(x)),
+    ]
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -104,7 +104,7 @@ If you kafka instance has SSL communication enabled, copy in the certs folder of
 | LOG_LEVEL | str | No | INFO | Logs level. One between: _CRITICAL_, _ERROR_, _WARNING_, _INFO_ or _DEBUG_ |
 | BASE_URL | str (URI format) | No | http://localhost:8000 | Application base URL. Used to build documentation redirect links |
 | BACKEND_CORS_ORIGINS | list of str (URI format) | No | [http://localhost:3000/] | JSON-formatted list of allowed origins",
-| SECRET_KEY | str | Yes | None | Secret key used to encrypt values in the DB |
+| SECRET_KEY | str | Yes | None | Secret key used to encrypt values in the DB. **To generate a valid key run the following command in shell and copy the generated output: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`** |
 | DB_URL | str | No | sqlite+pysqlite:///:memory: | DB URL. By default it use an in memory SQLite DB. The application builds the DB URL starting from `DB_SCHEME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` and `DB_NAME` environment variables only if **all** of them have been defined. If `DB_URL` has been set to None and not all of these variables have been defined, DB URL can't be defined and the application can't start. |
 | DB_SCHEME | str | No | None | Database type and library (i.e _mysql+pymysql_) |
 | DB_USER | str | No | None | Database user |
