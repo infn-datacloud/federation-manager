@@ -30,8 +30,7 @@ class DBHandler(metaclass=DBHandlerMeta):
 
     def __del__(self):
         self._logger.info("Disconnecting from database")
-        if self._engine:
-            self._engine.dispose()
+        self._engine.dispose()
 
     def __create_engine(self):
         connect_args = {}
