@@ -1,41 +1,83 @@
 import asyncio
+from datetime import datetime
 import json
 import typing
+import uuid
 from logging import Logger
+from typing import Literal, NotRequired
 
 import aiokafka as ak
 import sqlmodel
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from aiokafka.errors import (
-    ConsumerStoppedError,
-    KafkaConnectionError,
-    RecordTooLargeError,
-    UnsupportedVersionError,
-)
-
 from fed_mgr.config import Settings, get_settings
 from fed_mgr.logger import get_logger
+from fed_mgr.v1.providers.crud import handle_rally_result
 
-type KafkaSSLContext = dict[str, str | dict[str, str | None]]
-type KafkaContext = dict[str, str | dict[str, str | None]]
-type KafkaMessage = ak.ConsumerRecord[str, str]
-type Callback = typing.Callable[KafkaMessage, None]
+type Serializer = typing.Callable[[typing.Any], bytes]
+type Deserializer = typing.Callable[[bytes], dict[str, typing.Any]]
+type Callback = typing.Callable[[KafkaMessage], None]
 
 
+class RallyResult(typing.TypedDict):  # noqa: D101
+    msg_version: str
+    provider_id: str
+    provider_name: str
+    provider_type: str
+    status: Literal["finished"]
+    success: bool
+    timestamp: str
+
+
+class KafkaSSLContext(typing.TypedDict):  # noqa: D101
+    security_protocol: str
+    ssl_context: dict[str, str | None]
+
+
+class KafkaConsumerContext(typing.TypedDict):  # noqa: D101
+    client_id: str
+    bootstrap_servers: str
+    value_deserializer: NotRequired[Deserializer]
+    fetch_max_bytes: int
+    consumer_timeout_ms: int
+    auto_offset_reset: Literal["earliest", "latest"]
+    enable_auto_commit: bool
+    group_id: str
+    auto_commit_interval_ms: int
+    max_poll_records: int
+    security_protocol: NotRequired[str]
+    ssl_context: NotRequired[dict[str, str | None] | None]
+
+
+class KafkaProducerContext(typing.TypedDict):  # noqa: D101
+    client_id: str
+    bootstrap_servers: str
+    value_serializer: Serializer
+    max_request_size: int
+    acks: str
+    enable_idempotence: bool
+    security_protocol: NotRequired[str]
+    ssl_context: NotRequired[dict[str, str | None] | None]
+
+
+type KafkaMessage = ak.ConsumerRecord[str, RallyResult]
+
+
+@typing.final
 class KafkaHandler:
-    def __init__(self):
+    def __init__(self):  # noqa: D107
         self._settings: Settings = get_settings()
         ssl_context = self.__create_ssl_context()
         self._consumer_context = self.__create_consumer_context(ssl_context)
         self._producer_context = self.__create_producer_context(ssl_context)
         self._logger: Logger = get_logger(self._settings, "kafka")
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[None]] = set()
 
     def __del__(self):
+        """Cleanup tasks."""
         for task in self._tasks:
             if not task.done():
-                task.cancel()
+                task.cancel()  # pyright: ignore[reportUnusedCallResult]
 
     def __create_ssl_context(self) -> KafkaSSLContext | None:
         if self._settings.KAFKA_SSL_CERT_PATH is None:
@@ -50,11 +92,13 @@ class KafkaHandler:
             },
         }
 
-    def __create_consumer_context(self, ssl_context: KafkaSSLContext | None):
-        def deserializer(b: bytes) -> dict[str, str | int | float]:
-            return json.loads(b.decode("utf-8"))
+    def __create_consumer_context(
+        self, ssl_context: KafkaSSLContext | None
+    ) -> KafkaConsumerContext:
+        def deserializer(b: bytes) -> dict[str, typing.Any]:
+            return json.loads(b.decode("utf-8"))  # pyright: ignore[reportAny]
 
-        context = {
+        context: KafkaConsumerContext = {
             "client_id": self._settings.KAFKA_CLIENT_NAME,
             "bootstrap_servers": self._settings.KAFKA_BOOTSTRAP_SERVERS,
             "value_deserializer": deserializer,
@@ -66,15 +110,18 @@ class KafkaHandler:
             "auto_commit_interval_ms": 1000,
             "max_poll_records": 5,
         }
+
         if ssl_context:
             context = {**context, **ssl_context}
         return context
 
-    def __create_producer_context(self, ssl_context: KafkaSSLContext | None):
+    def __create_producer_context(
+        self, ssl_context: KafkaSSLContext | None
+    ) -> KafkaProducerContext:
         def serializer(d: dict[str, str | bool | dict[str, str | bool]]):
             return json.dumps(d, sort_keys=True).encode("utf-8")
 
-        context = {
+        context: KafkaProducerContext = {
             "client_id": self._settings.KAFKA_CLIENT_NAME,
             "bootstrap_servers": self._settings.KAFKA_BOOTSTRAP_SERVERS,
             "value_serializer": serializer,
@@ -86,18 +133,24 @@ class KafkaHandler:
             context = {**context, **ssl_context}
         return context
 
-    async def __start_consumer(self, *topic, callback: Callback):
+    async def __start_consumer(self, *topic: str | list[str], callback: Callback):
         consumer = AIOKafkaConsumer(*topic, **self._consumer_context)
         await consumer.start()
         try:
             async for message in consumer:
-                callback(message)  # must be idempotent
-                await consumer.commit()
+                try:
+                    callback(message)  # must be idempotent
+                    await consumer.commit()
+                except ItemNotFoundError as e:
+                    self._logger.error(e)
+                    await consumer.commit()
+                except Exception as e:
+                    self._logger.error("Error processing message from kafka%s", e)
         finally:
             self._logger.info("Stopping KafkaConsumer")
             await consumer.stop()
 
-    async def __send_one(self, topic: str, message: str):
+    async def __send_one(self, topic: str, message: str | dict[str, typing.Any]):
         producer = AIOKafkaProducer(**self._producer_context)
         await producer.start()
         try:
@@ -106,7 +159,7 @@ class KafkaHandler:
         finally:
             await producer.stop()
 
-    def __on_task_complete(self, task):
+    def __on_task_complete(self, task: asyncio.Task[None]):
         self._tasks.remove(task)
 
     def settings(self):
@@ -115,7 +168,7 @@ class KafkaHandler:
     def logger(self):
         return self._logger
 
-    def listen_topic(self, *topic, callback: Callback) -> None:
+    def listen_topic(self, *topic: str | list[str], callback: Callback) -> None:
         task = asyncio.create_task(self.__start_consumer(*topic, callback=callback))
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
@@ -126,13 +179,15 @@ class KafkaHandler:
         self._tasks.add(task)
 
 
+@typing.final
 class KafkaApp:
-    def __init__(self, session: sqlmodel.Session | None = None):
+    def __init__(self, session: sqlmodel.Session | None = None, listen: bool = True):
         settings = get_settings()
         self._handler = KafkaHandler()
         self._logger = self._handler.logger()
         self._session = session
-        self.__listen(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, self.__on_message)
+        if listen:
+            self.__listen(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, self.__on_message)
         self._logger.info("KafkaApp started")
 
     def __del__(self):
@@ -150,6 +205,14 @@ class KafkaApp:
             message.offset,
             message.value,
         )
+        if not self._session:
+            self._logger.warning("No SQL session available")
+            return
+
+        rally_result = message.value
+        if not rally_result:
+            self._logger.warning("empty message from kafka")
+            return
 
     def send(self, topic: str, message: str):
         self._handler.send(topic, message)
@@ -157,7 +220,8 @@ class KafkaApp:
 
 async def main():
     """Start example application."""
-    app = KafkaApp()
+    settings = get_settings()
+    app = KafkaApp(listen=False)
 
     while True:
         app.send("evaluate-providers", '{"msg": "hello!"}')
