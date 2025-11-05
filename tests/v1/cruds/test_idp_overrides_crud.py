@@ -11,7 +11,7 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
-from fed_mgr.v1.models import IdpOverrides, Provider, User
+from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User
 from fed_mgr.v1.providers.identity_providers.crud import (
     connect_prov_idp,
     disconnect_prov_idp,
@@ -85,25 +85,20 @@ def test_add_idp_overrides(session):
     config = MagicMock(spec=ProviderIdPConnectionCreate)
     config.idp_id = uuid.uuid4()
     config.overrides = MagicMock(spec=IdpOverridesBase)
-    idp = MagicMock(spec=IdpOverrides)
+    idp = MagicMock(spec=IdentityProvider)
     provider = MagicMock(spec=Provider)
     created_by = MagicMock(spec=User)
     expected_item = MagicMock(spec=IdpOverrides)
-    with (
-        patch(
-            "fed_mgr.v1.providers.identity_providers.crud.add_item",
-            return_value=expected_item,
-        ) as mock_add_item,
-        patch(
-            "fed_mgr.v1.providers.identity_providers.crud.get_idp",
-            return_value=idp,
-        ) as mock_get_idp,
-    ):
+    with patch(
+        "fed_mgr.v1.providers.identity_providers.crud.add_item",
+        return_value=expected_item,
+    ) as mock_add_item:
         result = connect_prov_idp(
             session=session,
-            config=config,
             provider=provider,
+            idp=idp,
             created_by=created_by,
+            overrides=config.overrides,
         )
         mock_add_item.assert_called_once_with(
             session=session,
@@ -114,7 +109,6 @@ def test_add_idp_overrides(session):
             updated_by=created_by,
             **config.overrides.model_dump(),
         )
-        mock_get_idp.assert_called_once_with(session=session, idp_id=config.idp_id)
         assert result == expected_item
 
 

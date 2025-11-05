@@ -24,10 +24,7 @@ from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.models import IdpOverrides
 from fed_mgr.v1.providers.crud import get_provider
 from fed_mgr.v1.providers.identity_providers.crud import get_idp_overrides
-from fed_mgr.v1.providers.identity_providers.schemas import (
-    IdpOverridesBase,
-    ProviderIdPConnectionCreate,
-)
+from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
 
 
 # OPTIONS endpoint
@@ -40,7 +37,7 @@ def test_options_rels_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -63,7 +60,7 @@ def test_create_rel_parent_provider_not_found(client, current_user, idp_override
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -75,33 +72,40 @@ def test_create_rel_target_idp_not_found(
     rel_data = {"idp_id": str(fake_idp_id), "overrides": idp_overrides_data}
 
     with patch(
-        "fed_mgr.v1.providers.identity_providers.crud.get_idp", return_value=None
+        "fed_mgr.v1.providers.identity_providers.endpoints.get_idp", return_value=None
     ) as mock_get_idp:
         resp = client.post(f"/api/v1/providers/{provider_dep.id}/idps/", json=rel_data)
         mock_get_idp.assert_called_once_with(session=session, idp_id=fake_idp_id)
         assert resp.status_code == 404
         assert resp.json()["status"] == 404
         assert (
-            f"Identity provider with ID '{fake_idp_id}' does not exist"
-            == resp.json()["detail"]
+            resp.json()["detail"]
+            == f"Identity provider with ID '{fake_idp_id}' does not exist"
         )
 
 
 def test_create_rel_success(
-    client, session, current_user, provider_dep, idp_overrides_data
+    client, session, current_user, provider_dep, idp_dep, idp_overrides_data
 ):
     """Test POST /idps/ creates an identity provider and returns 201 with id."""
-    fake_idp_id = uuid.uuid4()
-    rel_data = {"idp_id": str(fake_idp_id), "overrides": idp_overrides_data}
-    with patch(
-        "fed_mgr.v1.providers.identity_providers.endpoints.connect_prov_idp",
-        return_value=IdpOverrides(**rel_data),
-    ) as mock_create:
+    rel_data = {"idp_id": str(idp_dep.id), "overrides": idp_overrides_data}
+    with (
+        patch(
+            "fed_mgr.v1.providers.identity_providers.endpoints.get_idp",
+            return_value=idp_dep,
+        ) as mock_get,
+        patch(
+            "fed_mgr.v1.providers.identity_providers.endpoints.connect_prov_idp",
+            return_value=IdpOverrides(**rel_data),
+        ) as mock_create,
+    ):
         resp = client.post(f"/api/v1/providers/{provider_dep.id}/idps/", json=rel_data)
+        mock_get.assert_called_once_with(session=session, idp_id=idp_dep.id)
         mock_create.assert_called_once_with(
             session=session,
             provider=provider_dep,
-            config=ProviderIdPConnectionCreate(**rel_data),
+            idp=idp_dep,
+            overrides=IdpOverridesBase(**idp_overrides_data),
             created_by=current_user,
         )
         assert resp.status_code == 201
@@ -113,22 +117,30 @@ def test_create_rel_conflict(
     session,
     current_user,
     provider_dep,
+    idp_dep,
     idp_overrides_data,
 ):
     """Test POST returns 409 if relationship already exists."""
-    fake_idp_id = uuid.uuid4()
     err_msg = "Error message"
-    rel_data = {"idp_id": str(fake_idp_id), "overrides": idp_overrides_data}
+    rel_data = {"idp_id": str(idp_dep.id), "overrides": idp_overrides_data}
 
-    with patch(
-        "fed_mgr.v1.providers.identity_providers.endpoints.connect_prov_idp",
-        side_effect=ConflictError(err_msg),
-    ) as mock_create:
+    with (
+        patch(
+            "fed_mgr.v1.providers.identity_providers.endpoints.get_idp",
+            return_value=idp_dep,
+        ) as mock_get,
+        patch(
+            "fed_mgr.v1.providers.identity_providers.endpoints.connect_prov_idp",
+            side_effect=ConflictError(err_msg),
+        ) as mock_create,
+    ):
         resp = client.post(f"/api/v1/providers/{provider_dep.id}/idps/", json=rel_data)
+        mock_get.assert_called_once_with(session=session, idp_id=idp_dep.id)
         mock_create.assert_called_once_with(
             session=session,
             provider=provider_dep,
-            config=ProviderIdPConnectionCreate(**rel_data),
+            idp=idp_dep,
+            overrides=IdpOverridesBase(**idp_overrides_data),
             created_by=current_user,
         )
         assert resp.status_code == 409
@@ -146,7 +158,7 @@ def test_get_rels_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -234,7 +246,7 @@ def test_get_rel_parent_provider_not_found(client, idp_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -248,8 +260,8 @@ def test_get_rel_target_idp_not_found(client, provider_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 

@@ -6,8 +6,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROVIDERS_PREFIX
+from fed_mgr.v1.identity_providers.crud import get_idp
 from fed_mgr.v1.identity_providers.dependencies import IdentityProviderRequiredDep
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
 from fed_mgr.v1.providers.identity_providers.crud import (
@@ -102,8 +104,17 @@ def create_prov_idp_connection(
     msg += f"provider with ID '{config.idp_id!s}' with params: "
     msg += f"{config.overrides.model_dump_json()}"
     request.state.logger.info(msg)
+    idp = get_idp(session=session, idp_id=config.idp_id)
+    if idp is None:
+        raise ItemNotFoundError(
+            f"Identity provider with ID '{config.idp_id!s}' does not exist"
+        )
     db_overrides = connect_prov_idp(
-        session=session, created_by=current_user, provider=provider, config=config
+        session=session,
+        created_by=current_user,
+        provider=provider,
+        idp=idp,
+        overrides=config.overrides,
     )
     msg = f"Resource provider with ID '{provider.id!s}' connected with identity "
     msg += f"provider with ID '{config.idp_id!s}' with params: "

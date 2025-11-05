@@ -92,20 +92,15 @@ def test_add_region_overrides(session):
     project = MagicMock(spec=Project)
     created_by = MagicMock(spec=User)
     expected_item = MagicMock(spec=RegionOverrides)
-    with (
-        patch(
-            "fed_mgr.v1.providers.projects.regions.crud.add_item",
-            return_value=expected_item,
-        ) as mock_add_item,
-        patch(
-            "fed_mgr.v1.providers.projects.regions.crud.get_region",
-            return_value=region,
-        ) as mock_get_region,
-    ):
+    with patch(
+        "fed_mgr.v1.providers.projects.regions.crud.add_item",
+        return_value=expected_item,
+    ) as mock_add_item:
         result = connect_project_region(
             session=session,
-            config=config,
+            overrides=config.overrides,
             project=project,
+            region=region,
             created_by=created_by,
         )
         mock_add_item.assert_called_once_with(
@@ -116,9 +111,6 @@ def test_add_region_overrides(session):
             created_by=created_by,
             updated_by=created_by,
             **config.overrides.model_dump(),
-        )
-        mock_get_region.assert_called_once_with(
-            session=session, region_id=config.region_id
         )
         assert result == expected_item
 

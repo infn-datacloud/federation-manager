@@ -42,8 +42,8 @@ def test_options_user_groups_parent_idp_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -64,8 +64,8 @@ def test_create_user_group_parent_idp_not_found(client, user_group_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -128,8 +128,8 @@ def test_get_user_groups_parent_idp_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -208,8 +208,8 @@ def test_get_user_group_parent_idp_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -228,7 +228,7 @@ def test_get_user_group_not_found(client, idp_dep):
     resp = client.get(f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}")
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
-    assert f"User group with ID '{fake_id}' does not exist" == resp.json()["detail"]
+    assert resp.json()["detail"] == f"User group with ID '{fake_id}' does not exist"
 
 
 # PUT endpoint
@@ -244,8 +244,8 @@ def test_edit_user_group_parent_idp_not_found(client, user_group_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -332,8 +332,8 @@ def test_delete_user_group_parent_idp_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 

@@ -2,15 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
@@ -27,13 +22,11 @@ from fed_mgr.v1.identity_providers.user_groups.slas.projects.schemas import (
     ProjSLAConnectionCreate,
     ProjSLAQuery,
 )
-from fed_mgr.v1.providers.endpoints import update_provider_state
 from fed_mgr.v1.providers.projects.crud import get_project
-from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
+from fed_mgr.v1.providers.projects.dependencies import ProjectDep
 from fed_mgr.v1.providers.projects.schemas import ProjectList, ProjectRead
-from fed_mgr.v1.providers.schemas import ProviderStatus
 from fed_mgr.v1.schemas import ErrorMessage
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 sla_proj_conn_router = APIRouter(
     prefix=IDPS_PREFIX
@@ -91,7 +84,7 @@ def available_methods(response: Response) -> None:
 def connect_sla_to_proj(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     sla: SLARequiredDep,
     config: ProjSLAConnectionCreate,
 ) -> None:
@@ -122,39 +115,25 @@ def connect_sla_to_proj(
     msg = f"Connecting SLA with ID '{sla.id!s}' to Project with ID "
     msg += f"'{config.project_id!s}'"
     request.state.logger.info(msg)
-    try:
-        project = get_project(session=session, project_id=config.project_id)
-        if project is None:
-            raise ItemNotFoundError("Project", id=config.project_id)
-        connect_proj_to_sla(
-            session=session, updated_by=current_user, sla=sla, project=project
+    project = get_project(session=session, project_id=config.project_id)
+    if project is None:
+        raise ItemNotFoundError(
+            f"Project with ID '{config.project_id!s}' does not exist"
         )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
+    connect_proj_to_sla(
+        session=session, updated_by=current_user, sla=sla, project=project
+    )
     msg = f"SLA with ID '{sla.id!s}' connected to Project with ID "
     msg += f"'{config.project_id!s}'"
     request.state.logger.info(msg)
 
-    update_provider_state(
-        request=request,
-        session=session,
-        provider=project.provider,
-        current_user=current_user,
-        next_state=ProviderStatus.ready,
-    )
+    # update_provider_state(
+    #     request=request,
+    #     session=session,
+    #     provider=project.provider,
+    #     current_user=current_user,
+    #     next_state=ProviderStatus.ready,
+    # )
 
 
 @sla_proj_conn_router.get(
@@ -169,7 +148,6 @@ def connect_sla_to_proj(
 )
 def retrieve_projects(
     request: Request,
-    session: SessionDep,
     sla: SLARequiredDep,
     params: Annotated[ProjSLAQuery, Query()],
 ) -> None:
@@ -228,9 +206,9 @@ def retrieve_projects(
 def disconnect_sla_from_project(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     sla: SLARequiredDep,
-    project: ProjectRequiredDep,
+    project: ProjectDep,
 ) -> None:
     """Remove a sla from the system by their unique identifier.
 
@@ -254,16 +232,14 @@ def disconnect_sla_from_project(
         404 Not Found: If the parent identity provider does not exists.
 
     """
-    msg = f"Disconnect project with ID '{project.id!s}' from SLA with ID '{sla.id!s}"
-    request.state.logger.info(msg)
-    try:
+    if project is not None:
+        msg = (
+            f"Disconnect project with ID '{project.id!s}' from SLA with ID '{sla.id!s}"
+        )
+        request.state.logger.info(msg)
         disconnect_proj_from_sla(
             session=session, updated_by=current_user, project=project
         )
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
-    msg = f"Project with ID '{project.id!s}' disconnected from SLA with ID '{sla.id!s}"
-    request.state.logger.info(msg)
+        msg = f"Project with ID '{project.id!s}' disconnected from SLA with ID "
+        msg += f"'{sla.id!s}'"
+        request.state.logger.info(msg)

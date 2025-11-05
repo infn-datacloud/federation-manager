@@ -137,7 +137,7 @@ def test_get_idp_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Identity provider with ID '{fake_id}' does not exist"
     )
 
 

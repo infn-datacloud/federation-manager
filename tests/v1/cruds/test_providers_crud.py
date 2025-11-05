@@ -12,6 +12,7 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography.fernet import Fernet
 
 from fed_mgr.exceptions import ItemNotFoundError, ProviderStateError
 from fed_mgr.v1.models import Provider, User
@@ -97,7 +98,7 @@ def test_add_provider(session):
             session=session,
             provider=provider,
             created_by=created_by,
-            secret_key=random_lower_string(),
+            secret_key=Fernet.generate_key(),
         )
         mock_add_item.assert_called_once_with(
             session=session,

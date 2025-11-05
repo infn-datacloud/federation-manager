@@ -45,8 +45,8 @@ def test_options_slas_parent_idp_not_found(client, user_group_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -61,8 +61,8 @@ def test_options_slas_parent_user_group_not_found(client, idp_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 
@@ -88,8 +88,8 @@ def test_create_sla_parent_idp_not_found(client, user_group_dep, sla_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -105,8 +105,8 @@ def test_create_sla_parent_user_group_not_found(client, idp_dep, sla_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 
@@ -170,8 +170,8 @@ def test_get_slas_parent_idp_not_found(client, user_group_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -186,8 +186,8 @@ def test_get_slas_parent_user_group_not_found(client, idp_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 
@@ -285,8 +285,8 @@ def test_get_sla_parent_idp_not_found(client, user_group_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -302,8 +302,8 @@ def test_get_sla_parent_user_group_not_found(client, idp_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 
@@ -326,7 +326,7 @@ def test_get_sla_not_found(client, session, idp_dep, user_group_dep):
     )
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
-    assert f"SLA with ID '{fake_id}' does not exist" == resp.json()["detail"]
+    assert resp.json()["detail"] == f"SLA with ID '{fake_id}' does not exist"
 
 
 # PUT endpoint
@@ -343,8 +343,8 @@ def test_edit_sla_parent_idp_not_found(client, user_group_dep, sla_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -361,8 +361,8 @@ def test_edit_sla_parent_user_group_not_found(client, idp_dep, sla_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 
@@ -454,8 +454,8 @@ def test_delete_sla_parent_idp_not_found(client, user_group_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Identity provider with ID '{fake_idp_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"Identity provider with ID '{fake_idp_id}' does not exist"
     )
 
 
@@ -471,8 +471,8 @@ def test_delete_sla_parent_user_group_not_found(client, idp_dep):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"User group with ID '{fake_user_group_id}' does not exist"
-        == resp.json()["detail"]
+        resp.json()["detail"]
+        == f"User group with ID '{fake_user_group_id}' does not exist"
     )
 
 

@@ -39,7 +39,7 @@ def test_options_projects_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -62,7 +62,7 @@ def test_create_project_parent_provider_not_found(client, project_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -121,7 +121,7 @@ def test_get_projects_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -215,7 +215,7 @@ def test_get_project_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -234,7 +234,7 @@ def test_get_project_not_found(client, provider_dep):
     resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}")
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
-    assert f"Project with ID '{fake_id}' does not exist" == resp.json()["detail"]
+    assert resp.json()["detail"] == f"Project with ID '{fake_id}' does not exist"
 
 
 # PUT endpoint
@@ -250,7 +250,7 @@ def test_edit_project_parent_provider_not_found(client, project_data):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
@@ -337,7 +337,7 @@ def test_delete_project_parent_provider_not_found(client):
     assert resp.status_code == 404
     assert resp.json()["status"] == 404
     assert (
-        f"Provider with ID '{fake_provider_id}' does not exist" == resp.json()["detail"]
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 

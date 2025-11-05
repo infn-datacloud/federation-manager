@@ -10,14 +10,9 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
-from fed_mgr.v1.models import Project, RegionOverrides, User
-from fed_mgr.v1.providers.projects.regions.schemas import (
-    ProjRegConnectionCreate,
-    RegionOverridesBase,
-)
-from fed_mgr.v1.providers.regions.crud import get_region
+from fed_mgr.v1.models import Project, Region, RegionOverrides, User
+from fed_mgr.v1.providers.projects.regions.schemas import RegionOverridesBase
 
 
 def get_region_overrides(
@@ -76,25 +71,24 @@ def get_region_overrides_list(
 def connect_project_region(
     *,
     session: Session,
-    config: ProjRegConnectionCreate,
+    overrides: RegionOverridesBase,
     created_by: User,
     project: Project,
+    region: Region,
 ) -> RegionOverrides:
     """Add a new project to the database.
 
     Args:
         session: The database session.
         project: The project's parent provider.
-        config: The RegionOverridesCreate model instance to add.
+        region: Target region
+        overrides: The RegionOverridesCreate model instance to add.
         created_by: The User instance representing the creator of the project.
 
     Returns:
         RegionOverrides: The identifier of the newly created project.
 
     """
-    region = get_region(session=session, region_id=config.region_id)
-    if region is None:
-        raise ItemNotFoundError(f"Region with ID '{config.region_id}' does not exist")
     return add_item(
         session=session,
         entity=RegionOverrides,
@@ -102,7 +96,7 @@ def connect_project_region(
         region=region,
         created_by=created_by,
         updated_by=created_by,
-        **config.overrides.model_dump(),
+        **overrides.model_dump(),
     )
 
 
