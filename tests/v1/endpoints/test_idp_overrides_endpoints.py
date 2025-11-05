@@ -98,14 +98,14 @@ def test_create_rel_success(
         return_value=IdpOverrides(**rel_data),
     ) as mock_create:
         resp = client.post(f"/api/v1/providers/{provider_dep.id}/idps/", json=rel_data)
-        assert resp.status_code == 201
-        assert resp.json() is None
         mock_create.assert_called_once_with(
             session=session,
             provider=provider_dep,
             config=ProviderIdPConnectionCreate(**rel_data),
             created_by=current_user,
         )
+        assert resp.status_code == 201
+        assert resp.json() is None
 
 
 def test_create_rel_conflict(
@@ -125,15 +125,15 @@ def test_create_rel_conflict(
         side_effect=ConflictError(err_msg),
     ) as mock_create:
         resp = client.post(f"/api/v1/providers/{provider_dep.id}/idps/", json=rel_data)
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_create.assert_called_once_with(
             session=session,
             provider=provider_dep,
             config=ProviderIdPConnectionCreate(**rel_data),
             created_by=current_user,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # GET (list) endpoint
@@ -157,11 +157,6 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
         return_value=([], 0),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/idps/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 0
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -169,6 +164,11 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     fake_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -183,12 +183,6 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
         return_value=([idp1], 1),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/idps/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 1
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -196,6 +190,12 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     idp2 = IdpOverrides(
         **idp_overrides_data,
@@ -208,12 +208,6 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
         return_value=([idp1, idp2], 2),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/idps/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 2
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -221,6 +215,12 @@ def test_get_rels_success(client, session, provider_dep, idp_overrides_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
 
 # GET (by id) endpoint
@@ -291,9 +291,6 @@ def test_edit_rel_provider_or_idp_not_found(
             f"/api/v1/providers/{fake_provider_id}/idps/{fake_idp_id}",
             json=idp_overrides_data,
         )
-        assert resp.status_code == 404
-        assert resp.json()["status"] == 404
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             idp_id=fake_idp_id,
@@ -301,6 +298,9 @@ def test_edit_rel_provider_or_idp_not_found(
             new_overrides=IdpOverridesBase(**idp_overrides_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
 def test_edit_rel_success(
@@ -315,7 +315,6 @@ def test_edit_rel_success(
             f"/api/v1/providers/{provider_dep.id}/idps/{idp_dep.id}",
             json=idp_overrides_data,
         )
-        assert resp.status_code == 204
         mock_edit.assert_called_once_with(
             session=session,
             idp_id=idp_dep.id,
@@ -323,6 +322,7 @@ def test_edit_rel_success(
             new_overrides=IdpOverridesBase(**idp_overrides_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 204
 
 
 def test_edit_overrides_not_found(
@@ -338,9 +338,6 @@ def test_edit_overrides_not_found(
             f"/api/v1/providers/{provider_dep.id}/idps/{idp_dep.id}",
             json=idp_overrides_data,
         )
-        assert resp.status_code == 404
-        assert resp.json()["status"] == 404
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             idp_id=idp_dep.id,
@@ -348,6 +345,9 @@ def test_edit_overrides_not_found(
             new_overrides=IdpOverridesBase(**idp_overrides_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
 # DELETE endpoint
@@ -360,10 +360,10 @@ def test_delete_rel_success(client, session):
         return_value=None,
     ) as mock_delete:
         resp = client.delete(f"/api/v1/providers/{fake_provider_id}/idps/{fake_idp_id}")
-        assert resp.status_code == 204
         mock_delete.assert_called_once_with(
             session=session, idp_id=fake_idp_id, provider_id=fake_provider_id
         )
+        assert resp.status_code == 204
 
 
 def test_delete_rel_fail(client, session, provider_dep, idp_dep):
@@ -374,9 +374,9 @@ def test_delete_rel_fail(client, session, provider_dep, idp_dep):
         side_effect=DeleteFailedError(err_msg),
     ) as mock_delete:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/idps/{idp_dep.id}")
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_delete.assert_called_once_with(
             session=session, idp_id=idp_dep.id, provider_id=provider_dep.id
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg

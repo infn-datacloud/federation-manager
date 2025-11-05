@@ -36,10 +36,10 @@ def test_get_region_found(session):
         return_value=expected_region,
     ) as mock_get_item:
         result = get_region(session=session, region_id=region_id)
-        assert result == expected_region
         mock_get_item.assert_called_once_with(
             session=session, entity=Region, id=region_id
         )
+        assert result == expected_region
 
 
 def test_get_region_not_found(session):
@@ -50,10 +50,10 @@ def test_get_region_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_region(session=session, region_id=region_id)
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session, entity=Region, id=region_id
         )
+        assert result is None
 
 
 def test_get_regions(session):
@@ -65,10 +65,10 @@ def test_get_regions(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_regions(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=Region, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_region_success(session):
@@ -84,7 +84,6 @@ def test_add_region_success(session):
         result = add_region(
             session=session, region=region, created_by=created_by, provider=provider
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=Region,
@@ -93,6 +92,7 @@ def test_add_region_success(session):
             provider=provider,
             **region.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_region_success(session):
@@ -109,13 +109,13 @@ def test_update_region_success(session):
             new_region=new_region,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Region,
             id=region_id,
             updated_by=updated_by,
         )
+        assert result is None
 
 
 def test_delete_region(session):
@@ -125,7 +125,7 @@ def test_delete_region(session):
         "fed_mgr.v1.providers.regions.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_region(session=session, region_id=region_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=Region, id=region_id
         )
+        assert result is None

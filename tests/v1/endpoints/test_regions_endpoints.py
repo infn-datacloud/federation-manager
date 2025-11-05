@@ -78,14 +78,14 @@ def test_create_region_success(
         resp = client.post(
             f"/api/v1/providers/{provider_dep.id}/regions/", json=region_data
         )
-        assert resp.status_code == 201
-        assert resp.json() == {"id": str(fake_id)}
         mock_create.assert_called_once_with(
             session=session,
             region=RegionCreate(**region_data),
             created_by=current_user,
             provider=provider_dep,
         )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
 
 
 def test_create_region_conflict(
@@ -100,15 +100,15 @@ def test_create_region_conflict(
         resp = client.post(
             f"/api/v1/providers/{provider_dep.id}/regions/", json=region_data
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_create.assert_called_once_with(
             session=session,
             region=RegionCreate(**region_data),
             created_by=current_user,
             provider=provider_dep,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # GET (list) endpoint
@@ -132,11 +132,6 @@ def test_get_regions_success(client, session, provider_dep, region_data):
         return_value=([], 0),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/regions/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 0
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -144,6 +139,11 @@ def test_get_regions_success(client, session, provider_dep, region_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     fake_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -159,12 +159,6 @@ def test_get_regions_success(client, session, provider_dep, region_data):
         return_value=([region1], 1),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/regions/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 1
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -172,6 +166,12 @@ def test_get_regions_success(client, session, provider_dep, region_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     region2 = Region(
         **region_data,
@@ -185,12 +185,6 @@ def test_get_regions_success(client, session, provider_dep, region_data):
         return_value=([region1, region2], 2),
     ) as mock_get:
         resp = client.get(f"/api/v1/providers/{provider_dep.id}/regions/")
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 2
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -198,6 +192,12 @@ def test_get_regions_success(client, session, provider_dep, region_data):
             sort="-created_at",
             provider_id=provider_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
 
 # GET (by id) endpoint
@@ -262,13 +262,13 @@ def test_edit_region_success(client, session, current_user, provider_dep, region
         resp = client.put(
             f"/api/v1/providers/{provider_dep.id}/regions/{fake_id}", json=region_data
         )
-        assert resp.status_code == 204
         mock_edit.assert_called_once_with(
             session=session,
             region_id=fake_id,
             new_region=RegionCreate(**region_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 204
 
 
 def test_edit_region_not_found(
@@ -285,15 +285,15 @@ def test_edit_region_not_found(
         resp = client.put(
             f"/api/v1/providers/{provider_dep.id}/regions/{fake_id}", json=region_data
         )
-        assert resp.status_code == 404
-        assert resp.json()["status"] == 404
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             region_id=fake_id,
             new_region=RegionCreate(**region_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
 def test_edit_region_conflict(client, session, current_user, provider_dep, region_data):
@@ -308,15 +308,15 @@ def test_edit_region_conflict(client, session, current_user, provider_dep, regio
         resp = client.put(
             f"/api/v1/providers/{provider_dep.id}/regions/{fake_id}", json=region_data
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             region_id=fake_id,
             new_region=RegionCreate(**region_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # DELETE endpoint
@@ -343,8 +343,8 @@ def test_delete_region_success(client, session, provider_dep):
         return_value=None,
     ) as mock_delete:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/regions/{fake_id}")
-        assert resp.status_code == 204
         mock_delete.assert_called_once_with(session=session, region_id=fake_id)
+        assert resp.status_code == 204
 
 
 def test_delete_region_fail(client, session, provider_dep):
@@ -357,7 +357,7 @@ def test_delete_region_fail(client, session, provider_dep):
         side_effect=DeleteFailedError(err_msg),
     ) as mock_delete:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/regions/{fake_id}")
+        mock_delete.assert_called_once_with(session=session, region_id=fake_id)
         assert resp.status_code == 409
         assert resp.json()["status"] == 409
         assert resp.json()["detail"] == err_msg
-        mock_delete.assert_called_once_with(session=session, region_id=fake_id)

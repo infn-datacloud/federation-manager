@@ -42,10 +42,10 @@ def test_get_provider_found(session):
         return_value=expected_provider,
     ) as mock_get_item:
         result = get_provider(session=session, provider_id=provider_id)
-        assert result == expected_provider
         mock_get_item.assert_called_once_with(
             session=session, entity=Provider, id=provider_id
         )
+        assert result == expected_provider
 
 
 def test_get_provider_not_found(session):
@@ -56,10 +56,10 @@ def test_get_provider_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_provider(session=session, provider_id=provider_id)
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session, entity=Provider, id=provider_id
         )
+        assert result is None
 
 
 def test_get_providers(session):
@@ -71,10 +71,10 @@ def test_get_providers(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_providers(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=Provider, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_provider(session):
@@ -99,7 +99,6 @@ def test_add_provider(session):
             created_by=created_by,
             secret_key=random_lower_string(),
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=Provider,
@@ -109,6 +108,7 @@ def test_add_provider(session):
             **provider.model_dump(),
         )
         mock_get_user.assert_called_once_with(session=session, user_id=created_by.id)
+        assert result == expected_item
 
 
 def test_add_provider_user_not_found(session):
@@ -147,7 +147,6 @@ def test_update_provider(session):
             updated_by=updated_by,
             secret_key=random_lower_string(),
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Provider,
@@ -156,6 +155,7 @@ def test_update_provider(session):
             **new_provider.model_dump(exclude_none=True),
         )
         mock_encrypt.assert_called_once()
+        assert result is None
 
 
 def test_update_provider_no_pwd(session):
@@ -178,7 +178,6 @@ def test_update_provider_no_pwd(session):
             updated_by=updated_by,
             secret_key=random_lower_string(),
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Provider,
@@ -187,6 +186,7 @@ def test_update_provider_no_pwd(session):
             **new_provider.model_dump(exclude_none=True),
         )
         mock_encrypt.assert_not_called()
+        assert result is None
 
 
 def test_delete_provider_calls_delete_item(session):
@@ -196,10 +196,10 @@ def test_delete_provider_calls_delete_item(session):
         "fed_mgr.v1.providers.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_provider(session=session, provider_id=provider_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=Provider, id=provider_id
         )
+        assert result is None
 
 
 def test_check_users_exist_all_found(session):
@@ -221,11 +221,11 @@ def test_check_users_exist_all_found(session):
         "fed_mgr.v1.providers.crud.get_user", side_effect=users
     ) as mock_get_user:
         result = check_users_exist(session=session, user_ids=user_ids)
-        assert result == users
         assert mock_get_user.call_count == 2
         for idx, call in enumerate(mock_get_user.call_args_list):
             assert call.kwargs["user_id"] == user_ids[idx]
             assert call.kwargs["session"] == session
+        assert result == users
 
 
 def test_check_users_exist_user_not_found():
@@ -254,8 +254,8 @@ def test_check_users_exist_empty_list(session):
     """
     with patch("fed_mgr.v1.providers.crud.get_user") as mock_get_user:
         result = check_users_exist(session=session, user_ids=[])
-        assert result == []
         mock_get_user.assert_not_called()
+        assert result == []
 
 
 def test_add_site_testers(session):
@@ -277,11 +277,11 @@ def test_add_site_testers(session):
             user_ids=new_site_testers,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_testers) == 2
         assert site_tester in result.site_testers
         assert new_site_tester in result.site_testers
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_add_site_testers_already_exist(session):
@@ -301,10 +301,10 @@ def test_add_site_testers_already_exist(session):
             user_ids=new_site_testers,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_testers) == 1
         assert site_tester in result.site_testers
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_remove_site_testers(session):
@@ -325,9 +325,9 @@ def test_remove_site_testers(session):
             user_ids=del_site_testers,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_testers) == 0
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_remove_site_testers_missing(session):
@@ -349,10 +349,10 @@ def test_remove_site_testers_missing(session):
             user_ids=del_site_testers,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_testers) == 1
         assert site_tester in result.site_testers
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_add_site_admins(session):
@@ -374,11 +374,11 @@ def test_add_site_admins(session):
             user_ids=new_site_admins,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_admins) == 2
         assert site_admin in result.site_admins
         assert new_site_admin in result.site_admins
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_add_site_admins_already_exist(session):
@@ -398,10 +398,10 @@ def test_add_site_admins_already_exist(session):
             user_ids=new_site_admins,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_admins) == 1
         assert site_admin in result.site_admins
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_remove_site_admins(session):
@@ -424,11 +424,11 @@ def test_remove_site_admins(session):
             user_ids=del_site_admins,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_admins) == 1
         assert site_admin in result.site_admins
         assert del_site_admin not in result.site_admins
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_remove_site_admins_empty_list(session):
@@ -472,10 +472,10 @@ def test_remove_site_admins_missing(session):
             user_ids=del_site_admins,
             updated_by=updated_by,
         )
+        mock_get_user.assert_called_once()
         assert len(result.site_admins) == 1
         assert site_admin in result.site_admins
         assert result.updated_by == updated_by
-        mock_get_user.assert_called_once()
 
 
 def test_submit_provider(session):

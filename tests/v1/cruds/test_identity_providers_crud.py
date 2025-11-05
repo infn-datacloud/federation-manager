@@ -31,10 +31,10 @@ def test_get_idp_found(session):
         return_value=expected_idp,
     ) as mock_get_item:
         result = get_idp(session=session, idp_id=idp_id)
-        assert result == expected_idp
         mock_get_item.assert_called_once_with(
             session=session, entity=IdentityProvider, id=idp_id
         )
+        assert result == expected_idp
 
 
 def test_get_idp_not_found(session):
@@ -45,10 +45,10 @@ def test_get_idp_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_idp(session=session, idp_id=idp_id)
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session, entity=IdentityProvider, id=idp_id
         )
+        assert result is None
 
 
 def test_get_idps(session):
@@ -60,10 +60,10 @@ def test_get_idps(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_idps(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=IdentityProvider, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_idp(session):
@@ -76,7 +76,6 @@ def test_add_idp(session):
         return_value=expected_item,
     ) as mock_add_item:
         result = add_idp(session=session, idp=idp, created_by=created_by)
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=IdentityProvider,
@@ -84,6 +83,7 @@ def test_add_idp(session):
             updated_by=created_by,
             **idp.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_idp(session):
@@ -97,7 +97,6 @@ def test_update_idp(session):
         result = update_idp(
             session=session, idp_id=idp_id, new_idp=new_idp, updated_by=updated_by
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=IdentityProvider,
@@ -105,6 +104,7 @@ def test_update_idp(session):
             updated_by=updated_by,
             **new_idp.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_idp(session):
@@ -114,7 +114,7 @@ def test_delete_idp(session):
         "fed_mgr.v1.identity_providers.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_idp(session=session, idp_id=idp_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=IdentityProvider, id=idp_id
         )
+        assert result is None

@@ -26,8 +26,8 @@ def test_get_sla_found(session):
         return_value=expected_sla,
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
-        assert result == expected_sla
         mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result == expected_sla
 
 
 def test_get_sla_not_found(session):
@@ -38,8 +38,8 @@ def test_get_sla_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
-        assert result is None
         mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result is None
 
 
 def test_get_slas(session):
@@ -51,10 +51,10 @@ def test_get_slas(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_slas(session=session, skip=0, limit=10, sort="created_at")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=SLA, skip=0, limit=10, sort="created_at"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_sla(session):
@@ -73,7 +73,6 @@ def test_add_sla(session):
             created_by=created_by,
             user_group=parent_user_group,
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=SLA,
@@ -82,6 +81,7 @@ def test_add_sla(session):
             user_group=parent_user_group,
             **sla.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_sla(session):
@@ -99,7 +99,6 @@ def test_update_sla(session):
             new_sla=new_sla,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=SLA,
@@ -107,6 +106,7 @@ def test_update_sla(session):
             updated_by=updated_by,
             **new_sla.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_sla(session):
@@ -117,5 +117,5 @@ def test_delete_sla(session):
         return_value=None,
     ) as mock_delete_item:
         result = delete_sla(session=session, sla_id=sla_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result is None

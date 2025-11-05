@@ -31,10 +31,10 @@ def test_get_user_group_found(session):
         return_value=expected_user_group,
     ) as mock_get_item:
         result = get_user_group(session=session, user_group_id=user_group_id)
-        assert result == expected_user_group
         mock_get_item.assert_called_once_with(
             session=session, entity=UserGroup, id=user_group_id
         )
+        assert result == expected_user_group
 
 
 def test_get_user_group_not_found(session):
@@ -45,10 +45,10 @@ def test_get_user_group_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_user_group(session=session, user_group_id=user_group_id)
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session, entity=UserGroup, id=user_group_id
         )
+        assert result is None
 
 
 def test_get_user_groups(session):
@@ -60,10 +60,10 @@ def test_get_user_groups(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_user_groups(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=UserGroup, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_user_group(session):
@@ -82,7 +82,6 @@ def test_add_user_group(session):
             created_by=created_by,
             idp=parent_idp,
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
@@ -91,6 +90,7 @@ def test_add_user_group(session):
             idp=parent_idp,
             **user_group.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_user_group(session):
@@ -107,7 +107,6 @@ def test_update_user_group(session):
             new_user_group=new_user_group,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=UserGroup,
@@ -115,6 +114,7 @@ def test_update_user_group(session):
             updated_by=updated_by,
             **new_user_group.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_user_group_calls_delete_item(session):
@@ -124,7 +124,7 @@ def test_delete_user_group_calls_delete_item(session):
         "fed_mgr.v1.identity_providers.user_groups.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_user_group(session=session, user_group_id=user_group_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=UserGroup, id=user_group_id
         )
+        assert result is None

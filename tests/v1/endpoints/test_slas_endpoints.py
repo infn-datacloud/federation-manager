@@ -124,14 +124,14 @@ def test_create_sla_success(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/",
             json=sla_data,
         )
-        assert resp.status_code == 201
-        assert resp.json() == {"id": str(fake_id)}
         mock_create.assert_called_once_with(
             session=session,
             sla=SLACreate(**sla_data),
             created_by=current_user,
             user_group=user_group_dep,
         )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
 
 
 def test_create_sla_conflict(
@@ -147,15 +147,15 @@ def test_create_sla_conflict(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/",
             json=sla_data,
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_create.assert_called_once_with(
             session=session,
             sla=SLACreate(**sla_data),
             created_by=current_user,
             user_group=user_group_dep,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # GET (list) endpoint
@@ -200,11 +200,6 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
         resp = client.get(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
         )
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 0
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -212,6 +207,11 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
             sort="-created_at",
             user_group_id=user_group_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     fake_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -229,12 +229,6 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
         resp = client.get(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
         )
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 1
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -242,6 +236,12 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
             sort="-created_at",
             user_group_id=user_group_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
     sla2 = SLA(
         **sla_data,
@@ -257,12 +257,6 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
         resp = client.get(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/"
         )
-        assert resp.status_code == 200
-        assert "data" in resp.json()
-        assert "data" in resp.json()
-        assert len(resp.json()["data"]) == 2
-        assert "page" in resp.json()
-        assert "links" in resp.json()
         mock_get.assert_called_once_with(
             session=session,
             skip=0,
@@ -270,6 +264,12 @@ def test_get_slas_success(client, session, idp_dep, user_group_dep, sla_data):
             sort="-created_at",
             user_group_id=user_group_dep.id,
         )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
 
 # GET (by id) endpoint
@@ -380,13 +380,13 @@ def test_edit_sla_success(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
             json=sla_data,
         )
-        assert resp.status_code == 204
         mock_edit.assert_called_once_with(
             session=session,
             sla_id=fake_id,
             new_sla=SLACreate(**sla_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 204
 
 
 def test_edit_sla_not_found(
@@ -404,15 +404,15 @@ def test_edit_sla_not_found(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
             json=sla_data,
         )
-        assert resp.status_code == 404
-        assert resp.json()["status"] == 404
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             sla_id=fake_id,
             new_sla=SLACreate(**sla_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
 def test_edit_sla_conflict(
@@ -430,15 +430,15 @@ def test_edit_sla_conflict(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}",
             json=sla_data,
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             sla_id=fake_id,
             new_sla=SLACreate(**sla_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # DELETE endpoint
@@ -487,8 +487,8 @@ def test_delete_sla_success(client, session, idp_dep, user_group_dep):
         resp = client.delete(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
         )
-        assert resp.status_code == 204
         mock_delete.assert_called_once_with(session=session, sla_id=fake_id)
+        assert resp.status_code == 204
 
 
 def test_delete_sla_fail(client, session, idp_dep, user_group_dep):
@@ -503,7 +503,7 @@ def test_delete_sla_fail(client, session, idp_dep, user_group_dep):
         resp = client.delete(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{user_group_dep.id}/slas/{fake_id}"
         )
+        mock_delete.assert_called_once_with(session=session, sla_id=fake_id)
         assert resp.status_code == 409
         assert resp.json()["status"] == 409
         assert resp.json()["detail"] == err_msg
-        mock_delete.assert_called_once_with(session=session, sla_id=fake_id)

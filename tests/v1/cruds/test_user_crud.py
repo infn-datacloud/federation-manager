@@ -35,8 +35,8 @@ def test_get_user_found(session):
         "fed_mgr.v1.users.crud.get_item", return_value=expected_user
     ) as mock_get_item:
         result = get_user(session=session, user_id=user_id)
-        assert result == expected_user
         mock_get_item.assert_called_once_with(session=session, entity=User, id=user_id)
+        assert result == expected_user
 
 
 def test_get_user_not_found(session):
@@ -44,8 +44,8 @@ def test_get_user_not_found(session):
     user_id = uuid.uuid4()
     with patch("fed_mgr.v1.users.crud.get_item", return_value=None) as mock_get_item:
         result = get_user(session=session, user_id=user_id)
-        assert result is None
         mock_get_item.assert_called_once_with(session=session, entity=User, id=user_id)
+        assert result is None
 
 
 def test_get_users(session):
@@ -56,10 +56,10 @@ def test_get_users(session):
         "fed_mgr.v1.users.crud.get_items", return_value=(expected_list, expected_count)
     ) as mock_get_items:
         result = get_users(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=User, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_user_calls_add_item(session):
@@ -83,10 +83,10 @@ def test_update_user_calls_update_item(session):
         "fed_mgr.v1.users.crud.update_item", return_value=None
     ) as mock_update_item:
         result = update_user(session=session, user_id=user_id, new_user=new_user)
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session, entity=User, id=user_id, **new_user.model_dump()
         )
+        assert result is None
 
 
 def test_delete_user_calls_delete_item(session):
@@ -96,10 +96,10 @@ def test_delete_user_calls_delete_item(session):
         "fed_mgr.v1.users.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_user(session=session, user_id=user_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=User, id=user_id
         )
+        assert result is None
 
 
 def test_create_fake_user(session):
@@ -114,7 +114,6 @@ def test_create_fake_user(session):
         ) as mock_add_user,
     ):
         res = create_fake_user(session=session)
-        assert res is created_user
         mock_get_users.assert_called_once_with(
             session=session,
             skip=0,
@@ -132,6 +131,7 @@ def test_create_fake_user(session):
                 issuer=FAKE_USER_ISSUER,
             ),
         )
+        assert res is created_user
 
 
 def test_create_fake_user_skips_when_exists(session):
@@ -144,7 +144,6 @@ def test_create_fake_user_skips_when_exists(session):
         patch("fed_mgr.v1.users.crud.add_user") as mock_add_user,
     ):
         res = create_fake_user(session=session)
-        assert res is None
         mock_get_users.assert_called_once_with(
             session=session,
             skip=0,
@@ -154,3 +153,4 @@ def test_create_fake_user_skips_when_exists(session):
             issuer=FAKE_USER_ISSUER,
         )
         mock_add_user.assert_not_called()
+        assert res is None

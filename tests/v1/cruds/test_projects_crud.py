@@ -32,10 +32,10 @@ def test_get_project_found(session):
         return_value=expected_project,
     ) as mock_get_item:
         result = get_project(session=session, project_id=project_id)
-        assert result == expected_project
         mock_get_item.assert_called_once_with(
             session=session, entity=Project, id=project_id
         )
+        assert result == expected_project
 
 
 def test_get_project_not_found(session):
@@ -46,10 +46,10 @@ def test_get_project_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_project(session=session, project_id=project_id)
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session, entity=Project, id=project_id
         )
+        assert result is None
 
 
 def test_get_projects(session):
@@ -61,10 +61,10 @@ def test_get_projects(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_projects(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=Project, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_project_success(session):
@@ -79,7 +79,6 @@ def test_add_project_success(session):
         result = add_project(
             session=session, project=project, created_by=created_by, provider=provider
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=Project,
@@ -88,6 +87,7 @@ def test_add_project_success(session):
             provider=provider,
             **project.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_project(session):
@@ -104,13 +104,13 @@ def test_update_project(session):
             new_project=new_project,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=Project,
             id=project_id,
             updated_by=updated_by,
         )
+        assert result is None
 
 
 def test_delete_project(session):
@@ -120,7 +120,7 @@ def test_delete_project(session):
         "fed_mgr.v1.providers.projects.crud.delete_item", return_value=None
     ) as mock_delete_item:
         result = delete_project(session=session, project_id=project_id)
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session, entity=Project, id=project_id
         )
+        assert result is None

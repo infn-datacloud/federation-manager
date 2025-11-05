@@ -85,14 +85,14 @@ def test_create_user_group_success(
         resp = client.post(
             f"/api/v1/idps/{idp_dep.id}/user-groups/", json=user_group_data
         )
-        assert resp.status_code == 201
-        assert resp.json() == {"id": str(fake_id)}
         mock_create.assert_called_once_with(
             session=session,
             user_group=UserGroupCreate(**user_group_data),
             created_by=current_user,
             idp=idp_dep,
         )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
 
 
 def test_create_user_group_conflict(
@@ -107,15 +107,15 @@ def test_create_user_group_conflict(
         resp = client.post(
             f"/api/v1/idps/{idp_dep.id}/user-groups/", json=user_group_data
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_create.assert_called_once_with(
             session=session,
             user_group=UserGroupCreate(**user_group_data),
             created_by=current_user,
             idp=idp_dep,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # GET (list) endpoint
@@ -140,14 +140,14 @@ def test_get_user_groups_success(client, session, user_group_data, idp_dep):
         return_value=([], 0),
     ) as mock_get:
         resp = client.get(f"/api/v1/idps/{idp_dep.id}/user-groups/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
+        )
         assert resp.status_code == 200
         assert "data" in resp.json()
         assert len(resp.json()["data"]) == 0
         assert "page" in resp.json()
         assert "links" in resp.json()
-        mock_get.assert_called_once_with(
-            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
-        )
 
     fake_id = uuid.uuid4()
     user_id = uuid.uuid4()
@@ -163,15 +163,15 @@ def test_get_user_groups_success(client, session, user_group_data, idp_dep):
         return_value=([group1], 1),
     ) as mock_get:
         resp = client.get(f"/api/v1/idps/{idp_dep.id}/user-groups/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
+        )
         assert resp.status_code == 200
         assert "data" in resp.json()
         assert "data" in resp.json()
         assert len(resp.json()["data"]) == 1
         assert "page" in resp.json()
         assert "links" in resp.json()
-        mock_get.assert_called_once_with(
-            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
-        )
 
     group2 = UserGroup(
         **user_group_data,
@@ -185,15 +185,15 @@ def test_get_user_groups_success(client, session, user_group_data, idp_dep):
         return_value=([group1, group2], 2),
     ) as mock_get:
         resp = client.get(f"/api/v1/idps/{idp_dep.id}/user-groups/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
+        )
         assert resp.status_code == 200
         assert "data" in resp.json()
         assert "data" in resp.json()
         assert len(resp.json()["data"]) == 2
         assert "page" in resp.json()
         assert "links" in resp.json()
-        mock_get.assert_called_once_with(
-            session=session, skip=0, limit=5, sort="-created_at", idp_id=idp_dep.id
-        )
 
 
 # GET (by id) endpoint
@@ -262,13 +262,13 @@ def test_edit_user_group_success(
         resp = client.put(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}", json=user_group_data
         )
-        assert resp.status_code == 204
         mock_edit.assert_called_once_with(
             session=session,
             user_group_id=fake_id,
             new_user_group=UserGroupCreate(**user_group_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 204
 
 
 def test_edit_user_group_not_found(
@@ -285,15 +285,15 @@ def test_edit_user_group_not_found(
         resp = client.put(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}", json=user_group_data
         )
-        assert resp.status_code == 404
-        assert resp.json()["status"] == 404
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             user_group_id=fake_id,
             new_user_group=UserGroupCreate(**user_group_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
 def test_edit_user_group_conflict(
@@ -310,15 +310,15 @@ def test_edit_user_group_conflict(
         resp = client.put(
             f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}", json=user_group_data
         )
-        assert resp.status_code == 409
-        assert resp.json()["status"] == 409
-        assert resp.json()["detail"] == err_msg
         mock_edit.assert_called_once_with(
             session=session,
             user_group_id=fake_id,
             new_user_group=UserGroupCreate(**user_group_data),
             updated_by=current_user,
         )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
 # DELETE endpoint
@@ -346,8 +346,8 @@ def test_delete_user_group_success(client, session, idp_dep):
         return_value=None,
     ) as mock_delete:
         resp = client.delete(f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}")
-        assert resp.status_code == 204
         mock_delete.assert_called_once_with(session=session, user_group_id=fake_id)
+        assert resp.status_code == 204
 
 
 def test_delete_user_group_fail(client, session, idp_dep):
@@ -360,7 +360,7 @@ def test_delete_user_group_fail(client, session, idp_dep):
         side_effect=DeleteFailedError(err_msg),
     ) as mock_delete:
         resp = client.delete(f"/api/v1/idps/{idp_dep.id}/user-groups/{fake_id}")
+        mock_delete.assert_called_once_with(session=session, user_group_id=fake_id)
         assert resp.status_code == 409
         assert resp.json()["status"] == 409
         assert resp.json()["detail"] == err_msg
-        mock_delete.assert_called_once_with(session=session, user_group_id=fake_id)

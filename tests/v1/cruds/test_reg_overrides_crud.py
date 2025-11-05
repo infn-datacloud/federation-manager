@@ -37,13 +37,13 @@ def test_get_region_overrides_found(session):
         result = get_region_overrides(
             session=session, region_id=region_id, project_id=project_id
         )
-        assert result == expected_region
         mock_get_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
             region_id=region_id,
             project_id=project_id,
         )
+        assert result == expected_region
 
 
 def test_get_region_overrides_not_found(session):
@@ -57,13 +57,13 @@ def test_get_region_overrides_not_found(session):
         result = get_region_overrides(
             session=session, region_id=region_id, project_id=project_id
         )
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
             region_id=region_id,
             project_id=project_id,
         )
+        assert result is None
 
 
 def test_get_region_overrides(session):
@@ -77,10 +77,10 @@ def test_get_region_overrides(session):
         result = get_region_overrides_list(
             session=session, skip=0, limit=10, sort="name"
         )
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=RegionOverrides, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_region_overrides(session):
@@ -108,7 +108,6 @@ def test_add_region_overrides(session):
             project=project,
             created_by=created_by,
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
@@ -121,6 +120,7 @@ def test_add_region_overrides(session):
         mock_get_region.assert_called_once_with(
             session=session, region_id=config.region_id
         )
+        assert result == expected_item
 
 
 def test_update_region_overrides(session):
@@ -139,7 +139,6 @@ def test_update_region_overrides(session):
             new_overrides=new_overrides,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
@@ -148,6 +147,7 @@ def test_update_region_overrides(session):
             updated_by=updated_by,
             **new_overrides.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_region_calls_delete_item(session):
@@ -160,10 +160,10 @@ def test_delete_region_calls_delete_item(session):
         result = disconnect_project_region(
             session=session, region_id=region_id, project_id=project_id
         )
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
             region_id=region_id,
             project_id=project_id,
         )
+        assert result is None

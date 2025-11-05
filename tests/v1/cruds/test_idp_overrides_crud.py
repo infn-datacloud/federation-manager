@@ -37,13 +37,13 @@ def test_get_prov_idp_overrides_found(session):
         result = get_idp_overrides(
             session=session, idp_id=idp_id, provider_id=provider_id
         )
-        assert result == expected_idp
         mock_get_item.assert_called_once_with(
             session=session,
             entity=IdpOverrides,
             idp_id=idp_id,
             provider_id=provider_id,
         )
+        assert result == expected_idp
 
 
 def test_get_idp_overrides_not_found(session):
@@ -56,13 +56,13 @@ def test_get_idp_overrides_not_found(session):
         result = get_idp_overrides(
             session=session, idp_id=idp_id, provider_id=provider_id
         )
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session,
             entity=IdpOverrides,
             idp_id=idp_id,
             provider_id=provider_id,
         )
+        assert result is None
 
 
 def test_get_idp_overrides(session):
@@ -74,10 +74,10 @@ def test_get_idp_overrides(session):
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
         result = get_idp_overrides_list(session=session, skip=0, limit=10, sort="name")
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=IdpOverrides, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
 def test_add_idp_overrides(session):
@@ -105,7 +105,6 @@ def test_add_idp_overrides(session):
             provider=provider,
             created_by=created_by,
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=IdpOverrides,
@@ -116,6 +115,7 @@ def test_add_idp_overrides(session):
             **config.overrides.model_dump(),
         )
         mock_get_idp.assert_called_once_with(session=session, idp_id=config.idp_id)
+        assert result == expected_item
 
 
 def test_update_idp_overrides(session):
@@ -134,7 +134,6 @@ def test_update_idp_overrides(session):
             new_overrides=new_overrides,
             updated_by=updated_by,
         )
-        assert result is None
         mock_update_item.assert_called_once_with(
             session=session,
             entity=IdpOverrides,
@@ -143,6 +142,7 @@ def test_update_idp_overrides(session):
             updated_by=updated_by,
             **new_overrides.model_dump(),
         )
+        assert result is None
 
 
 def test_disconnect_prov_idp(session):
@@ -155,10 +155,10 @@ def test_disconnect_prov_idp(session):
         result = disconnect_prov_idp(
             session=session, idp_id=idp_id, provider_id=provider_id
         )
-        assert result is None
         mock_delete_item.assert_called_once_with(
             session=session,
             entity=IdpOverrides,
             idp_id=idp_id,
             provider_id=provider_id,
         )
+        assert result is None

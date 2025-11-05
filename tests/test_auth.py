@@ -215,7 +215,6 @@ def test_check_opa_authorization_allow(user_infos, logger):
             settings=settings,
             logger=logger,
         )
-        assert result is None
         data = {
             "input": {
                 "user_info": user_infos.user_info,
@@ -227,6 +226,7 @@ def test_check_opa_authorization_allow(user_infos, logger):
         mock_opa.assert_called_once_with(
             settings.OPA_AUTHZ_URL, json=data, timeout=settings.OPA_TIMEOUT
         )
+        assert result is None
 
 
 def test_check_opa_authorization_deny(user_infos, logger):
