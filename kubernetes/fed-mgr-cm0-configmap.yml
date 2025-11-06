@@ -9,3 +9,4 @@ data:
   authz_mode: opa
   db_url: mysql+pymysql://fed-mgr:changeit@db:3306/fed_mgr
   opa_url: http://opa:8181/v1/data/fed_mgr
+  trusted_idp_list: '["https://iam.cloud.infn.it/"]'

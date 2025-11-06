@@ -2,14 +2,14 @@
 
 import urllib.parse
 import uuid
+import datetime
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, override
 
-from fastapi import Query
 from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
+from sqlalchemy import TIMESTAMP
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType, check_list_not_empty
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.schemas import (
     CreationQuery,
@@ -17,11 +17,13 @@ from fed_mgr.v1.schemas import (
     DescriptionQuery,
     EditableQuery,
     EditableRead,
+    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,
     PaginationQuery,
     SortQuery,
+    check_list_not_empty,
 )
 
 
@@ -46,6 +48,10 @@ class ProviderStatus(int, Enum):
     degraded = 8
     maintenance = 9
     re_evaluation = 10
+
+    @override
+    def __str__(self) -> str:
+        return self.name
 
 
 class ProviderBase(ItemDescription):
@@ -98,6 +104,8 @@ class ProviderBase(ItemDescription):
             "'openstack' provider types)",
         ),
     ]
+    rally_username: Annotated[str, Field(description="Rally service user's name")]
+    rally_password: Annotated[str, Field(description="Rally service user's password")]
 
 
 class ProviderInternal(SQLModel):
@@ -106,6 +114,28 @@ class ProviderInternal(SQLModel):
     status: Annotated[
         ProviderStatus,
         Field(default=ProviderStatus.draft, description="Resource provider status"),
+    ]
+    expiration_date: Annotated[
+        datetime.date | None,
+        Field(
+            default=None,
+            description="Date of when the provider will be no more available",
+        ),
+    ]
+    total_tests: Annotated[
+        int, Field(default=0, description="Total number of tests executed by Rally")
+    ]
+    failed_tests: Annotated[
+        int,
+        Field(default=0, description="Total number of failed tests executed by Rally"),
+    ]
+    tested_at: Annotated[
+        datetime.datetime | None,
+        Field(
+            default=None,
+            description="Date of when the provider was last tested",
+            sa_type=TIMESTAMP,
+        ),
     ]
 
 
@@ -179,6 +209,12 @@ class ProviderUpdate(SQLModel):
             description="List of tags used to filter provider networks (used only with "
             "'openstack' provider types)",
         ),
+    ]
+    rally_username: Annotated[
+        str | None, Field(default=None, description="Rally service user's name")
+    ]
+    rally_password: Annotated[
+        str | None, Field(default=None, description="Rally service user's password")
     ]
 
 
@@ -318,6 +354,20 @@ class ProviderQuery(
             "string",
         ),
     ]
+    rally_username: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Rally service user's name must contain this string",
+        ),
+    ]
+    rally_password: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Rally service user's password must contain this string",
+        ),
+    ]
     status: Annotated[
         str | None, Field(default=None, description="Resource provider status")
     ]
@@ -329,6 +379,3 @@ class ProviderQuery(
         list[uuid.UUID] | None,
         Field(default=None, description="List of the provider/site testers IDs"),
     ]
-
-
-ProviderQueryDep = Annotated[ProviderQuery, Query()]

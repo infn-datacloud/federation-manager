@@ -4,7 +4,6 @@ import urllib.parse
 import uuid
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -115,6 +114,3 @@ class ProjectQuery(
         uuid.UUID | None,
         Field(default=None, description="The SLA's ID must contain this string"),
     ]
-
-
-ProjectQueryDep = Annotated[ProjectQuery, Query()]

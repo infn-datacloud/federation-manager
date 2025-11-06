@@ -1,11 +1,13 @@
 """Endpoints to manage user group details."""
 
 import uuid
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -34,7 +36,7 @@ from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupRequ
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupCreate,
     UserGroupList,
-    UserGroupQueryDep,
+    UserGroupQuery,
     UserGroupRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
@@ -81,7 +83,7 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_user_group(
@@ -130,7 +132,7 @@ def create_user_group(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"User group created: {db_user_group.model_dump_json()}"
     request.state.logger.info(msg)
@@ -146,7 +148,7 @@ def retrieve_user_groups(
     request: Request,
     session: SessionDep,
     idp: IdentityProviderRequiredDep,
-    params: UserGroupQueryDep,
+    params: Annotated[UserGroupQuery, Query()],
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 
@@ -157,7 +159,7 @@ def retrieve_user_groups(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (UserGroupQueryDep): Dependency containing query parameters for
+        params (UserGroupQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         idp: Parent identity Provider ID
@@ -254,7 +256,7 @@ def retrieve_user_group(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_user_group(
@@ -301,7 +303,7 @@ def edit_user_group(
     except NotNullError as e:
         request.state.logger.error(e.message)
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
         ) from e
     msg = f"User group with ID '{user_group_id!s}' updated"
     request.state.logger.info(msg)

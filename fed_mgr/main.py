@@ -12,8 +12,9 @@ from starlette.exceptions import HTTPException
 from fed_mgr.auth import configure_flaat
 from fed_mgr.config import API_V1_STR, get_settings
 from fed_mgr.db import create_db_and_tables, dispose_engine
-from fed_mgr.kafka import start_kafka_listeners, stop_kafka_listeners
+from fed_mgr.kafka import KafkaApp
 from fed_mgr.logger import get_logger
+from fed_mgr.v1.providers.crud import start_tasks_to_remove_deprecated_providers
 from fed_mgr.v1.router import public_router_v1, secured_router_v1
 from fed_mgr.v1.users.crud import create_fake_user, delete_fake_user
 
@@ -63,18 +64,19 @@ async def lifespan(app: FastAPI):
     configure_flaat(settings, logger)
     engine = create_db_and_tables(logger)
 
+    kafka = None
     # At application startup create or delete fake user based on authn mode
     with Session(engine) as session:
+        if settings.KAFKA_ENABLED:
+            kafka = KafkaApp(session)
         if settings.AUTHN_MODE is None:
             create_fake_user(session)
         else:
             delete_fake_user(session)
-
-    kafka_tasks = await start_kafka_listeners(settings, logger)
+        start_tasks_to_remove_deprecated_providers(session)
 
     yield {"logger": logger}
 
-    await stop_kafka_listeners(kafka_tasks, logger)
     dispose_engine(logger)
 
 

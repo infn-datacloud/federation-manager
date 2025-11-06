@@ -4,7 +4,6 @@ import urllib.parse
 import uuid
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -128,6 +127,3 @@ class ProjRegConnectionQuery(CreationQuery, EditableQuery, PaginationQuery, Sort
             description="The proxy VM username to use to reach via SSH the private net",
         ),
     ]
-
-
-ProjRegConnectionQueryDep = Annotated[ProjRegConnectionQuery, Query()]

@@ -151,7 +151,7 @@ def test_check_flaat_authentication_failure(mock_get_user_infos, authz_creds, lo
     mock_get_user_infos.side_effect = FlaatUnauthenticated("fail")
     with pytest.raises(HTTPException) as exc:
         auth.check_flaat_authentication(authz_creds, logger)
-    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @patch("fed_mgr.auth.check_flaat_authentication")
@@ -223,7 +223,7 @@ async def test_check_opa_authorization_deny(mock_post, user_infos, settings, log
         await auth.check_opa_authorization(
             request=request, user_infos=user_infos, settings=settings, logger=logger
         )
-    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 @pytest.mark.asyncio

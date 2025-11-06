@@ -56,7 +56,6 @@ def test_add_ssl_parameters_returns_correct_dict():
     result = add_ssl_parameters(settings)
     assert result == {
         "security_protocol": "SSL",
-        "ssl_check_hostname": False,
         "ssl_cafile": "/path/to/cacert",
         "ssl_certfile": "/path/to/cert",
         "ssl_keyfile": "/path/to/key",
