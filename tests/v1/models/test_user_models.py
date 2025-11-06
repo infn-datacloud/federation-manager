@@ -21,7 +21,15 @@ import sqlalchemy.exc
 from pydantic import AnyHttpUrl
 from sqlmodel import Session
 
-from fed_mgr.v1.models import User
+from fed_mgr.v1.models import (
+    IdentityProvider,
+    IdpOverrides,
+    Project,
+    Provider,
+    Region,
+    RegionOverrides,
+    User,
+)
 from fed_mgr.v1.schemas import CreationTime, ItemID
 
 
@@ -108,3 +116,204 @@ def test_same_user_different_issuer(db_session: Session, user_model: User) -> No
 
     assert user.id is not None
     assert user.id != user_model.id
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "idp_model",
+        "user_group_model",
+        "sla_model",
+        "provider_model",
+        "region_model",
+        "project_model",
+    ],
+)
+def test_delete_fail_still_created_item(
+    request: pytest.FixtureRequest, db_session: Session, model: str
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    model = request.getfixturevalue(model)
+    db_session.commit()
+
+    db_session.delete(model.created_by)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.created_by_id",
+    ):
+        db_session.commit()
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "idp_model",
+        "user_group_model",
+        "sla_model",
+        "provider_model",
+        "region_model",
+        "project_model",
+    ],
+)
+def test_delete_fail_still_updated_item(
+    request: pytest.FixtureRequest, db_session: Session, model: str
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    sub = "user-123"
+    name = "John Doe"
+    email = "john.doe@example.com"
+    another_user = User(
+        sub=sub, name=name, email=email, issuer="https://another.issuer.com"
+    )
+    db_session.add(another_user)
+    model = request.getfixturevalue(model)
+    model.updated_by = another_user
+    db_session.add(model)
+    db_session.commit()
+
+    db_session.delete(another_user)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.updated_by_id",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_created_idp_overrides(
+    db_session: Session,
+    user_model: User,
+    idp_model: IdentityProvider,
+    provider_model: Provider,
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    overrides = IdpOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        idp=idp_model,
+        provider=provider_model,
+    )
+    db_session.add(overrides)
+    db_session.commit()
+
+    db_session.delete(overrides.created_by)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.created_by_id",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_updated_idp_overrides(
+    db_session: Session,
+    user_model: User,
+    idp_model: IdentityProvider,
+    provider_model: Provider,
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    sub = "user-123"
+    name = "John Doe"
+    email = "john.doe@example.com"
+    another_user = User(
+        sub=sub, name=name, email=email, issuer="https://another.issuer.com"
+    )
+    db_session.add(another_user)
+    overrides = IdpOverrides(
+        created_by=user_model,
+        updated_by=another_user,
+        idp=idp_model,
+        provider=provider_model,
+    )
+    db_session.add(overrides)
+    db_session.commit()
+
+    db_session.delete(another_user)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.updated_by_id",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_created_region_overrides(
+    db_session: Session,
+    user_model: User,
+    region_model: Region,
+    project_model: Project,
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    overrides = RegionOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        region=region_model,
+        project=project_model,
+    )
+    db_session.add(overrides)
+    db_session.commit()
+
+    db_session.delete(overrides.created_by)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.created_by_id",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_updated_region_overrides(
+    db_session: Session,
+    user_model: User,
+    region_model: Region,
+    project_model: Project,
+) -> None:
+    """Verify that users with the same `sub` can exist under different issuers.
+
+    The test creates a User with the same `sub` but a different `issuer`
+    and expects successful persistence because uniqueness is scoped to the
+    (sub, issuer) pair.
+    """
+    sub = "user-123"
+    name = "John Doe"
+    email = "john.doe@example.com"
+    another_user = User(
+        sub=sub, name=name, email=email, issuer="https://another.issuer.com"
+    )
+    db_session.add(another_user)
+    overrides = RegionOverrides(
+        created_by=user_model,
+        updated_by=another_user,
+        region=region_model,
+        project=project_model,
+    )
+    db_session.add(overrides)
+    db_session.commit()
+
+    db_session.delete(another_user)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match=r"NOT NULL constraint failed: ([a-zA-Z_][a-zA-Z0-9_]*)\.updated_by_id",
+    ):
+        db_session.commit()

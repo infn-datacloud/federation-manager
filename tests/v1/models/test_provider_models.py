@@ -16,10 +16,19 @@ Fixtures used:
 import uuid
 from datetime import datetime
 
+import pytest
+import sqlalchemy.exc
 from pydantic import AnyHttpUrl
 from sqlmodel import Session
 
-from fed_mgr.v1.models import Provider, User
+from fed_mgr.v1.models import (
+    IdentityProvider,
+    IdpOverrides,
+    Project,
+    Provider,
+    Region,
+    User,
+)
 from fed_mgr.v1.providers.schemas import ProviderBase
 from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 from tests.utils import random_lower_string
@@ -85,3 +94,102 @@ def test_provider_model(db_session: Session, user_model: User) -> None:
     assert user_model.created_providers == [provider]
     assert user_model.updated_providers == [provider]
     assert user_model.owned_providers == [provider]
+
+
+def test_duplicate_name(
+    db_session: Session, user_model: User, provider_model: Provider
+) -> None:
+    """Can't add provider with already existing name."""
+    type = "openstack"
+    auth_endpoint = "https://another.example.com/auth"
+    emails = ["admin@example.com"]
+    provider2 = Provider(
+        created_by=user_model,
+        updated_by=user_model,
+        name=provider_model.name,
+        type=type,
+        auth_endpoint=auth_endpoint,
+        support_emails=emails,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        site_admins=[user_model],
+    )
+    db_session.add(provider2)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="UNIQUE constraint failed: provider.name"
+    ):
+        db_session.commit()
+
+
+def test_duplicate_endpoint(
+    db_session: Session, user_model: User, provider_model: Provider
+) -> None:
+    """Can't add provider with already existing auth endpoint."""
+    name = "Test provider2"
+    type = "openstack"
+    emails = ["admin@example.com"]
+    provider2 = Provider(
+        created_by=user_model,
+        updated_by=user_model,
+        name=name,
+        type=type,
+        auth_endpoint=provider_model.auth_endpoint,
+        support_emails=emails,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        site_admins=[user_model],
+    )
+    db_session.add(provider2)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match="UNIQUE constraint failed: provider.auth_endpoint",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_regions(
+    db_session: Session, provider_model: Provider, region_model: Region
+) -> None:
+    """Can't exist idp with same endpoint."""
+    provider_model.regions.append(region_model)
+    db_session.add(provider_model)
+    db_session.commit()
+
+    db_session.delete(provider_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_projects(
+    db_session: Session, provider_model: Provider, project_model: Project
+) -> None:
+    """Can't exist idp with same endpoint."""
+    provider_model.projects.append(project_model)
+    db_session.add(provider_model)
+    db_session.commit()
+
+    db_session.delete(provider_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()
+
+
+def test_delete_idp_overrides_on_cascade(
+    db_session: Session,
+    user_model: User,
+    idp_model: IdentityProvider,
+    provider_model: Provider,
+) -> None:
+    """Can't exist idp with same endpoint."""
+    idp_overrides = IdpOverrides(created_by=user_model, updated_by=user_model)
+    provider_model.idps.append(idp_overrides)
+    idp_model.linked_providers.append(idp_overrides)
+    db_session.add(provider_model)
+    db_session.commit()
+
+    db_session.delete(provider_model)
+    assert idp_model.linked_providers == []
+    db_session.commit()

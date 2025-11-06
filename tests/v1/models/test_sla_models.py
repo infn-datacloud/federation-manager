@@ -3,11 +3,13 @@
 import uuid
 from datetime import date, datetime
 
+import pytest
+import sqlalchemy.exc
 from pydantic import AnyHttpUrl
 from sqlmodel import Session
 
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
-from fed_mgr.v1.models import SLA, User, UserGroup
+from fed_mgr.v1.models import SLA, Project, User, UserGroup
 from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 
 
@@ -63,3 +65,45 @@ def test_sla_model(
 
     assert user_model.created_slas == [sla]
     assert user_model.updated_slas == [sla]
+
+
+def test_duplicate_user_group(
+    db_session: Session, user_model: User, sla_model: SLA, project_model: Project
+) -> None:
+    """Ensure unique constraint prevents duplicate group names per IDP.
+
+    Creating a second UserGroup with the same name under the same identity
+    provider should raise an IntegrityError on commit.
+    """
+    name = "Test SLA2"
+    start_date = date(2025, 1, 1)
+    end_date = date(2026, 1, 1)
+    user = SLA(
+        created_by=user_model,
+        updated_by=user_model,
+        name=name,
+        start_date=start_date,
+        end_date=end_date,
+        url=sla_model.url,
+        user_group=sla_model.user_group,
+    )
+    db_session.add(user)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="UNIQUE constraint failed: sla.url"
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_slas(
+    db_session: Session, sla_model: SLA, project_model: Project
+) -> None:
+    """Can't exist idp with same endpoint."""
+    sla_model.projects.append(project_model)
+    db_session.add(sla_model)
+    db_session.commit()
+
+    db_session.delete(sla_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()

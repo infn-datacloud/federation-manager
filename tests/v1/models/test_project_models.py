@@ -22,7 +22,7 @@ import pytest
 import sqlalchemy.exc
 from sqlmodel import Session
 
-from fed_mgr.v1.models import Project, Provider, User
+from fed_mgr.v1.models import Project, Provider, Region, RegionOverrides, User
 from fed_mgr.v1.providers.projects.schemas import ProjectBase
 from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 from tests.utils import random_lower_string
@@ -195,3 +195,18 @@ def test_only_one_root_project(
         db_session.commit()
 
     # TODO: test with MySQL
+
+
+def test_delete_reg_overrides_on_cascade(
+    db_session: Session, user_model: User, region_model: Region, project_model: Project
+) -> None:
+    """Can't exist idp with same endpoint."""
+    region_overrides = RegionOverrides(created_by=user_model, updated_by=user_model)
+    project_model.regions.append(region_overrides)
+    region_model.linked_projects.append(region_overrides)
+    db_session.add(project_model)
+    db_session.commit()
+
+    db_session.delete(project_model)
+    assert region_model.linked_projects == []
+    db_session.commit()

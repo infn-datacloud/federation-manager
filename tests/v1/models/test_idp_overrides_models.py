@@ -17,6 +17,8 @@ Fixtures used:
 
 from datetime import datetime
 
+import pytest
+import sqlalchemy.exc
 from sqlmodel import Session
 
 from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User
@@ -70,3 +72,33 @@ def test_idp_overrides_model(
     assert data.provider_id == provider_model.id
     assert data.idp == idp_model
     assert data.idp_id == idp_model.id
+
+
+def test_duplicate_override(
+    db_session: Session,
+    user_model: User,
+    provider_model: Provider,
+    idp_model: IdentityProvider,
+):
+    """Faili in creating a second overrides on the same entities."""
+    data1 = IdpOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        name="Name1",
+        provider=provider_model,
+        idp=idp_model,
+    )
+    data2 = IdpOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        name="Name2",
+        provider=provider_model,
+        idp=idp_model,
+    )
+    db_session.add(data1)
+    db_session.add(data2)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match="UNIQUE constraint failed: idpoverrides.idp_id, idpoverrides.provider_id",
+    ):
+        db_session.commit()

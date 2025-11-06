@@ -18,6 +18,8 @@ Fixtures used:
 
 from datetime import datetime
 
+import pytest
+import sqlalchemy.exc
 from sqlmodel import Session
 
 from fed_mgr.v1.models import Project, Region, RegionOverrides, User
@@ -66,3 +68,34 @@ def test_region_overrides_model(
     assert data.project_id == project_model.id
     assert data.region == region_model
     assert data.region_id == region_model.id
+
+
+def test_duplicate_override(
+    db_session: Session,
+    user_model: User,
+    project_model: Project,
+    region_model: Region,
+):
+    """Faili in creating a second overrides on the same entities."""
+    data1 = RegionOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        default_public_net="Name1",
+        project=project_model,
+        region=region_model,
+    )
+    data2 = RegionOverrides(
+        created_by=user_model,
+        updated_by=user_model,
+        default_public_net="Name2",
+        project=project_model,
+        region=region_model,
+    )
+    db_session.add(data1)
+    db_session.add(data2)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match="UNIQUE constraint failed: regionoverrides.region_id, "
+        "regionoverrides.project_id",
+    ):
+        db_session.commit()

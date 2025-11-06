@@ -18,11 +18,13 @@ field types and basic relationships.
 import uuid
 from datetime import datetime
 
+import pytest
+import sqlalchemy.exc
 from pydantic import AnyHttpUrl
 from sqlmodel import Session
 
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
-from fed_mgr.v1.models import IdentityProvider, User
+from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User, UserGroup
 from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 
 
@@ -77,3 +79,61 @@ def test_identity_provider_model(db_session: Session, user_model: User) -> None:
 
     assert user_model.created_idps == [idp]
     assert user_model.updated_idps == [idp]
+
+
+def test_duplicate_endpoint(
+    db_session: Session, user_model: User, idp_model: IdentityProvider
+) -> None:
+    """Can't exist idp with same endpoint."""
+    name = "Test IdP2"
+    groups_claim = "groups2"
+    idp2 = IdentityProvider(
+        created_by=user_model,
+        updated_by=user_model,
+        endpoint=idp_model.endpoint,
+        name=name,
+        groups_claim=groups_claim,
+    )
+    db_session.add(idp2)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError,
+        match="UNIQUE constraint failed: identityprovider.endpoint",
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_user_groups(
+    db_session: Session,
+    idp_model: IdentityProvider,
+    user_group_model: UserGroup,
+) -> None:
+    """Can't exist idp with same endpoint."""
+    idp_model.user_groups.append(user_group_model)
+    db_session.add(idp_model)
+    db_session.commit()
+
+    db_session.delete(idp_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()
+
+
+def test_delete_fail_still_linked_providers(
+    db_session: Session,
+    user_model: User,
+    idp_model: IdentityProvider,
+    provider_model: Provider,
+) -> None:
+    """Can't exist idp with same endpoint."""
+    idp_overrides = IdpOverrides(created_by=user_model, updated_by=user_model)
+    provider_model.idps.append(idp_overrides)
+    idp_model.linked_providers.append(idp_overrides)
+    db_session.add(idp_model)
+    db_session.commit()
+
+    db_session.delete(idp_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()

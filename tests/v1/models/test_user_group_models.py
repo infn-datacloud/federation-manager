@@ -8,7 +8,7 @@ import sqlalchemy.exc
 from sqlmodel import Session
 
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
-from fed_mgr.v1.models import IdentityProvider, User, UserGroup
+from fed_mgr.v1.models import SLA, IdentityProvider, User, UserGroup
 from fed_mgr.v1.schemas import CreationTime, ItemID, UpdateTime
 
 
@@ -105,3 +105,18 @@ def test_same_user_group_different_idp(
 
     assert user_group.id is not None
     assert user_group.id != user_group_model.id
+
+
+def test_delete_fail_still_slas(
+    db_session: Session, user_group_model: UserGroup, sla_model: SLA
+) -> None:
+    """Can't exist idp with same endpoint."""
+    user_group_model.slas.append(sla_model)
+    db_session.add(user_group_model)
+    db_session.commit()
+
+    db_session.delete(user_group_model)
+    with pytest.raises(
+        sqlalchemy.exc.IntegrityError, match="FOREIGN KEY constraint failed"
+    ):
+        db_session.commit()

@@ -208,7 +208,10 @@ class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_prov_idp_conns",
@@ -217,7 +220,10 @@ class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_prov_idp_conns",
@@ -257,7 +263,10 @@ class IdentityProvider(
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_idps",
@@ -266,7 +275,10 @@ class IdentityProvider(
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_idps",
@@ -289,7 +301,10 @@ class UserGroup(ItemID, CreationTime, UpdateTime, UserGroupBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_user_groups",
@@ -298,7 +313,10 @@ class UserGroup(ItemID, CreationTime, UpdateTime, UserGroupBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_user_groups",
@@ -327,7 +345,10 @@ class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_slas",
@@ -336,7 +357,10 @@ class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_slas",
@@ -369,7 +393,10 @@ class Provider(
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_providers",
@@ -378,7 +405,10 @@ class Provider(
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_providers",
@@ -421,7 +451,10 @@ class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True)
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_proj_reg_configs",
@@ -430,7 +463,10 @@ class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True)
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_proj_reg_configs",
@@ -464,7 +500,10 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_regions",
@@ -473,7 +512,10 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_regions",
@@ -501,7 +543,7 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     # location: Location = Relationship(back_populates="regions")
 
     linked_projects: list[RegionOverrides] = Relationship(
-        back_populates="region", passive_deletes="all"
+        back_populates="region", cascade_delete=True
     )
 
     __table_args__ = (
@@ -514,7 +556,10 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_projects",
@@ -523,7 +568,10 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_projects",
