@@ -44,7 +44,7 @@ def get_level(value: int | str | LogLevelEnum) -> int:
         int: The corresponding logging level integer.
 
     """
-    if isinstance(value, str):
+    if isinstance(value, str) and value.upper() in LogLevelEnum.__members__:
         return LogLevelEnum.__getitem__(value.upper())
     return value
 
@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     ]
     DB_HOST: Annotated[str | None, Field(default=None, description="Database hostname")]
     DB_PORT: Annotated[
-        int | None, Field(default=None, description="Database exposed port")
+        int | None, Field(default=None, ge=1, description="Database exposed port")
     ]
     DB_NAME: Annotated[
         str | None,
@@ -131,7 +131,7 @@ class Settings(BaseSettings):
         ),
     ]
     IDP_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for IDP")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for IDP")
     ]
     OPA_AUTHZ_URL: Annotated[
         AnyHttpUrl,
@@ -141,7 +141,7 @@ class Settings(BaseSettings):
         ),
     ]
     OPA_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for OPA")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for OPA")
     ]
     API_KEY: Annotated[
         str | None,
@@ -203,6 +203,7 @@ class Settings(BaseSettings):
         int,
         Field(
             default=104857600,
+            ge=0,
             description="Maximum size of a request to send to kafka (B).",
         ),
     ]
