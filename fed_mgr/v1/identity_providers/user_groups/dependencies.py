@@ -3,8 +3,9 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
 
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.identity_providers.user_groups.crud import get_user_group
 from fed_mgr.v1.models import UserGroup
 
@@ -12,9 +13,7 @@ UserGroupDep = Annotated[UserGroup | None, Depends(get_user_group)]
 
 
 def user_group_required(
-    request: Request,
-    user_group_id: uuid.UUID,
-    user_group: UserGroupDep,
+    user_group_id: uuid.UUID, user_group: UserGroupDep
 ) -> UserGroup:
     """Dependency to ensure the specified user group exists.
 
@@ -31,9 +30,9 @@ def user_group_required(
 
     """
     if user_group is None:
-        message = f"User group with ID '{user_group_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+        raise ItemNotFoundError(
+            f"User group with ID '{user_group_id!s}' does not exist"
+        )
     return user_group
 
 

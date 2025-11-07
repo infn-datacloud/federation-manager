@@ -4,7 +4,6 @@ import urllib.parse
 import uuid
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -60,7 +59,8 @@ class ProjectRead(ItemID, CreationRead, EditableRead, ProjectBase):
     """Schema used to read an Project."""
 
     sla: Annotated[
-        uuid.UUID | None, Field(description="ID of the SLA assigned to this project")
+        uuid.UUID | None,
+        Field(default=None, description="ID of the SLA assigned to this project"),
     ]
     base_url: Annotated[
         AnyHttpUrl, Field(exclude=True, description="Base URL for the children URL")
@@ -115,6 +115,3 @@ class ProjectQuery(
         uuid.UUID | None,
         Field(default=None, description="The SLA's ID must contain this string"),
     ]
-
-
-ProjectQueryDep = Annotated[ProjectQuery, Query()]

@@ -3,7 +3,6 @@
 import urllib.parse
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
@@ -80,6 +79,3 @@ class UserGroupQuery(
         str | None,
         Field(default=None, description="User Group name must contain this string"),
     ]
-
-
-UserGroupQueryDep = Annotated[UserGroupQuery, Query()]

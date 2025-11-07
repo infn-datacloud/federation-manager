@@ -9,7 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "fastapi",
-      "args": ["dev", "fed_mgr/main.py"],
+      "args": ["dev", "fed_mgr/main.py", "--host=0.0.0.0"],
       "console": "integratedTerminal",
       "justMyCode": false
     }

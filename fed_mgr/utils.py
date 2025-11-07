@@ -1,62 +1,10 @@
 """Utility functions and adapters for specific pydantic types."""
 
 import re
-from datetime import datetime, timezone
-from typing import Any
 
+from cryptography.fernet import Fernet
 from fastapi import APIRouter, Response
 from fastapi.routing import APIRoute
-from pydantic import AnyHttpUrl
-from sqlmodel import String, TypeDecorator
-
-MAX_LEN = 255
-
-
-class HttpUrlType(TypeDecorator):
-    """SQL Adapter to translate an HttpUrl into a string and vice versa."""
-
-    impl = String(MAX_LEN)
-    cache_ok = True
-    python_type = AnyHttpUrl
-
-    def process_bind_param(self, value, dialect) -> str:
-        """Convert the AnyHttpUrl value to a string before storing in the database.
-
-        Args:
-            value: The AnyHttpUrl value to be stored.
-            dialect: The database dialect in use.
-
-        Returns:
-            str: The string representation of the URL.
-
-        """
-        return str(value)
-
-    def process_result_value(self, value, dialect) -> AnyHttpUrl:
-        """Convert the string value from the database back to an AnyHttpUrl.
-
-        Args:
-            value: The string value retrieved from the database.
-            dialect: The database dialect in use.
-
-        Returns:
-            AnyHttpUrl: The reconstructed AnyHttpUrl object.
-
-        """
-        return AnyHttpUrl(url=value)
-
-    def process_literal_param(self, value, dialect) -> str:
-        """Convert the AnyHttpUrl value to a string for literal SQL statements.
-
-        Args:
-            value: The AnyHttpUrl value to be used in a literal SQL statement.
-            dialect: The database dialect in use.
-
-        Returns:
-            str: The string representation of the URL.
-
-        """
-        return str(value)
 
 
 def add_allow_header_to_resp(router: APIRouter, response: Response) -> Response:
@@ -94,45 +42,31 @@ def split_camel_case(text: str) -> str:
     return " ".join([m.group(0) for m in matches])
 
 
-def check_list_not_empty(items: list[Any]) -> list[Any]:
-    """Check if the input is a non-empty list, raising ValueError if empty.
-
-    If the argument is a list and it is empty, raises a ValueError.
+def encrypt(value: str, secret_key: bytes) -> str:
+    """Encrpyt value using fernet method.
 
     Args:
-        items (list[Any]): The input to check. Can be a list of any type or a single
-            item.
+        secret_key (str): secret key used to encrypt value
+        value (str): value to encrypt
 
     Returns:
-        list[Any]: The original input if it is not an empty list.
-
-    Raises:
-        ValueError: If the input is a list and it is empty.
+        str: encrypted value.
 
     """
-    if isinstance(items, list) and not len(items) > 0:
-        raise ValueError("List must not be empty")
-    return items
+    fernet = Fernet(secret_key)
+    return fernet.encrypt(value.encode()).decode()
 
 
-def isoformat(d: datetime) -> str:
-    """Convert a datetime or date object to an ISO 8601 format.
-
-    UTC with millisecond precision.
+def decrypt(value: str, secret_key: bytes) -> str:
+    """Decrypt value using fernet method.
 
     Args:
-        d (datetime): The datetime or date object to format.
+        secret_key (str): secret key used to decrypt value
+        value (str): value to decrypt
 
     Returns:
-        str: The ISO 8601 formatted string representation of the input.
-
-    Raises:
-        AttributeError: If the input object does not have an 'astimezone' method.
+        str: decrypted value.
 
     """
-    try:
-        return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
-    except AttributeError as e:
-        raise ValueError(
-            f"Input value is not a datetime instance. Type: {type(d)}"
-        ) from e
+    fernet = Fernet(secret_key)
+    return fernet.decrypt(value.encode()).decode()

@@ -7,8 +7,20 @@ import uuid
 from typing import Annotated, Optional
 
 from pydantic import computed_field
-from sqlmodel import Field, Index, Relationship, SQLModel, UniqueConstraint, text
+from sqlalchemy.ext.declarative import declared_attr
+from sqlmodel import (
+    Column,
+    Computed,
+    Field,
+    Index,
+    Relationship,
+    SQLModel,
+    String,
+    UniqueConstraint,
+    true,
+)
 
+from fed_mgr.db import engine
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
@@ -196,7 +208,10 @@ class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_prov_idp_conns",
@@ -205,7 +220,10 @@ class IdpOverrides(CreationTime, UpdateTime, IdpOverridesBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_prov_idp_conns",
@@ -245,7 +263,10 @@ class IdentityProvider(
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_idps",
@@ -254,7 +275,10 @@ class IdentityProvider(
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_idps",
@@ -277,7 +301,10 @@ class UserGroup(ItemID, CreationTime, UpdateTime, UserGroupBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_user_groups",
@@ -286,7 +313,10 @@ class UserGroup(ItemID, CreationTime, UpdateTime, UserGroupBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_user_groups",
@@ -315,7 +345,10 @@ class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_slas",
@@ -324,7 +357,10 @@ class SLA(ItemID, CreationTime, UpdateTime, SLABase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_slas",
@@ -357,7 +393,10 @@ class Provider(
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_providers",
@@ -366,7 +405,10 @@ class Provider(
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_providers",
@@ -409,7 +451,10 @@ class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True)
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_proj_reg_configs",
@@ -418,7 +463,10 @@ class RegionOverrides(CreationTime, UpdateTime, RegionOverridesBase, table=True)
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_proj_reg_configs",
@@ -452,7 +500,10 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_regions",
@@ -461,7 +512,10 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_regions",
@@ -489,7 +543,7 @@ class Region(ItemID, CreationTime, UpdateTime, RegionBase, table=True):
     # location: Location = Relationship(back_populates="regions")
 
     linked_projects: list[RegionOverrides] = Relationship(
-        back_populates="region", passive_deletes="all"
+        back_populates="region", cascade_delete=True
     )
 
     __table_args__ = (
@@ -502,7 +556,10 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
 
     created_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who created this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who created this item.",
+        ),
     ]
     created_by: User = Relationship(
         back_populates="created_projects",
@@ -511,7 +568,10 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
 
     updated_by_id: Annotated[
         uuid.UUID,
-        Field(foreign_key="user.id", description="User who last updated this item."),
+        Field(
+            foreign_key="user.id",
+            description="User who last updated this item.",
+        ),
     ]
     updated_by: User = Relationship(
         back_populates="updated_projects",
@@ -542,11 +602,40 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
 
-    __table_args__ = (
-        UniqueConstraint(
-            "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
-        ),
-        Index(
-            "ix_unique_provider_root", "provider_id", text("is_root = 1"), unique=True
-        ),
-    )
+    if engine.dialect.name == "mysql":
+        provider_root_id: Annotated[
+            int | None,
+            Field(
+                sa_column=Column(
+                    "provider_root_id",
+                    String(32),  # UUID length
+                    Computed("IF(is_root = TRUE, provider_id, NULL)", persisted=True),
+                )
+            ),
+        ]
+
+        __table_args__ = (
+            UniqueConstraint(
+                "iaas_project_id", "provider_id", name="unique_projid_provider_couple"
+            ),
+            Index("ix_unique_provider_root", "provider_root_id", unique=True),
+        )
+
+    elif engine.dialect.name == "sqlite":
+
+        @declared_attr
+        def __table_args__(self):
+            """Return table arguments for the Project model when using SQLite."""
+            return (
+                UniqueConstraint(
+                    "iaas_project_id",
+                    "provider_id",
+                    name="unique_projid_provider_couple",
+                ),
+                Index(
+                    "ix_unique_provider_root",
+                    "provider_id",
+                    unique=True,
+                    sqlite_where=(self.is_root == true()),
+                ),
+            )

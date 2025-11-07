@@ -3,13 +3,55 @@
 import math
 import uuid
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi.datastructures import URL
 from pydantic import AnyHttpUrl, BeforeValidator, computed_field
 from sqlmodel import TIMESTAMP, Field, SQLModel
+from starlette.datastructures import URL
 
-from fed_mgr.utils import isoformat
+
+def check_list_not_empty(items: list[Any]) -> list[Any]:
+    """Check if the input is a non-empty list, raising ValueError if empty.
+
+    If the argument is a list and it is empty, raises a ValueError.
+
+    Args:
+        items (list[Any]): The input to check. Can be a list of any type or a single
+            item.
+
+    Returns:
+        list[Any]: The original input if it is not an empty list.
+
+    Raises:
+        ValueError: If the input is a list and it is empty.
+
+    """
+    if isinstance(items, list) and len(items) <= 0:
+        raise ValueError("List must not be empty")
+    return items
+
+
+def isoformat(d: datetime) -> str:
+    """Convert a datetime or date object to an ISO 8601 format.
+
+    UTC with millisecond precision.
+
+    Args:
+        d (datetime): The datetime or date object to format.
+
+    Returns:
+        str: The ISO 8601 formatted string representation of the input.
+
+    Raises:
+        AttributeError: If the input object does not have an 'astimezone' method.
+
+    """
+    try:
+        return d.astimezone(timezone.utc).isoformat(timespec="milliseconds")
+    except AttributeError as e:
+        raise ValueError(
+            f"Input value is not a datetime instance. Type: {type(d)}"
+        ) from e
 
 
 class ItemID(SQLModel):

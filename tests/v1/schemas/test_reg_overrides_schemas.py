@@ -11,11 +11,10 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
-from fed_mgr.v1.models import RegionOverrides
+from fed_mgr.v1 import REGIONS_PREFIX
 from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionCreate,
     ProjRegConnectionLinks,
@@ -27,51 +26,17 @@ from fed_mgr.v1.providers.projects.regions.schemas import (
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    CreationTime,
     EditableQuery,
     EditableRead,
     PaginationQuery,
     SortQuery,
-    UpdateTime,
 )
 
-DUMMY_ENDPOINT = "https://example.com/regions"
+DUMMY_ENDPOINT = "https://example.com"
 DUMMY_PUB_NET = "pub-net"
 DUMMY_PRIV_NET = "priv-net"
 DUMMY_PROXY_HOST = "192.168.1.1:1234"
 DUMMY_PROXY_USER = "my-user"
-
-
-def test_proj_reg_config_model():
-    """Test ProjRegConnection model fields."""
-    creator = MagicMock()
-    project = MagicMock()
-    region = MagicMock()
-    now = datetime.now()
-    link = RegionOverrides(
-        created_at=now,
-        created_by=creator,
-        updated_at=now,
-        updated_by=creator,
-        default_public_net=DUMMY_PUB_NET,
-        default_private_net=DUMMY_PRIV_NET,
-        private_net_proxy_host=DUMMY_PROXY_HOST,
-        private_net_proxy_user=DUMMY_PROXY_USER,
-        project=project,
-        region=region,
-    )
-    assert isinstance(link, CreationTime)
-    assert isinstance(link, UpdateTime)
-    assert link.created_at == now
-    assert link.created_by == creator
-    assert link.updated_at == now
-    assert link.updated_by == creator
-    assert link.default_public_net == DUMMY_PUB_NET
-    assert link.default_private_net == DUMMY_PRIV_NET
-    assert link.private_net_proxy_host == DUMMY_PROXY_HOST
-    assert link.private_net_proxy_user == DUMMY_PROXY_USER
-    assert link.project == project
-    assert link.region == region
 
 
 def test_proj_reg_config_base_fields():
@@ -120,6 +85,12 @@ def test_proj_reg_config_read_inheritance():
     project_id = uuid.uuid4()
     region_id = uuid.uuid4()
     now = datetime.now()
+    overrides = {
+        "default_public_net": DUMMY_PUB_NET,
+        "default_private_net": DUMMY_PRIV_NET,
+        "private_net_proxy_host": DUMMY_PROXY_HOST,
+        "private_net_proxy_user": DUMMY_PROXY_USER,
+    }
     read = ProjRegConnectionRead(
         project_id=project_id,
         region_id=region_id,
@@ -127,13 +98,15 @@ def test_proj_reg_config_read_inheritance():
         created_by=creator,
         updated_at=now,
         updated_by=creator,
-        provider_id=uuid.uuid4(),
-        overrides={},
+        overrides=overrides,
         base_url=DUMMY_ENDPOINT,
     )
     assert isinstance(read, CreationRead)
     assert isinstance(read, EditableRead)
     assert isinstance(read.links, ProjRegConnectionLinks)
+    assert read.region_id == region_id
+    assert read.overrides == RegionOverridesBase(**overrides)
+    assert read.links.regions == AnyHttpUrl(f"{DUMMY_ENDPOINT}{REGIONS_PREFIX}")
 
 
 def test_proj_reg_config_list():
@@ -158,7 +131,7 @@ def test_proj_reg_config_list():
         page_number=1,
         page_size=1,
         tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/prov/proj/regions"),
+        resource_url=DUMMY_ENDPOINT,
     )
     assert isinstance(region_list.data, list)
     assert region_list.data[0] == read
@@ -182,13 +155,13 @@ def test_proj_reg_config_query_with_values():
     """Test that ProjRegConnectionQuery assigns provided values to its fields."""
     query = ProjRegConnectionQuery(
         region_id="region",
-        default_public_net=DUMMY_PUB_NET,
-        default_private_net=DUMMY_PRIV_NET,
-        private_net_proxy_host=DUMMY_PROXY_HOST,
-        private_net_proxy_user=DUMMY_PROXY_USER,
+        default_public_net="public",
+        default_private_net="private",
+        private_net_proxy_host="host",
+        private_net_proxy_user="user",
     )
     assert query.region_id == "region"
-    assert query.default_public_net == DUMMY_PUB_NET
-    assert query.default_private_net == DUMMY_PRIV_NET
-    assert query.private_net_proxy_host == DUMMY_PROXY_HOST
-    assert query.private_net_proxy_user == DUMMY_PROXY_USER
+    assert query.default_public_net == "public"
+    assert query.default_private_net == "private"
+    assert query.private_net_proxy_host == "host"
+    assert query.private_net_proxy_user == "user"

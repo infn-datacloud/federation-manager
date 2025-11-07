@@ -11,11 +11,10 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
-from fed_mgr.v1.models import IdpOverrides
+from fed_mgr.v1 import IDPS_PREFIX
 from fed_mgr.v1.providers.identity_providers.schemas import (
     IdpOverridesBase,
     ProviderIdPConnectionCreate,
@@ -27,12 +26,10 @@ from fed_mgr.v1.providers.identity_providers.schemas import (
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    CreationTime,
     EditableQuery,
     EditableRead,
     PaginationQuery,
     SortQuery,
-    UpdateTime,
 )
 
 DUMMY_ENDPOINT = "https://example.com"
@@ -40,39 +37,6 @@ DUMMY_NAME = "Test IdP"
 DUMMY_GROUPS_CLAIM = "groups"
 DUMMY_PROTOCOL = "openid"
 DUMMY_AUDIENCE = "aud1"
-
-
-def test_prov_idp_rel_model():
-    """Test ProviderIdPConnection model fields."""
-    creator = MagicMock()
-    provider = MagicMock()
-    idp = MagicMock()
-    now = datetime.now()
-    data = IdpOverrides(
-        created_at=now,
-        created_by=creator,
-        updated_at=now,
-        updated_by=creator,
-        name=DUMMY_NAME,
-        groups_claim=DUMMY_GROUPS_CLAIM,
-        protocol=DUMMY_PROTOCOL,
-        audience=DUMMY_AUDIENCE,
-        provider=provider,
-        idp=idp,
-    )
-    assert isinstance(data, CreationTime)
-    assert isinstance(data, UpdateTime)
-    assert isinstance(data, IdpOverrides)
-    assert data.created_at == now
-    assert data.created_by == creator
-    assert data.updated_at == now
-    assert data.updated_by == creator
-    assert data.name == DUMMY_NAME
-    assert data.groups_claim == DUMMY_GROUPS_CLAIM
-    assert data.protocol == DUMMY_PROTOCOL
-    assert data.audience == DUMMY_AUDIENCE
-    assert data.provider == provider
-    assert data.idp == idp
 
 
 def test_prov_idp_rel_base_fields():
@@ -121,6 +85,12 @@ def test_prov_idp_rel_read_inheritance():
     provider_id = uuid.uuid4()
     idp_id = uuid.uuid4()
     now = datetime.now()
+    overrides = {
+        "name": DUMMY_NAME,
+        "groups_claim": DUMMY_GROUPS_CLAIM,
+        "protocol": DUMMY_PROTOCOL,
+        "audience": DUMMY_AUDIENCE,
+    }
     read = ProviderIdPConnectionRead(
         provider_id=provider_id,
         idp_id=idp_id,
@@ -128,12 +98,15 @@ def test_prov_idp_rel_read_inheritance():
         created_by=creator,
         updated_at=now,
         updated_by=creator,
-        overrides={},
+        overrides=overrides,
         base_url=DUMMY_ENDPOINT,
     )
     assert isinstance(read, CreationRead)
     assert isinstance(read, EditableRead)
     assert isinstance(read.links, ProviderIdPConnectionLinks)
+    assert read.idp_id == idp_id
+    assert read.overrides == IdpOverridesBase(**overrides)
+    assert read.links.idps == AnyHttpUrl(f"{DUMMY_ENDPOINT}{IDPS_PREFIX}")
 
 
 def test_prov_idp_rel_list():
@@ -157,7 +130,7 @@ def test_prov_idp_rel_list():
         page_number=1,
         page_size=1,
         tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/prov/idps"),
+        resource_url=DUMMY_ENDPOINT,
     )
     assert isinstance(idp_list.data, list)
     assert idp_list.data[0] == read

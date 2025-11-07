@@ -125,4 +125,4 @@ def delete_user_group(*, session: Session, user_group_id: uuid.UUID) -> None:
         user_group_id: The UUID of the user group to delete.
 
     """
-    delete_item(session=session, entity=UserGroup, id=user_group_id)
+    return delete_item(session=session, entity=UserGroup, id=user_group_id)
