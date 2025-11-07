@@ -1,5 +1,6 @@
 """Fixtures for fed-mgr endpoints tests."""
 
+import os
 import uuid
 from typing import Any
 from unittest import mock
@@ -171,6 +172,8 @@ def provider_data() -> dict[str, Any]:
         "type": "openstack",
         "auth_endpoint": "https://example.com/auth",
         "support_emails": ["admin@example.com"],
+        "rally_username": os.getenv("user", "user"),
+        "rally_password": os.getenv("password", "password"),
     }
 
 

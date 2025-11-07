@@ -9,7 +9,6 @@ import time
 import uuid
 from datetime import date, timedelta
 
-from fastapi import BackgroundTasks
 from sqlalchemy import event
 from sqlmodel import Session
 
@@ -452,16 +451,13 @@ def task_remove_deprecated_provider(*, session: Session, provider: Provider):
         remove_deprecated_provider(session=session, provider=provider)
 
 
-def revoke_provider(
-    *, session: Session, provider: Provider, updated_by: User, bg_tasks: BackgroundTasks
-) -> None:
+def revoke_provider(*, session: Session, provider: Provider, updated_by: User) -> None:
     """Site admin revoke provider submission.
 
     Args:
         session (Session): The database session to use for committing changes.
         provider (Provider): The provider instance whose status will be updated.
         updated_by (User): The user performing the update.
-        bg_tasks (BackgroundTasks): List of background tasks.
 
     Returns:
         None
@@ -469,7 +465,7 @@ def revoke_provider(
     """
     match provider.status:
         case ProviderStatus.draft | ProviderStatus.ready:
-            delete_provider(session=session, provider_id=provider.id)
+            return delete_provider(session=session, provider_id=provider.id)
         case (
             ProviderStatus.submitted
             | ProviderStatus.evaluation
@@ -489,9 +485,6 @@ def revoke_provider(
             provider.updated_by = updated_by
             session.add(provider)
             session.commit()
-            bg_tasks.add_task(
-                task_remove_deprecated_provider, session=session, provider=provider
-            )
         case ProviderStatus.deprecated:
             if not remove_deprecated_provider(
                 session=session, provider=provider, updated_by=updated_by
