@@ -8,15 +8,16 @@ import uuid
 
 from sqlmodel import Session
 
+from fed_mgr.auth import (
+    FAKE_USER_EMAIL,
+    FAKE_USER_ISSUER,
+    FAKE_USER_NAME,
+    FAKE_USER_SUBJECT,
+)
 from fed_mgr.db import SessionDep
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import User
 from fed_mgr.v1.users.schemas import UserCreate
-
-FAKE_USER_NAME = "fake_name"
-FAKE_USER_EMAIL = "fake@email.com"
-FAKE_USER_SUBJECT = "fake_sub"
-FAKE_USER_ISSUER = "http://fake.iss.it"
 
 
 def get_user(*, session: SessionDep, user_id: uuid.UUID) -> User | None:

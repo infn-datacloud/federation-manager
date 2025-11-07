@@ -23,6 +23,11 @@ from fed_mgr.exceptions import (
     UnauthorizedError,
 )
 
+FAKE_USER_NAME = "fake_name"
+FAKE_USER_EMAIL = "fake@email.com"
+FAKE_USER_SUBJECT = "fake_sub"
+FAKE_USER_ISSUER = "https://fake.iss.it"
+
 flaat = Flaat()
 
 
@@ -158,7 +163,12 @@ def check_authentication(
     request.state.logger.debug(
         "No authentication mode. Providing fake user credentials"
     )
-    return {"sub": "fake_sub", "iss": "http://fake.iss.it"}
+    return {
+        "sub": FAKE_USER_SUBJECT,
+        "username": FAKE_USER_NAME,
+        "email": FAKE_USER_EMAIL,
+        "iss": FAKE_USER_ISSUER,
+    }
 
 
 AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]

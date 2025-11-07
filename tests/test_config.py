@@ -8,6 +8,7 @@ These tests cover:
 """
 
 import logging
+import os
 
 import pytest
 from cryptography.fernet import Fernet
@@ -219,8 +220,8 @@ def test_settings_authz_without_authn_raises(
 def test_build_db_url(mandatory_fields: dict[str, str | bytes]) -> None:
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     scheme = "mysql"
-    user = "user"
-    pwd = "example"
+    user = os.getenv("user", "user")
+    pwd = os.getenv("password", "password")
     host = "localhost"
     db_name = "db"
     s = Settings(

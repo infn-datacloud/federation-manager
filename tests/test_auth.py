@@ -42,6 +42,10 @@ from flaat.exceptions import FlaatUnauthenticated
 from flaat.user_infos import UserInfos
 
 from fed_mgr.auth import (
+    FAKE_USER_EMAIL,
+    FAKE_USER_ISSUER,
+    FAKE_USER_NAME,
+    FAKE_USER_SUBJECT,
     check_api_key_authentication,
     check_authentication,
     check_authorization,
@@ -191,7 +195,12 @@ def test_check_authentication_none(logger):
     request = MagicMock()
     request.state.logger = logger
     result = check_authentication(request, None, None, settings)
-    assert result == {"sub": "fake_sub", "iss": "http://fake.iss.it"}
+    assert result == {
+        "sub": FAKE_USER_SUBJECT,
+        "username": FAKE_USER_NAME,
+        "email": FAKE_USER_EMAIL,
+        "iss": FAKE_USER_ISSUER,
+    }
 
 
 def test_check_opa_authorization_allow(user_infos, logger):

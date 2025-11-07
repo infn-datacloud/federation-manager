@@ -122,7 +122,7 @@ def sla_data() -> dict[str, Any]:
     return {
         "description": "desc",
         "name": "Test UserGroup",
-        "url": "http://test.url.it",
+        "url": "https://test.url.it",
         "start_date": "2024-01-01",
         "end_date": "2025-01-01",
     }
