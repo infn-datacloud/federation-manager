@@ -76,16 +76,20 @@ def user_infos():
     )
 
 
-def test_configure_flaat_logs_modes(logger):
+def test_configure_flaat_logs_modes(logger, mandatory_settings_fields):
     """Test that configure_flaat logs authentication and authorization modes."""
-    settings = Settings(AUTHN_MODE=None, AUTHZ_MODE=None)
+    settings = Settings(AUTHN_MODE=None, AUTHZ_MODE=None, **mandatory_settings_fields)
     configure_flaat(settings, logger)
     logger.warning.assert_has_calls(
         [call("No authentication"), call("No authorization")]
     )
 
     logger.reset_mock()
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, AUTHZ_MODE=None)
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local,
+        AUTHZ_MODE=None,
+        **mandatory_settings_fields,
+    )
     configure_flaat(settings, logger)
     logger.info.assert_any_call("Authentication mode is %s", settings.AUTHN_MODE.value)
     logger.warning.assert_called_once_with("No authorization")
@@ -94,6 +98,7 @@ def test_configure_flaat_logs_modes(logger):
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
+        **mandatory_settings_fields,
     )
     configure_flaat(settings, logger)
     logger.info.assert_has_calls(
@@ -104,11 +109,12 @@ def test_configure_flaat_logs_modes(logger):
     )
 
 
-def test_configure_flaat_sets_trusted_idps(logger):
+def test_configure_flaat_sets_trusted_idps(logger, mandatory_settings_fields):
     """Test that configure_flaat sets trusted IDPs and logs the info."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         TRUSTED_IDP_LIST=["https://issuer1.com/", "https://issuer2.com/"],
+        **mandatory_settings_fields,
     )
     with patch("fed_mgr.auth.flaat") as mock_flaat:
         configure_flaat(settings, logger)
@@ -145,25 +151,29 @@ def test_check_flaat_authentication_failure(authz_creds, logger):
             check_flaat_authentication(authz_creds, logger)
 
 
-def test_check_api_key_auth_success(logger):
+def test_check_api_key_auth_success(logger, mandatory_settings_fields):
     """Test that check_flaat_authentication returns user infos on success."""
     api_key = "value"
-    settings = Settings(API_KEY=api_key)
+    settings = Settings(API_KEY=api_key, **mandatory_settings_fields)
     result = check_api_key_authentication(api_key, settings, logger)
     assert result is None
 
 
-def test_check_api_key_auth_error(logger):
+def test_check_api_key_auth_error(logger, mandatory_settings_fields):
     """Test that check_flaat_authentication returns user infos on success."""
     api_key = "value"
-    settings = Settings(API_KEY=api_key)
+    settings = Settings(API_KEY=api_key, **mandatory_settings_fields)
     with pytest.raises(UnauthenticatedError, match="Invalid API Key"):
         check_api_key_authentication("invalid", settings, logger)
 
 
-def test_check_user_authn_local(authz_creds, user_infos, logger):
+def test_check_user_authn_local(
+    authz_creds, user_infos, logger, mandatory_settings_fields
+):
     """Test that check_authentication returns user when local authentication is used."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local)
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local, **mandatory_settings_fields
+    )
     request = MagicMock()
     request.state.logger = logger
     with patch("fed_mgr.auth.check_flaat_authentication", return_value=user_infos):
@@ -171,27 +181,35 @@ def test_check_user_authn_local(authz_creds, user_infos, logger):
         assert result == user_infos.user_info
 
 
-def test_check_script_authn_local(logger):
+def test_check_script_authn_local(logger, mandatory_settings_fields):
     """Test that check_authentication returns user when local authentication is used."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, API_KEY="value")
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local,
+        API_KEY="value",
+        **mandatory_settings_fields,
+    )
     request = MagicMock()
     request.state.logger = logger
     result = check_authentication(request, None, settings.API_KEY, settings)
     assert result is None
 
 
-def test_check_invalid_authn_local(logger):
+def test_check_invalid_authn_local(logger, mandatory_settings_fields):
     """Test that check_authentication returns user when local authentication is used."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, API_KEY="value")
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local,
+        API_KEY="value",
+        **mandatory_settings_fields,
+    )
     request = MagicMock()
     request.state.logger = logger
     with pytest.raises(UnauthenticatedError, match="No credentials provided"):
         check_authentication(request, None, None, settings)
 
 
-def test_check_authentication_none(logger):
+def test_check_authentication_none(logger, mandatory_settings_fields):
     """Test check_authentication returns fake user creds when authn mode is None."""
-    settings = Settings(AUTHN_MODE=None)
+    settings = Settings(AUTHN_MODE=None, **mandatory_settings_fields)
     request = MagicMock()
     request.state.logger = logger
     result = check_authentication(request, None, None, settings)
@@ -203,12 +221,13 @@ def test_check_authentication_none(logger):
     }
 
 
-def test_check_opa_authorization_allow(user_infos, logger):
+def test_check_opa_authorization_allow(user_infos, logger, mandatory_settings_fields):
     """Test that check_opa_authorization allows access when OPA returns allow=True."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
+        **mandatory_settings_fields,
     )
     body = b"data"
     request = MagicMock()
@@ -239,12 +258,13 @@ def test_check_opa_authorization_allow(user_infos, logger):
         assert result is None
 
 
-def test_check_opa_authorization_deny(user_infos, logger):
+def test_check_opa_authorization_deny(user_infos, logger, mandatory_settings_fields):
     """Test that check_opa_authorization denies access when OPA returns allow=False."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
+        **mandatory_settings_fields,
     )
     body = b"data"
     request = MagicMock()
@@ -277,12 +297,13 @@ def test_check_opa_authorization_deny(user_infos, logger):
         )
 
 
-def test_check_opa_authz_err_response(user_infos, logger):
+def test_check_opa_authz_err_response(user_infos, logger, mandatory_settings_fields):
     """Test that check_opa_authorization raises HTTPException on OPA bad request."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
+        **mandatory_settings_fields,
     )
     body = b"data"
     request = MagicMock()
@@ -362,12 +383,13 @@ def test_check_opa_authz_err_response(user_infos, logger):
         )
 
 
-def test_check_opa_authorization_timeout(user_infos, logger):
+def test_check_opa_authorization_timeout(user_infos, logger, mandatory_settings_fields):
     """Test that check_opa_authorization raises HTTPException on OPA timeout."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
+        **mandatory_settings_fields,
     )
     body = b"data"
     request = MagicMock()
@@ -420,11 +442,12 @@ def test_check_opa_authorization_timeout(user_infos, logger):
         )
 
 
-def test_check_user_authz_opa(user_infos, logger):
+def test_check_user_authz_opa(user_infos, logger, mandatory_settings_fields):
     """Test that check_authorization calls OPA authorization when mode is set to OPA."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
+        **mandatory_settings_fields,
     )
     request = MagicMock()
     request.state.logger = logger
@@ -434,9 +457,13 @@ def test_check_user_authz_opa(user_infos, logger):
         assert result is None
 
 
-def test_check_user_authz_when_disabled(user_infos, logger):
+def test_check_user_authz_when_disabled(user_infos, logger, mandatory_settings_fields):
     """Test that check_authorization does not raise when authorization mode is None."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, AUTHZ_MODE=None)
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local,
+        AUTHZ_MODE=None,
+        **mandatory_settings_fields,
+    )
     request = MagicMock()
     request.state.logger = logger
     body = b"data"
@@ -444,9 +471,11 @@ def test_check_user_authz_when_disabled(user_infos, logger):
     assert result is None
 
 
-def test_check_script_authz_get(logger):
+def test_check_script_authz_get(logger, mandatory_settings_fields):
     """Test that check_authorization does not raise when authorization mode is None."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local)
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local, **mandatory_settings_fields
+    )
     request = MagicMock()
     request.state.logger = logger
     request.method = "GET"
@@ -455,9 +484,11 @@ def test_check_script_authz_get(logger):
     assert result is None
 
 
-def test_check_script_authz_forbidden(logger):
+def test_check_script_authz_forbidden(logger, mandatory_settings_fields):
     """Test that check_authorization does not raise when authorization mode is None."""
-    settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local)
+    settings = Settings(
+        AUTHN_MODE=AuthenticationMethodsEnum.local, **mandatory_settings_fields
+    )
     request = MagicMock()
     request.state.logger = logger
     request.method = "POST"
