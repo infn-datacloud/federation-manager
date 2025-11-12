@@ -18,390 +18,353 @@ Tests in this file:
 """
 
 import uuid
-from datetime import datetime
+from unittest.mock import patch
 
-from sqlmodel import SQLModel
-
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ConflictError, DeleteFailedError, ItemNotFoundError
 from fed_mgr.main import sub_app_v1
+from fed_mgr.v1.models import Project
 from fed_mgr.v1.providers.crud import get_provider
 from fed_mgr.v1.providers.projects.crud import get_project
-
-DUMMY_NAME = "eu-west-1"
-DUMMY_DESC = "A test project."
-DUMMY_IAAS_ID = "12345"
-DUMMY_CREATED_AT = datetime.now()
+from fed_mgr.v1.providers.projects.schemas import ProjectCreate
+from fed_mgr.v1.schemas import ItemID
 
 
-def get_fake_provider_id() -> str:
-    """Patch get_idp depencency to return a dummy IDP."""
-    fake_id = str(uuid.uuid4())
-
-    class FakeProvider:
-        id = fake_id
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: FakeProvider()
-    )
-
-    return fake_id
-
-
-def fake_add_project(fake_id):
-    """Return a fake project object with the given id."""
-
-    class FakeProject(SQLModel):
-        id: uuid.UUID = fake_id
-
-    return FakeProject()
-
-
+# OPTIONS endpoint
 def test_options_projects_parent_provider_not_found(client):
     """Test OPTIONS returns 404 if parent_provider is None."""
-    fake_provider_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
     resp = client.options(f"/api/v1/providers/{fake_provider_id}/projects/")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
+    )
 
 
-def test_options_projects(client):
+def test_options_projects(client, provider_dep):
     """Test OPTIONS /providers/{provider_id}/projects/ returns 204 and Allow header."""
-    fake_provider_id = get_fake_provider_id()
-
-    resp = client.options(f"/api/v1/providers/{fake_provider_id}/projects/")
+    resp = client.options(f"/api/v1/providers/{provider_dep.id}/projects/")
     assert resp.status_code == 204
     assert "allow" in resp.headers or "Allow" in resp.headers
 
 
-def test_create_project_parent_provider_not_found(client):
+# POST endpoint
+def test_create_project_parent_provider_not_found(client, project_data):
     """Test POST returns 404 if parent_provider is None."""
-    fake_provider_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
     resp = client.post(
         f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
     )
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
-
-
-def test_create_project_success(client, monkeypatch):
-    """Test POST /projects/ creates a project and returns 201 with id."""
-    fake_id = str(uuid.uuid4())
-    fake_provider_id = get_fake_provider_id()
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.add_project",
-        lambda session, project, created_by, provider: fake_add_project(fake_id),
-    )
-    resp = client.post(
-        f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
-    )
-    assert resp.status_code == 201
-    assert resp.json() == {"id": fake_id}
-
-
-def test_create_project_conflict(client, monkeypatch):
-    """Test POST /projects/ returns 409 if project already exists."""
-    fake_provider_id = get_fake_provider_id()
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-
-    def fake_add_project(session, project, created_by, provider):
-        raise ConflictError("Project", "iaas_project_id", DUMMY_IAAS_ID)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.add_project", fake_add_project
-    )
-    resp = client.post(
-        f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
-    )
-    assert resp.status_code == 409
+    assert resp.json()["status"] == 404
     assert (
-        resp.json()["detail"]
-        == f"Project with iaas_project_id={DUMMY_IAAS_ID} already exists"
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
-def test_create_project_not_null_error(client, monkeypatch):
-    """Test POST /projects/ returns 422 if a not null error occurs."""
-    fake_provider_id = get_fake_provider_id()
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
+def test_create_project_success(
+    client, session, current_user, provider_dep, project_data
+):
+    """Test POST /projects/ creates a project and returns 201 with id."""
+    fake_id = uuid.uuid4()
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.add_project",
+        return_value=ItemID(id=fake_id),
+    ) as mock_create:
+        resp = client.post(
+            f"/api/v1/providers/{provider_dep.id}/projects/", json=project_data
+        )
+        mock_create.assert_called_once_with(
+            session=session,
+            project=ProjectCreate(**project_data),
+            created_by=current_user,
+            provider=provider_dep,
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
 
-    def fake_add_project(session, project, created_by, provider):
-        raise NotNullError("Project", "name")
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.add_project", fake_add_project
-    )
-    resp = client.post(
-        f"/api/v1/providers/{fake_provider_id}/projects/", json=project_data
-    )
-    assert resp.status_code == 422
-    assert resp.json()["detail"] == "Attribute 'name' of Project can't be NULL"
+def test_create_project_conflict(
+    client, session, current_user, provider_dep, project_data
+):
+    """Test POST /projects/ returns 409 if project already exists."""
+    err_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.add_project",
+        side_effect=ConflictError(err_msg),
+    ) as mock_create:
+        resp = client.post(
+            f"/api/v1/providers/{provider_dep.id}/projects/", json=project_data
+        )
+        mock_create.assert_called_once_with(
+            session=session,
+            project=ProjectCreate(**project_data),
+            created_by=current_user,
+            provider=provider_dep,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
+# GET (list) endpoint
 def test_get_projects_parent_provider_not_found(client):
     """Test GET returns 404 if parent_provider is None."""
-    fake_provider_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
     resp = client.get(f"/api/v1/providers/{fake_provider_id}/projects/")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
-
-
-def test_get_projects_success(client, monkeypatch):
-    """Test GET /projects/ returns paginated project list."""
-    fake_provider_id = get_fake_provider_id()
-    fake_projects = []
-    fake_total = 0
-
-    def fake_get_projects(session, skip, limit, sort, **kwargs):
-        return fake_projects, fake_total
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.get_projects", fake_get_projects
+    assert resp.json()["status"] == 404
+    assert (
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
-    resp = client.get(f"/api/v1/providers/{fake_provider_id}/projects/")
-    assert resp.status_code == 200
-    assert "data" in resp.json()
 
 
+def test_get_projects_success(client, session, provider_dep, project_data):
+    """Test GET /projects/ returns paginated project list."""
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.get_projects",
+        return_value=([], 0),
+    ) as mock_get:
+        resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/")
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            provider_id=provider_dep.id,
+            sla_id=None,
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    project1 = Project(
+        **project_data,
+        id=fake_id,
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        provider_id=provider_dep.id,
+    )
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.get_projects",
+        return_value=([project1], 1),
+    ) as mock_get:
+        resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/")
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            provider_id=provider_dep.id,
+            sla_id=None,
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+
+    project2 = Project(
+        **project_data,
+        id=fake_id,
+        created_by_id=user_id,
+        updated_by_id=user_id,
+        provider_id=provider_dep.id,
+    )
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.get_projects",
+        return_value=([project1, project2], 2),
+    ) as mock_get:
+        resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/")
+        mock_get.assert_called_once_with(
+            session=session,
+            skip=0,
+            limit=5,
+            sort="-created_at",
+            provider_id=provider_dep.id,
+            sla_id=None,
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+
+
+# GET (by id) endpoint
 def test_get_project_parent_provider_not_found(client):
     """Test GET by id returns 404 if parent_provider is None."""
-    fake_id = str(uuid.uuid4())
-    fake_provider_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
-    sub_app_v1.dependency_overrides[get_project] = lambda project_id, session=None: None
+    fake_id = uuid.uuid4()
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    sub_app_v1.dependency_overrides[get_project] = lambda: None
 
     resp = client.get(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
+    )
 
 
-def test_get_project_success(client):
-    """Test GET /projects/{project_id} returns project if found."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-
-    class FakeProject(SQLModel):
-        id: uuid.UUID = fake_id
-        name: str = DUMMY_NAME
-        description: str = DUMMY_DESC
-        iaas_project_id: str = DUMMY_IAAS_ID
-        created_at: datetime = DUMMY_CREATED_AT
-        created_by_id: uuid.UUID = fake_id
-        updated_at: datetime = DUMMY_CREATED_AT
-        updated_by_id: uuid.UUID = fake_id
-        sla_id: uuid.UUID | None = None
-
-    def fake_get_project(project_id, session=None):
-        return FakeProject()
-
-    sub_app_v1.dependency_overrides[get_project] = fake_get_project
-    resp = client.get(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
+def test_get_project_success(client, provider_dep, project_dep):
+    """Test GET by id returns user group."""
+    resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/{project_dep.id}")
     assert resp.status_code == 200
-    assert resp.json()["id"] == fake_id
+    assert resp.json()["id"] == str(project_dep.id)
 
 
-def test_get_project_not_found(client):
-    """Test GET /projects/{project_id} returns 404 if not found."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    sub_app_v1.dependency_overrides[get_project] = lambda project_id, session=None: None
-    resp = client.get(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
+def test_get_project_not_found(client, provider_dep):
+    """Test GET by id returns 404 if not found."""
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_project] = lambda: None
+
+    resp = client.get(f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
-
-
-def test_edit_project_parent_prpvider_not_found(client):
-    """Test PUT returns 404 if parent_provider is None."""
-    fake_id = str(uuid.uuid4())
-    fake_provider_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
-
-    resp = client.put(
-        f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
-    )
-    assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
-
-
-def test_edit_project_success(client, monkeypatch):
-    """Test PUT /projects/{project_id} returns 204 on successful update."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-
-    def fake_update_project(session, project_id, new_project, updated_by):
-        return None
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
-    )
-    resp = client.put(
-        f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
-    )
-    assert resp.status_code == 204
-
-
-def test_edit_project_not_found(client, monkeypatch):
-    """Test PUT /projects/{project_id} returns 404 if not found."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
-
-    def fake_update_project(session, project_id, new_project, updated_by):
-        raise ItemNotFoundError("Project", id=project_id)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
-    )
-    resp = client.put(
-        f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
-    )
-    assert resp.status_code == 404
+    assert resp.json()["status"] == 404
     assert resp.json()["detail"] == f"Project with ID '{fake_id}' does not exist"
 
 
-def test_edit_project_conflict(client, monkeypatch):
-    """Test PUT /projects/{project_id} returns 409 if conflict error occurs."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
+# PUT endpoint
+def test_edit_project_parent_provider_not_found(client, project_data):
+    """Test PUT returns 404 if parent_provider is None."""
+    fake_id = uuid.uuid4()
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
-    def fake_update_project(session, project_id, new_project, updated_by):
-        raise ConflictError("Project", "iaas_project_id", DUMMY_IAAS_ID)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
-    )
     resp = client.put(
         f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 404
+    assert resp.json()["status"] == 404
     assert (
-        resp.json()["detail"]
-        == f"Project with iaas_project_id={DUMMY_IAAS_ID} already exists"
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
     )
 
 
-def test_edit_project_not_null_error(client, monkeypatch):
-    """Test PUT /projects/{project_id} returns 422 if not null error occurs."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    project_data = {
-        "name": DUMMY_NAME,
-        "description": DUMMY_DESC,
-        "iaas_project_id": DUMMY_IAAS_ID,
-    }
+def test_edit_project_success(
+    client, session, current_user, provider_dep, project_data
+):
+    """Test PUT returns 204 on success."""
+    fake_id = uuid.uuid4()
 
-    def fake_update_project(session, project_id, new_project, updated_by):
-        raise NotNullError("Project", "name")
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.update_project",
+        return_value=None,
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}", json=project_data
+        )
+        mock_edit.assert_called_once_with(
+            session=session,
+            project_id=fake_id,
+            new_project=ProjectCreate(**project_data),
+            updated_by=current_user,
+        )
+        assert resp.status_code == 204
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.update_project", fake_update_project
-    )
-    resp = client.put(
-        f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}", json=project_data
-    )
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
+
+def test_edit_project_not_found(
+    client, session, current_user, provider_dep, project_data
+):
+    """Test PUT returns 404 if not found."""
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.update_project",
+        side_effect=ItemNotFoundError(err_msg),
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}", json=project_data
+        )
+        mock_edit.assert_called_once_with(
+            session=session,
+            project_id=fake_id,
+            new_project=ProjectCreate(**project_data),
+            updated_by=current_user,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
 
 
+def test_edit_project_conflict(
+    client, session, current_user, provider_dep, project_data
+):
+    """Test PUT returns 409 if conflict."""
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.update_project",
+        side_effect=ConflictError(err_msg),
+    ) as mock_edit:
+        resp = client.put(
+            f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}", json=project_data
+        )
+        mock_edit.assert_called_once_with(
+            session=session,
+            project_id=fake_id,
+            new_project=ProjectCreate(**project_data),
+            updated_by=current_user,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
+
+
+# DELETE endpoint
 def test_delete_project_parent_provider_not_found(client):
     """Test DELETE returns 404 if parent_provider is None."""
-    fake_id = str(uuid.uuid4())
-    fake_provider_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
+    fake_id = uuid.uuid4()
+    fake_provider_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
     resp = client.delete(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
+    assert resp.json()["status"] == 404
+    assert (
+        resp.json()["detail"] == f"Provider with ID '{fake_provider_id}' does not exist"
+    )
 
 
-def test_delete_project_success(client, monkeypatch):
-    """Test DELETE /projects/{project_id} returns 204 on success."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
-    monkeypatch.setattr(
+def test_delete_project_success(client, session, provider_dep):
+    """Test DELETE returns 204 on success."""
+    fake_id = uuid.uuid4()
+
+    with patch(
         "fed_mgr.v1.providers.projects.endpoints.delete_project",
-        lambda session, project_id: None,
-    )
-    resp = client.delete(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
-    assert resp.status_code == 204
+        return_value=None,
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}")
+        mock_delete.assert_called_once_with(session=session, project_id=fake_id)
+        assert resp.status_code == 204
 
 
-def test_delete_project_fail(client, monkeypatch):
+def test_delete_project_fail(client, session, provider_dep):
     """Test DELETE /projects/{project_id} returns 400 on fail."""
-    fake_provider_id = get_fake_provider_id()
-    fake_id = str(uuid.uuid4())
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
 
-    def fake_delete_project(session, project_id):
-        raise DeleteFailedError("Failed to delete item")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.projects.endpoints.delete_project", fake_delete_project
-    )
-
-    resp = client.delete(f"/api/v1/providers/{fake_provider_id}/projects/{fake_id}")
-    assert resp.status_code == 400
+    with patch(
+        "fed_mgr.v1.providers.projects.endpoints.delete_project",
+        side_effect=DeleteFailedError(err_msg),
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/projects/{fake_id}")
+        mock_delete.assert_called_once_with(session=session, project_id=fake_id)
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg

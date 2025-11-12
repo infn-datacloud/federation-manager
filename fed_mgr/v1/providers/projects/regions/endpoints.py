@@ -1,19 +1,15 @@
 """Endpoints to manage project-region config details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX, REGIONS_PREFIX
-from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
+from fed_mgr.v1.providers.dependencies import provider_required
 from fed_mgr.v1.providers.projects.dependencies import (
     ProjectRequiredDep,
     project_required,
@@ -30,13 +26,14 @@ from fed_mgr.v1.providers.projects.regions.dependencies import (
 from fed_mgr.v1.providers.projects.regions.schemas import (
     ProjRegConnectionCreate,
     ProjRegConnectionList,
-    ProjRegConnectionQueryDep,
+    ProjRegConnectionQuery,
     ProjRegConnectionRead,
     RegionOverridesBase,
 )
+from fed_mgr.v1.providers.regions.crud import get_region
 from fed_mgr.v1.providers.regions.dependencies import RegionRequiredDep
 from fed_mgr.v1.schemas import ErrorMessage
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 proj_reg_link_router = APIRouter(
     prefix=PROVIDERS_PREFIX
@@ -45,7 +42,7 @@ proj_reg_link_router = APIRouter(
     + "/{project_id}"
     + REGIONS_PREFIX,
     tags=["region overrides"],
-    dependencies=[Depends(provider_required), Depends(project_required)],
+    dependencies=[Depends(provider_required)],
     responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
 )
 
@@ -55,6 +52,7 @@ proj_reg_link_router = APIRouter(
     summary="List available endpoints for this resource",
     description="List available endpoints for this in the 'Allow' header.",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(project_required)],
 )
 def available_methods(response: Response) -> None:
     """Add the HTTP 'Allow' header to the response.
@@ -80,13 +78,13 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_project_config(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     project: ProjectRequiredDep,
     config: ProjRegConnectionCreate,
 ) -> None:
@@ -99,7 +97,7 @@ def create_project_config(
     Args:
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         config (ProjRegConfigCreate | None): Values overriding the Region default
             ones.
@@ -117,28 +115,16 @@ def create_project_config(
     msg = f"Connecting project with ID '{project.id!s}' with region with ID "
     msg += f"'{config.region_id!s}' with params: {config.overrides.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_overrides = connect_project_region(
-            session=session,
-            created_by=current_user,
-            project=project,
-            config=config,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    region = get_region(session=session, region_id=config.region_id)
+    if region is None:
+        raise ItemNotFoundError(f"Region with ID '{config.region_id}' does not exist")
+    db_overrides = connect_project_region(
+        session=session,
+        created_by=current_user,
+        project=project,
+        region=region,
+        overrides=config.overrides,
+    )
     msg = f"Project with ID '{project.id!s}' connected with region with ID "
     msg += f"'{config.region_id!s}' with params: {db_overrides.model_dump_json()}"
     request.state.logger.info(msg)
@@ -152,9 +138,8 @@ def create_project_config(
 def retrieve_project_configs(
     request: Request,
     session: SessionDep,
-    provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
-    params: ProjRegConnectionQueryDep,
+    params: Annotated[ProjRegConnectionQuery, Query()],
 ) -> ProjRegConnectionList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -165,7 +150,7 @@ def retrieve_project_configs(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProjRegConfigQueryDep): Dependency containing query parameters for
+        params (ProjRegConfigQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         project (uuid.UUID): Parent project ID.
@@ -225,7 +210,6 @@ def retrieve_project_configs(
 )
 def retrieve_project_config(
     request: Request,
-    provider: ProviderRequiredDep,
     project: ProjectRequiredDep,
     region: RegionRequiredDep,
     overrides: RegionOverridesRequiredDep,
@@ -278,15 +262,15 @@ def retrieve_project_config(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_project(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     project_id: uuid.UUID,
-    region: RegionRequiredDep,
+    region_id: uuid.UUID,
     overrides: RegionOverridesBase,
 ) -> None:
     """Update an existing project in the database with the given project ID.
@@ -295,11 +279,11 @@ def edit_project(
         request (Request): The current request object.
         project_id (uuid.UUID): The unique identifier of the project to
             update.
-        region (uuid.UUID): The unique identifier of the region to
+        region_id (uuid.UUID): The unique identifier of the region to
             update.
         overrides (UserCreate): The new project data to update.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -310,33 +294,17 @@ def edit_project(
         409 Conflict: If the user already exists (handled below).
 
     """
-    msg = f"Update configuration detail for region with ID '{region.id!s}' "
+    msg = f"Update configuration detail for region with ID '{region_id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_region_overrides(
-            session=session,
-            project_id=project_id,
-            region_id=region.id,
-            new_overrides=overrides,
-            updated_by=current_user,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
-    msg = f"Configuration detail for region with ID '{region.id!s}' "
+    update_region_overrides(
+        session=session,
+        project_id=project_id,
+        region_id=region_id,
+        new_overrides=overrides,
+        updated_by=current_user,
+    )
+    msg = f"Configuration detail for region with ID '{region_id!s}' "
     msg += f"overwritten by project with ID '{project_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -377,15 +345,9 @@ def remove_project(
     msg = f"Disconnect region with ID '{region_id!s}' from project with ID "
     msg += f"'{project_id!s}'"
     request.state.logger.info(msg)
-    try:
-        disconnect_project_region(
-            session=session, project_id=project_id, region_id=region_id
-        )
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    disconnect_project_region(
+        session=session, project_id=project_id, region_id=region_id
+    )
     msg = f"Region with ID '{region_id!s}' disconnected from project with ID "
     msg += f"'{project_id!s}"
     request.state.logger.info(msg)

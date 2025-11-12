@@ -119,4 +119,4 @@ def delete_sla(*, session: Session, sla_id: uuid.UUID) -> None:
         sla_id: The UUID of the sla to delete.
 
     """
-    delete_item(session=session, entity=SLA, id=sla_id)
+    return delete_item(session=session, entity=SLA, id=sla_id)

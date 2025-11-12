@@ -117,4 +117,4 @@ def delete_idp(*, session: Session, idp_id: uuid.UUID) -> None:
         idp_id: The UUID of the identity provider to delete.
 
     """
-    delete_item(session=session, entity=IdentityProvider, id=idp_id)
+    return delete_item(session=session, entity=IdentityProvider, id=idp_id)

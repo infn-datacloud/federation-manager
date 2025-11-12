@@ -22,6 +22,13 @@ spec:
       labels:
         io.kompose.service: fed-mgr
     spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox
+        command: ['sh', '-c', 'until nc -z db 3306; do echo "Waiting fro DB..."; sleep 2; done;']
+      - name: wait-for-opa
+        image: busybox
+        command: ['sh', '-c', 'until nc -z opa 8181; do echo "Waiting for OPA..."; sleep 2; done;']
       containers:
         - env:
             - name: AUTHN_MODE
@@ -44,11 +51,23 @@ spec:
                 configMapKeyRef:
                   name: fed-mgr-cm0
                   key: opa_url
-          image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:PR-18-python3.12
+            - name: TRUSTED_IDP_LIST
+              valueFrom:
+                configMapKeyRef:
+                  name: fed-mgr-cm0
+                  key: trusted_idp_list
+          image: harbor.cloud.infn.it/datacloud-middleware/fed-mgr:devel-python3.12
           name: fed-mgr
           ports:
             - containerPort: 80
               protocol: TCP
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           livenessProbe:
             httpGet:
               path: /api/v1/health

@@ -1,16 +1,11 @@
 """Endpoints to manage project details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROJECTS_PREFIX, PROVIDERS_PREFIX
 from fed_mgr.v1.providers.dependencies import ProviderRequiredDep, provider_required
@@ -24,11 +19,11 @@ from fed_mgr.v1.providers.projects.dependencies import ProjectRequiredDep
 from fed_mgr.v1.providers.projects.schemas import (
     ProjectCreate,
     ProjectList,
-    ProjectQueryDep,
+    ProjectQuery,
     ProjectRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 project_router = APIRouter(
     prefix=PROVIDERS_PREFIX + "/{provider_id}" + PROJECTS_PREFIX,
@@ -68,13 +63,13 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_project(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     project: ProjectCreate,
 ) -> ItemID:
@@ -87,7 +82,7 @@ def create_project(
     Args:
         request (Request): The incoming HTTP request object, used for logging.
         project (ProjectCreate | None): The project data to create.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         session (SessionDep): The database session dependency.
         provider (Provider): The region's parent provider.
@@ -104,25 +99,9 @@ def create_project(
     """
     msg = f"Creating project with params: {project.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_project = add_project(
-            session=session, project=project, created_by=current_user, provider=provider
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    db_project = add_project(
+        session=session, project=project, created_by=current_user, provider=provider
+    )
     msg = f"Project created: {db_project.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_project.id}
@@ -137,7 +116,7 @@ def retrieve_projects(
     request: Request,
     session: SessionDep,
     provider: ProviderRequiredDep,
-    params: ProjectQueryDep,
+    params: Annotated[ProjectQuery, Query()],
 ) -> ProjectList:
     """Retrieve a paginated list of projects based on query parameters.
 
@@ -148,7 +127,7 @@ def retrieve_projects(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (ProjectQueryDep): Dependency containing query parameters for
+        params (ProjectQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         provider: Parent provider ID
@@ -246,13 +225,13 @@ def retrieve_project(request: Request, project: ProjectRequiredDep) -> ProjectRe
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_project(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     project_id: uuid.UUID,
     new_project: ProjectCreate,
 ) -> None:
@@ -264,7 +243,7 @@ def edit_project(
             update.
         new_project (UserCreate): The new project data to update.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -277,28 +256,12 @@ def edit_project(
     """
     msg = f"Update project with ID '{project_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_project(
-            session=session,
-            project_id=project_id,
-            new_project=new_project,
-            updated_by=current_user,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    update_project(
+        session=session,
+        project_id=project_id,
+        new_project=new_project,
+        updated_by=current_user,
+    )
     msg = f"Project with ID '{project_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -336,12 +299,6 @@ def remove_project(
     """
     msg = f"Delete project with ID '{project_id!s}'"
     request.state.logger.info(msg)
-    try:
-        delete_project(session=session, project_id=project_id)
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    delete_project(session=session, project_id=project_id)
     msg = f"Project with ID '{project_id!s}' deleted"
     request.state.logger.info(msg)

@@ -11,7 +11,7 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
-from fed_mgr.v1.models import RegionOverrides
+from fed_mgr.v1.models import Project, Region, RegionOverrides, User
 from fed_mgr.v1.providers.projects.regions.crud import (
     connect_project_region,
     disconnect_project_region,
@@ -19,13 +19,17 @@ from fed_mgr.v1.providers.projects.regions.crud import (
     get_region_overrides_list,
     update_region_overrides,
 )
+from fed_mgr.v1.providers.projects.regions.schemas import (
+    ProjRegConnectionCreate,
+    RegionOverridesBase,
+)
 
 
-def test_get_proj_reg_config_found(session):
+def test_get_region_overrides_found(session):
     """Test get_region_overrides returns the Provider-IdP relationship if found."""
     region_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    expected_region = MagicMock()
+    expected_region = MagicMock(spec=RegionOverrides)
     with patch(
         "fed_mgr.v1.providers.projects.regions.crud.get_item",
         return_value=expected_region,
@@ -33,16 +37,16 @@ def test_get_proj_reg_config_found(session):
         result = get_region_overrides(
             session=session, region_id=region_id, project_id=project_id
         )
-        assert result == expected_region
         mock_get_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
             region_id=region_id,
             project_id=project_id,
         )
+        assert result == expected_region
 
 
-def test_get_region_not_found(session):
+def test_get_region_overrides_not_found(session):
     """Test get_region_overrides returns None if Provider-IdP relationship not found."""
     region_id = uuid.uuid4()
     project_id = uuid.uuid4()
@@ -53,18 +57,18 @@ def test_get_region_not_found(session):
         result = get_region_overrides(
             session=session, region_id=region_id, project_id=project_id
         )
-        assert result is None
         mock_get_item.assert_called_once_with(
             session=session,
             entity=RegionOverrides,
             region_id=region_id,
             project_id=project_id,
         )
+        assert result is None
 
 
-def test_get_regions(session):
+def test_get_region_overrides(session):
     """Test get_region_overrides_list calls get_items with correct arguments."""
-    expected_list = [MagicMock(), MagicMock()]
+    expected_list = [MagicMock(spec=RegionOverrides), MagicMock(spec=RegionOverrides)]
     expected_count = 2
     with patch(
         "fed_mgr.v1.providers.projects.regions.crud.get_items",
@@ -73,38 +77,31 @@ def test_get_regions(session):
         result = get_region_overrides_list(
             session=session, skip=0, limit=10, sort="name"
         )
-        assert result == (expected_list, expected_count)
         mock_get_items.assert_called_once_with(
             session=session, entity=RegionOverrides, skip=0, limit=10, sort="name"
         )
+        assert result == (expected_list, expected_count)
 
 
-def test_add_region_calls_add_item(session):
+def test_add_region_overrides(session):
     """Test connect_project_region calls add_item with correct arguments."""
-    config = MagicMock()
-    region = MagicMock()
-    project = MagicMock()
-    created_by = MagicMock()
-    expected_item = MagicMock()
-    with (
-        patch(
-            "fed_mgr.v1.providers.projects.regions.crud.add_item",
-            return_value=expected_item,
-        ) as mock_add_item,
-        patch(
-            "fed_mgr.v1.providers.projects.regions.crud.get_region",
-            return_value=region,
-        ) as mock_get_region,
-    ):
+    config = MagicMock(spec=ProjRegConnectionCreate)
+    config.region_id = uuid.uuid4()
+    config.overrides = MagicMock(spec=RegionOverridesBase)
+    region = MagicMock(spec=Region)
+    project = MagicMock(spec=Project)
+    created_by = MagicMock(spec=User)
+    expected_item = MagicMock(spec=RegionOverrides)
+    with patch(
+        "fed_mgr.v1.providers.projects.regions.crud.add_item",
+        return_value=expected_item,
+    ) as mock_add_item:
         result = connect_project_region(
             session=session,
-            config=config,
+            overrides=config.overrides,
             project=project,
+            region=region,
             created_by=created_by,
-        )
-        assert result == expected_item
-        mock_get_region.assert_called_once_with(
-            session=session, region_id=config.region_id
         )
         mock_add_item.assert_called_once_with(
             session=session,
@@ -115,18 +112,19 @@ def test_add_region_calls_add_item(session):
             updated_by=created_by,
             **config.overrides.model_dump(),
         )
+        assert result == expected_item
 
 
-def test_update_region_calls_update_item(session):
+def test_update_region_overrides(session):
     """Test update_region_overrides calls update_item with correct arguments."""
     region_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    new_overrides = MagicMock()
-    updated_by = MagicMock()
+    new_overrides = MagicMock(spec=RegionOverridesBase)
+    updated_by = MagicMock(spec=User)
     with patch(
-        "fed_mgr.v1.providers.projects.regions.crud.update_item"
+        "fed_mgr.v1.providers.projects.regions.crud.update_item", return_value=None
     ) as mock_update_item:
-        update_region_overrides(
+        result = update_region_overrides(
             session=session,
             region_id=region_id,
             project_id=project_id,
@@ -141,6 +139,7 @@ def test_update_region_calls_update_item(session):
             updated_by=updated_by,
             **new_overrides.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_region_calls_delete_item(session):
@@ -148,9 +147,9 @@ def test_delete_region_calls_delete_item(session):
     region_id = uuid.uuid4()
     project_id = uuid.uuid4()
     with patch(
-        "fed_mgr.v1.providers.projects.regions.crud.delete_item"
+        "fed_mgr.v1.providers.projects.regions.crud.delete_item", return_value=None
     ) as mock_delete_item:
-        disconnect_project_region(
+        result = disconnect_project_region(
             session=session, region_id=region_id, project_id=project_id
         )
         mock_delete_item.assert_called_once_with(
@@ -159,3 +158,4 @@ def test_delete_region_calls_delete_item(session):
             region_id=region_id,
             project_id=project_id,
         )
+        assert result is None

@@ -9,10 +9,19 @@ These tests cover:
 import logging
 import re
 
-from fed_mgr.logger import get_logger
+from fed_mgr.logger import LogLevelEnum, get_logger
 
 
-def test_get_logger_returns_logger_and_sets_level(monkeypatch):
+def test_log_level_enum_values():
+    """Test that LogLevelEnum values match the standard logging levels."""
+    assert LogLevelEnum.DEBUG == logging.DEBUG
+    assert LogLevelEnum.INFO == logging.INFO
+    assert LogLevelEnum.WARNING == logging.WARNING
+    assert LogLevelEnum.ERROR == logging.ERROR
+    assert LogLevelEnum.CRITICAL == logging.CRITICAL
+
+
+def test_get_logger_returns_logger_and_sets_level():
     """Test that get_logger returns a logger with the correct name and log level."""
     logger = get_logger(log_level=logging.WARNING)
     assert isinstance(logger, logging.Logger)
@@ -20,7 +29,7 @@ def test_get_logger_returns_logger_and_sets_level(monkeypatch):
     assert logger.level == logging.WARNING
 
 
-def test_get_logger_adds_stream_handler_and_formatter(monkeypatch):
+def test_get_logger_adds_stream_handler_and_formatter():
     """Test that get_logger adds a StreamHandler with the correct formatter."""
     logger = get_logger(log_level=logging.INFO)
     # There should be at least one StreamHandler

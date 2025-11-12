@@ -1,23 +1,11 @@
 """Endpoints to manage user group details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import (
@@ -34,11 +22,11 @@ from fed_mgr.v1.identity_providers.user_groups.dependencies import UserGroupRequ
 from fed_mgr.v1.identity_providers.user_groups.schemas import (
     UserGroupCreate,
     UserGroupList,
-    UserGroupQueryDep,
+    UserGroupQuery,
     UserGroupRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 user_group_router = APIRouter(
     prefix=IDPS_PREFIX + "/{idp_id}" + USER_GROUPS_PREFIX,
@@ -81,13 +69,13 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_user_group(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     idp: IdentityProviderRequiredDep,
     user_group: UserGroupCreate,
 ) -> ItemID:
@@ -101,7 +89,7 @@ def create_user_group(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         user_group (UserGroupCreate | None): The user group data to create.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         idp (IdentityProvider): The parent identity provider's ID.
 
@@ -118,20 +106,9 @@ def create_user_group(
     """
     msg = f"Creating user group with params: {user_group.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_user_group = add_user_group(
-            session=session, user_group=user_group, created_by=current_user, idp=idp
-        )
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    db_user_group = add_user_group(
+        session=session, user_group=user_group, created_by=current_user, idp=idp
+    )
     msg = f"User group created: {db_user_group.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_user_group.id}
@@ -146,7 +123,7 @@ def retrieve_user_groups(
     request: Request,
     session: SessionDep,
     idp: IdentityProviderRequiredDep,
-    params: UserGroupQueryDep,
+    params: Annotated[UserGroupQuery, Query()],
 ) -> UserGroupList:
     """Retrieve a paginated list of user groups based on query parameters.
 
@@ -157,7 +134,7 @@ def retrieve_user_groups(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (UserGroupQueryDep): Dependency containing query parameters for
+        params (UserGroupQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         idp: Parent identity Provider ID
@@ -254,13 +231,13 @@ def retrieve_user_group(
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_user_group(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     user_group_id: uuid.UUID,
     new_user_group: UserGroupCreate,
 ) -> None:
@@ -271,7 +248,7 @@ def edit_user_group(
         user_group_id (uuid.UUID): The unique identifier of the user group to update.
         new_user_group (UserCreate): The new user group data to update.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -281,28 +258,12 @@ def edit_user_group(
     """
     msg = f"Update user group with ID '{user_group_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_user_group(
-            session=session,
-            user_group_id=user_group_id,
-            new_user_group=new_user_group,
-            updated_by=current_user,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    update_user_group(
+        session=session,
+        user_group_id=user_group_id,
+        new_user_group=new_user_group,
+        updated_by=current_user,
+    )
     msg = f"User group with ID '{user_group_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -340,12 +301,6 @@ def remove_user_group(
     """
     msg = f"Delete user group with ID '{user_group_id!s}'"
     request.state.logger.info(msg)
-    try:
-        delete_user_group(session=session, user_group_id=user_group_id)
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    delete_user_group(session=session, user_group_id=user_group_id)
     msg = f"User group with ID '{user_group_id!s}' deleted"
     request.state.logger.info(msg)

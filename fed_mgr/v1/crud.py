@@ -10,9 +10,9 @@ from sqlmodel import Session, SQLModel, asc, delete, desc, func, select, update
 
 from fed_mgr.exceptions import (
     ConflictError,
+    DatabaseOperationError,
     DeleteFailedError,
     ItemNotFoundError,
-    NotNullError,
 )
 from fed_mgr.utils import split_camel_case
 from fed_mgr.v1.models import User
@@ -23,48 +23,118 @@ CreateModel = TypeVar("CreateModel", bound=SQLModel)
 UpdateModel = TypeVar("UpdateModel", bound=SQLModel)
 
 
-def raise_from_integrity_error(
-    *, entity: type[Entity], session: Session, error: Exception, **kwargs
-):
-    """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
+def _sqlite_unique_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | None:
+    """Raise conflict exception from sqlite error.
 
-    Args:
-        entity: The SQLModel entity class involved in the operation.
-        session: The SQLModel session for database access.
-        error: The exception raised during the database operation.
-        kwargs: The received model attributes.
+    This problem arises only on create and update operations.
+
+    Search for 'UNIQUE constraint failed: ' string and catch anything till the of line
+    Example of exceptions:
+    - UNIQUE constraint failed: user.sub, user.issuer
+    - UNIQUE constraint failed: project.provider_id
+    """
+    match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+(?=$)", err_msg)
+    if match is not None:
+        matches = re.findall(
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
+        )
+        if len(matches) > 0:
+            dup_values = []
+            for i in matches:
+                if i[1] == "provider_id":
+                    dup_values.append(f"{i[1]}={kwargs.get('provider').id!s}")
+                else:
+                    dup_values.append(f"{i[1]}={kwargs.get(i[1])!s}")
+            if len(matches) == 1 and matches[0][1] == "provider_id":
+                dup_values.append("is_root=True")
+            return f"{entity} with {', '.join(dup_values)} already exists"
+
+
+def _sqlite_foreign_key_constr_err(
+    err_msg: str, *, entity: str, **kwargs
+) -> str | None:
+    """Raise delete fail exception from sqlite error.
+
+    This problem arises when trying to delete an entity that is mandatory for another
+    one and can't be deleted on cascade.
+
+    Search for 'FOREIGN KEY constraint failed' string
+    Example of exceptions:
+    - FOREIGN KEY constraint failed
+    """
+    match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", err_msg)
+    if match is not None:
+        entity_id = kwargs.get("id")
+        message = f"{entity} with ID '{entity_id!s}' can't be deleted. "
+        message += "Pointed by another entity."
+        return message
+
+
+def _sqlite_not_null_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | None:
+    """Raise not null exception from sqlite error.
+
+    This problem arises when trying to delete an entity that is mandatory for another
+    one and can't be deleted on cascade.
+
+    Search for 'NOT NULL constraint failed: ' string and catch anything till end of line
+    Examples:
+    - NOT NULL constraint failed: identityprovider.created_by_id
+    """
+    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+(?=$)", err_msg)
+    if match is not None:
+        matches = re.findall(
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
+        )
+        if len(matches) > 0:
+            entity_id = kwargs.get("id")
+            message = f"{entity}'s with ID '{entity_id!s}' can't be deleted. "
+            message += "Pointed by another entity"
+            return message
+
+
+def _mysql_duplicate_entry(err_msg: str, *, entity: str, **kwargs) -> str | None:
+    # Search for 'Duplicate entry ' string and catch anything till the end of line
+    match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", err_msg)
+    if match is not None:
+        if "unique_projid_provider_couple" in match.group(0):
+            attr = "provider_id"
+        elif "ix_unique_provider_root" in match.group(0):
+            attr = "is_root"
+        else:
+            # Keep column name and remove final char (')
+            attr = match.group(0).split(".")[1][:-1]
+        value = kwargs.get(attr)
+        return f"{entity} with {attr}={value!s} already exists"
+
+
+def _message_for_conflict(err_msg: str, entity: type[Entity], **kwargs) -> None:
+    """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
 
     Raises:
         NotNullError: If a NOT NULL constraint is violated.
         ConflictError: If a UNIQUE constraint is violated.
 
     """
-    session.rollback()
     element_str = split_camel_case(entity.__name__)
 
-    # Search for 'NOT NULL constraint failed: ' string and catch anything till the first
-    # , or end of line
-    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
-    if match is not None:
-        attr = match.group(0).split(".")[1]
-        raise NotNullError(element_str, attr) from error
+    # SQLITE
+    message = _sqlite_unique_constr_err(err_msg, entity=element_str, **kwargs)
+    if message is not None:
+        return message
+    # MYSQL
+    message = _mysql_duplicate_entry(err_msg, entity=element_str, **kwargs)
+    if message is not None:
+        return message
 
-    # Search for 'UNIQUE constraint failed: ' string and catch anything till the first
-    # , or end of line
-    match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+?(?=,|$)", error.args[0])
-    if match is not None:
-        if match.group(0).startswith("index"):
-            raise ConflictError(element_str, "is_root", True)
-        attr = match.group(0).split(".")[1]
-        value = kwargs.get(attr)
-        raise ConflictError(element_str, attr, value) from error
 
-    # Search for 'FOREIGN KEY constraint failed' string
-    match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", error.args[0])
-    if match is not None:
-        raise DeleteFailedError(
-            element_str, id=kwargs.get("id"), params=kwargs
-        ) from error
+def _message_for_delete(err_msg: str, entity: type[Entity], **kwargs):
+    element_str = split_camel_case(entity.__name__)
+    message = _sqlite_foreign_key_constr_err(err_msg, entity=element_str, **kwargs)
+    if message is not None:
+        return message
+    message = _sqlite_not_null_constr_err(err_msg, entity=element_str, **kwargs)
+    if message is not None:
+        return message
 
 
 def _handle_special_date_fields(entity, k, v):
@@ -144,7 +214,7 @@ def _handle_generic_field(entity, k, v):
     return None
 
 
-def get_conditions(
+def _get_conditions(
     *, entity: type[Entity], **kwargs
 ) -> list[sqlalchemy.BinaryExpression]:
     """Build a list of SQLAlchemy filter conditions for querying items.
@@ -227,7 +297,7 @@ def get_items(
     else:
         key = asc(entity.__table__.c.get(sort))
 
-    conditions = get_conditions(entity=entity, **kwargs)
+    conditions = _get_conditions(entity=entity, **kwargs)
 
     statement = (
         select(entity)
@@ -271,12 +341,16 @@ def add_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity:
         session.commit()
         return db_item
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
+        session.rollback()
+        message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
+        if message is None:
+            raise DatabaseOperationError(e.args[0]) from e
+        raise ConflictError(message) from e
 
 
 def update_item(
-    *, entity: type[Entity], session: Session, updated_by: User | None = None, **kwargs
-) -> None:
+    *, entity: type[Entity], session: Session, updated_by: User, **kwargs
+) -> None:  # FIXME Return Entity
     """Update an existing item in the database with new data.
 
     Args:
@@ -292,26 +366,37 @@ def update_item(
 
     """
     conditions = []
+    where_values = ""
     for k, v in kwargs.items():
         if isinstance(v, uuid.UUID):
+            where_values += f"{k}={v!s}"
             conditions.append(entity.__table__.c.get(k) == v)
 
-    if updated_by is not None:
-        kwargs["updated_by_id"] = updated_by.id
+    kwargs["updated_by_id"] = updated_by.id
 
     try:
         statement = (
-            update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
+            update(entity)
+            .where(sqlalchemy.and_(True, *conditions))
+            .values(**kwargs)
+            .returning(entity)
         )
         result = session.exec(statement)
+        session.commit()
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
-
-    if result.rowcount == 0:
         session.rollback()
-        element_str = split_camel_case(entity.__name__)
-        raise ItemNotFoundError(element_str, params=kwargs)
-    session.commit()
+        message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
+        if message is None:
+            raise DatabaseOperationError(e.args[0]) from e
+        raise ConflictError(message) from e
+
+    updated_value = result.first()
+    if updated_value is None:
+        message = f"{split_camel_case(entity.__name__)} with given attributes does not "
+        message += f"exist: {where_values!s}"
+        raise ItemNotFoundError(message)
+
+    # FIXME: return updated_value
 
 
 def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
@@ -336,7 +421,10 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
     statement = delete(entity).where(sqlalchemy.and_(True, *conditions))
     try:
         session.exec(statement)
+        session.commit()
     except sqlalchemy.exc.IntegrityError as e:
-        raise_from_integrity_error(entity=entity, session=session, error=e, **kwargs)
-
-    session.commit()
+        session.rollback()
+        message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
+        if message is None:
+            raise DatabaseOperationError(e.args[0]) from e
+        raise DeleteFailedError(message) from e

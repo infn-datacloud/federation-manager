@@ -13,20 +13,21 @@ from fed_mgr.v1.identity_providers.user_groups.slas.crud import (
     get_slas,
     update_sla,
 )
-from fed_mgr.v1.models import SLA
+from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLACreate
+from fed_mgr.v1.models import SLA, User, UserGroup
 
 
 def test_get_sla_found(session):
     """Test get_sla returns the SLA if found."""
     sla_id = uuid.uuid4()
-    expected_sla = MagicMock()
+    expected_sla = MagicMock(spec=SLA)
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.get_item",
         return_value=expected_sla,
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
-        assert result == expected_sla
         mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result == expected_sla
 
 
 def test_get_sla_not_found(session):
@@ -37,38 +38,31 @@ def test_get_sla_not_found(session):
         return_value=None,
     ) as mock_get_item:
         result = get_sla(session=session, sla_id=sla_id)
-        assert result is None
         mock_get_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result is None
 
 
 def test_get_slas(session):
     """Test get_slas returns paginated and sorted list of SLAs and total count."""
-    expected_list = [MagicMock(), MagicMock()]
+    expected_list = [MagicMock(spec=SLA), MagicMock(spec=SLA)]
     expected_count = 2
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.get_items",
         return_value=(expected_list, expected_count),
     ) as mock_get_items:
-        result = get_slas(
-            session=session, skip=0, limit=10, sort="created_at", foo="bar"
+        result = get_slas(session=session, skip=0, limit=10, sort="created_at")
+        mock_get_items.assert_called_once_with(
+            session=session, entity=SLA, skip=0, limit=10, sort="created_at"
         )
         assert result == (expected_list, expected_count)
-        mock_get_items.assert_called_once_with(
-            session=session,
-            entity=SLA,
-            skip=0,
-            limit=10,
-            sort="created_at",
-            foo="bar",
-        )
 
 
 def test_add_sla(session):
     """Test add_sla passes correct arguments and returns ItemID."""
-    sla = MagicMock()
-    created_by = MagicMock()
-    parent_user_group = MagicMock()
-    expected_item = MagicMock()
+    sla = MagicMock(spec=SLACreate)
+    created_by = MagicMock(spec=User)
+    parent_user_group = MagicMock(spec=UserGroup)
+    expected_item = MagicMock(spec=SLA)
     with patch(
         "fed_mgr.v1.identity_providers.user_groups.slas.crud.add_item",
         return_value=expected_item,
@@ -79,7 +73,6 @@ def test_add_sla(session):
             created_by=created_by,
             user_group=parent_user_group,
         )
-        assert result == expected_item
         mock_add_item.assert_called_once_with(
             session=session,
             entity=SLA,
@@ -88,17 +81,19 @@ def test_add_sla(session):
             user_group=parent_user_group,
             **sla.model_dump(),
         )
+        assert result == expected_item
 
 
 def test_update_sla(session):
     """Test update_sla passes correct arguments to update_item."""
     sla_id = uuid.uuid4()
-    new_sla = MagicMock()
-    updated_by = MagicMock()
+    new_sla = MagicMock(spec=SLACreate)
+    updated_by = MagicMock(spec=User)
     with patch(
-        "fed_mgr.v1.identity_providers.user_groups.slas.crud.update_item"
+        "fed_mgr.v1.identity_providers.user_groups.slas.crud.update_item",
+        return_value=None,
     ) as mock_update_item:
-        update_sla(
+        result = update_sla(
             session=session,
             sla_id=sla_id,
             new_sla=new_sla,
@@ -111,13 +106,16 @@ def test_update_sla(session):
             updated_by=updated_by,
             **new_sla.model_dump(),
         )
+        assert result is None
 
 
 def test_delete_sla(session):
     """Test delete_sla passes correct arguments to delete_item."""
     sla_id = uuid.uuid4()
     with patch(
-        "fed_mgr.v1.identity_providers.user_groups.slas.crud.delete_item"
+        "fed_mgr.v1.identity_providers.user_groups.slas.crud.delete_item",
+        return_value=None,
     ) as mock_delete_item:
-        delete_sla(session=session, sla_id=sla_id)
+        result = delete_sla(session=session, sla_id=sla_id)
         mock_delete_item.assert_called_once_with(session=session, entity=SLA, id=sla_id)
+        assert result is None
