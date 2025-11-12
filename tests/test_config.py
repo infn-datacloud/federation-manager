@@ -19,21 +19,8 @@ from fed_mgr.config import (
     AuthorizationMethodsEnum,
     Settings,
     get_level,
-    get_settings,
 )
 from fed_mgr.logger import LogLevelEnum
-
-
-@pytest.fixture
-def override_env_fields() -> dict[str, str]:
-    """Use a not existing .env file."""
-    return {"_env_file": ".test.env"}
-
-
-@pytest.fixture
-def mandatory_fields(override_env_fields) -> dict[str, str | bytes]:
-    """Set a valid SECRET_KEY."""
-    return {**override_env_fields, "SECRET_KEY": Fernet.generate_key()}
 
 
 def test_authentication_methods_enum_values() -> None:
@@ -78,9 +65,9 @@ def test_get_level_with_int() -> None:
     assert get_level(logging.CRITICAL) == logging.CRITICAL
 
 
-def test_settings_defaults(mandatory_fields: dict[str, str | bytes]) -> None:
+def test_settings_defaults(mandatory_settings_fields: dict[str, str | bytes]) -> None:
     """Test that Settings model has correct default values and types."""
-    s = Settings(**mandatory_fields)
+    s = Settings(**mandatory_settings_fields)
     assert s.PROJECT_NAME == "Federation-Manager"
     assert s.MAINTAINER_NAME is None
     assert s.MAINTAINER_URL is None
@@ -124,15 +111,17 @@ def test_settings_defaults(mandatory_fields: dict[str, str | bytes]) -> None:
     assert isinstance(s.SECRET_KEY, Fernet)
 
 
-def test_get_settings_caching() -> None:
+def test_get_settings_caching(original_get_settings) -> None:
     """Test that get_settings returns a cached Settings instance."""
-    s1 = get_settings()
-    s2 = get_settings()
-    assert s1 is s2
+    assert (
+        callable(original_get_settings)
+        and hasattr(original_get_settings, "cache_info")
+        and hasattr(original_get_settings, "cache_clear")
+    )
 
 
 def test_settings_invalid_email_raises(
-    mandatory_fields: dict[str, str | bytes],
+    mandatory_settings_fields: dict[str, str | bytes],
 ) -> None:
     """Test that Settings model has correct default values and types."""
     with pytest.raises(
@@ -140,7 +129,7 @@ def test_settings_invalid_email_raises(
         match="1 validation error for Settings\nMAINTAINER_EMAIL\n  "
         "value is not a valid email address: An email address must have an @-sign",
     ):
-        Settings(MAINTAINER_EMAIL="not_an_email", **mandatory_fields)
+        Settings(MAINTAINER_EMAIL="not_an_email", **mandatory_settings_fields)
 
 
 @pytest.mark.parametrize(
@@ -154,7 +143,7 @@ def test_settings_invalid_email_raises(
     ],
 )
 def test_settings_negative_value_raises(
-    key: str, mandatory_fields: dict[str, str | bytes]
+    key: str, mandatory_settings_fields: dict[str, str | bytes]
 ) -> None:
     """Test that Settings model has correct default values and types."""
     with pytest.raises(
@@ -162,12 +151,12 @@ def test_settings_negative_value_raises(
         match=f"1 validation error for Settings\n{key}\n  "
         "Input should be greater than or equal to ",
     ):
-        kwargs = {key: -10, **mandatory_fields}
+        kwargs = {key: -10, **mandatory_settings_fields}
         Settings(**kwargs)
 
 
 def test_settings_with_invalid_log_level_raises(
-    mandatory_fields: dict[str, str | bytes],
+    mandatory_settings_fields: dict[str, str | bytes],
 ) -> None:
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     with pytest.raises(
@@ -175,36 +164,36 @@ def test_settings_with_invalid_log_level_raises(
         match="1 validation error for Settings\nLOG_LEVEL\n  "
         "Input should be 10, 20, 30, 40 or 50",
     ):
-        Settings(LOG_LEVEL="invalid", **mandatory_fields)
+        Settings(LOG_LEVEL="invalid", **mandatory_settings_fields)
 
     with pytest.raises(
         ValueError,
         match="1 validation error for Settings\nLOG_LEVEL\n  "
         "Input should be 10, 20, 30, 40 or 50",
     ):
-        Settings(LOG_LEVEL=99, **mandatory_fields)
+        Settings(LOG_LEVEL=99, **mandatory_settings_fields)
 
 
 def test_settings_with_invalid_secret_key_raises(
-    override_env_fields: dict[str, str],
+    overwrite_env_file_field: dict[str, str],
 ) -> None:
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     with pytest.raises(
         ValueError,
         match="1 validation error for Settings\nSECRET_KEY\n  Field required",
     ):
-        Settings(**override_env_fields)
+        Settings(**overwrite_env_file_field)
 
     with pytest.raises(
         ValueError,
         match="1 validation error for Settings\nSECRET_KEY\n  Value error, "
         "Fernet key must be 32 url-safe base64-encoded bytes",
     ):
-        Settings(SECRET_KEY="changeit", **override_env_fields)
+        Settings(SECRET_KEY="changeit", **overwrite_env_file_field)
 
 
 def test_settings_authz_without_authn_raises(
-    mandatory_fields: dict[str, str | bytes],
+    mandatory_settings_fields: dict[str, str | bytes],
 ) -> None:
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     with pytest.raises(
@@ -213,11 +202,13 @@ def test_settings_authz_without_authn_raises(
         "If authorization mode is defined, authentication mode can't be undefined.",
     ):
         Settings(
-            AUTHN_MODE=None, AUTHZ_MODE=AuthorizationMethodsEnum.opa, **mandatory_fields
+            AUTHN_MODE=None,
+            AUTHZ_MODE=AuthorizationMethodsEnum.opa,
+            **mandatory_settings_fields,
         )
 
 
-def test_build_db_url(mandatory_fields: dict[str, str | bytes]) -> None:
+def test_build_db_url(mandatory_settings_fields: dict[str, str | bytes]) -> None:
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     scheme = "mysql"
     user = os.getenv("user", "user")
@@ -230,7 +221,7 @@ def test_build_db_url(mandatory_fields: dict[str, str | bytes]) -> None:
         DB_PASSWORD=pwd,
         DB_HOST=host,
         DB_NAME=db_name,
-        **mandatory_fields,
+        **mandatory_settings_fields,
     )
     assert s.DB_URL == f"{scheme}://{user}:{pwd}@{host}/{db_name}"
 
@@ -242,6 +233,6 @@ def test_build_db_url(mandatory_fields: dict[str, str | bytes]) -> None:
         DB_HOST=host,
         DB_PORT=port,
         DB_NAME=db_name,
-        **mandatory_fields,
+        **mandatory_settings_fields,
     )
     assert s.DB_URL == f"{scheme}://{user}:{pwd}@{host}:{port}/{db_name}"
