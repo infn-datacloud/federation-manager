@@ -92,22 +92,46 @@ def _sqlite_not_null_constr_err(err_msg: str, *, entity: str, **kwargs) -> str |
             return message
 
 
-def _mysql_duplicate_entry(err_msg: str, *, entity: str, **kwargs) -> str | None:
+def _mysql_duplicate_entry(err_msg: str, *, entity: str) -> str | None:
     # Search for 'Duplicate entry ' string and catch anything till the end of line
     match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", err_msg)
     if match is not None:
-        if "unique_projid_provider_couple" in match.group(0):
-            attr = "provider_id"
-        elif "ix_unique_provider_root" in match.group(0):
-            attr = "is_root"
-        else:
-            # Keep column name and remove final char (')
-            attr = match.group(0).split(".")[1][:-1]
-        value = kwargs.get(attr)
-        return f"{entity} with {attr}={value!s} already exists"
+        # Duplicate user's sub and issuer
+        matches = re.findall(
+            r"'([a-zA-Z0-9_\-][a-zA-Z0-9_\-]*)-(.*)' for key "
+            r"'(.*)\.unique_sub_issuer_couple'",
+            match.group(0),
+        )
+        if len(matches) > 0:
+            args = f"sub={matches[0][0]!s}, issuer={matches[0][1]!s}"
+            return f"{entity} with {args} already exists"
+
+        # Duplicate project's iaas id on same provider
+        matches = re.findall(
+            r"'(.*)-(.*)' for key "
+            r"'(.*)\.unique_projid_provider_couple'",
+            match.group(0),
+        )
+        if len(matches) > 0:
+            provider_id = uuid.UUID(matches[0][1])
+            args = f"iaas_project_id={matches[0][0]!s}, provider_id={provider_id!s}"
+            return f"{entity} with {args} already exists"
+
+        # Duplicate root project on same provider
+        matches = re.findall(
+            r"'(.*)' for key '(.*)\.ix_unique_provider_root'", match.group(0)
+        )
+        if len(matches) > 0:
+            return f"{entity} with is_root=True already exists"
+
+        # Duplicate key
+        matches = re.findall(r"'(.*)' for key '(.*)\.(.*)'", match.group(0))
+        if len(matches) > 0:
+            args = f"{matches[0][2]}={matches[0][0]!s}"
+            return f"{entity} with {args} already exists"
 
 
-def _message_for_conflict(err_msg: str, entity: type[Entity], **kwargs) -> None:
+def _message_for_conflict(err_msg: str, entity: str, **kwargs) -> None:
     """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
 
     Raises:
@@ -115,20 +139,20 @@ def _message_for_conflict(err_msg: str, entity: type[Entity], **kwargs) -> None:
         ConflictError: If a UNIQUE constraint is violated.
 
     """
-    element_str = split_camel_case(entity.__name__)
+    element_str = split_camel_case(entity)
 
     # SQLITE
     message = _sqlite_unique_constr_err(err_msg, entity=element_str, **kwargs)
     if message is not None:
         return message
     # MYSQL
-    message = _mysql_duplicate_entry(err_msg, entity=element_str, **kwargs)
+    message = _mysql_duplicate_entry(err_msg, entity=element_str)
     if message is not None:
         return message
 
 
-def _message_for_delete(err_msg: str, entity: type[Entity], **kwargs):
-    element_str = split_camel_case(entity.__name__)
+def _message_for_delete(err_msg: str, entity: str, **kwargs):
+    element_str = split_camel_case(entity)
     message = _sqlite_foreign_key_constr_err(err_msg, entity=element_str, **kwargs)
     if message is not None:
         return message
