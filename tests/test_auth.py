@@ -210,8 +210,8 @@ def test_check_opa_authorization_allow(user_infos, logger):
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body.return_value = "data"
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
@@ -223,6 +223,7 @@ def test_check_opa_authorization_allow(user_infos, logger):
             user_info=user_infos.user_info,
             settings=settings,
             logger=logger,
+            body=body,
         )
         data = {
             "input": {
@@ -245,8 +246,8 @@ def test_check_opa_authorization_deny(user_infos, logger):
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body.return_value = "data"
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
@@ -261,6 +262,7 @@ def test_check_opa_authorization_deny(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -275,7 +277,6 @@ def test_check_opa_authorization_deny(user_infos, logger):
         )
 
 
-@patch("requests.post")
 def test_check_opa_authz_err_response(user_infos, logger):
     """Test that check_opa_authorization raises HTTPException on OPA bad request."""
     settings = Settings(
@@ -283,8 +284,8 @@ def test_check_opa_authz_err_response(user_infos, logger):
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body.return_value = "data"
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
@@ -298,6 +299,7 @@ def test_check_opa_authz_err_response(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -321,6 +323,7 @@ def test_check_opa_authz_err_response(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -344,6 +347,7 @@ def test_check_opa_authz_err_response(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -365,8 +369,8 @@ def test_check_opa_authorization_timeout(user_infos, logger):
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body.return_value = "data"
     request.url.path = "/test"
     request.method = "GET"
     with patch("requests.post", side_effect=requests.Timeout) as mock_opa:
@@ -378,6 +382,7 @@ def test_check_opa_authorization_timeout(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -400,6 +405,7 @@ def test_check_opa_authorization_timeout(user_infos, logger):
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -422,8 +428,9 @@ def test_check_user_authz_opa(user_infos, logger):
     )
     request = MagicMock()
     request.state.logger = logger
+    body = b"data"
     with patch("fed_mgr.auth.check_opa_authorization", return_value=None):
-        result = check_authorization(request, user_infos.user_info, settings)
+        result = check_authorization(request, user_infos.user_info, body, settings)
         assert result is None
 
 
@@ -432,7 +439,8 @@ def test_check_user_authz_when_disabled(user_infos, logger):
     settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, AUTHZ_MODE=None)
     request = MagicMock()
     request.state.logger = logger
-    result = check_authorization(request, user_infos.user_info, settings)
+    body = b"data"
+    result = check_authorization(request, user_infos.user_info, body, settings)
     assert result is None
 
 
@@ -442,7 +450,8 @@ def test_check_script_authz_get(logger):
     request = MagicMock()
     request.state.logger = logger
     request.method = "GET"
-    result = check_authorization(request, None, settings)
+    body = b"data"
+    result = check_authorization(request, None, body, settings)
     assert result is None
 
 
@@ -452,25 +461,26 @@ def test_check_script_authz_forbidden(logger):
     request = MagicMock()
     request.state.logger = logger
     request.method = "POST"
+    body = b"data"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "PUT"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "PATCH"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "DELETE"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
