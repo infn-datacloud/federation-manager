@@ -174,7 +174,7 @@ def check_authentication(
 AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]
 
 
-def check_opa_authorization(
+async def check_opa_authorization(
     *, request: Request, user_info: dict[str, Any], settings: Settings, logger: Logger
 ) -> None:
     """Check user authorization via Open Policy Agent (OPA).
@@ -196,7 +196,7 @@ def check_opa_authorization(
 
     """
     logger.debug("Authorization through OPA")
-    body = request.body()
+    body = await request.body()
     data = {
         "input": {
             "user_info": user_info,
@@ -228,7 +228,7 @@ def check_opa_authorization(
             )
 
 
-def check_authorization(
+async def check_authorization(
     request: Request, user_info: AuthenticationDep, settings: SettingsDep
 ) -> None:
     """Dependency to check user permissions.
@@ -253,7 +253,7 @@ def check_authorization(
     else:
         # User based authentication.
         if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
-            return check_opa_authorization(
+            return await check_opa_authorization(
                 user_info=user_info,
                 request=request,
                 settings=settings,
