@@ -76,11 +76,6 @@ def user_infos():
     )
 
 
-async def async_body():
-    """Return dummy request body data."""
-    return b"data"
-
-
 def test_configure_flaat_logs_modes(logger):
     """Test that configure_flaat logs authentication and authorization modes."""
     settings = Settings(AUTHN_MODE=None, AUTHZ_MODE=None)
@@ -433,8 +428,9 @@ def test_check_user_authz_opa(user_infos, logger):
     )
     request = MagicMock()
     request.state.logger = logger
+    body = b"data"
     with patch("fed_mgr.auth.check_opa_authorization", return_value=None):
-        result = check_authorization(request, user_infos.user_info, settings)
+        result = check_authorization(request, user_infos.user_info, body, settings)
         assert result is None
 
 
@@ -443,7 +439,8 @@ def test_check_user_authz_when_disabled(user_infos, logger):
     settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, AUTHZ_MODE=None)
     request = MagicMock()
     request.state.logger = logger
-    result = check_authorization(request, user_infos.user_info, settings)
+    body = b"data"
+    result = check_authorization(request, user_infos.user_info, body, settings)
     assert result is None
 
 
@@ -453,7 +450,8 @@ def test_check_script_authz_get(logger):
     request = MagicMock()
     request.state.logger = logger
     request.method = "GET"
-    result = check_authorization(request, None, settings)
+    body = b"data"
+    result = check_authorization(request, None, body, settings)
     assert result is None
 
 
@@ -463,25 +461,26 @@ def test_check_script_authz_forbidden(logger):
     request = MagicMock()
     request.state.logger = logger
     request.method = "POST"
+    body = b"data"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "PUT"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "PATCH"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)
 
     request.method = "DELETE"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        check_authorization(request, None, settings)
+        check_authorization(request, None, body, settings)

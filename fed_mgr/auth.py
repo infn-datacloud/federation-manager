@@ -174,32 +174,24 @@ def check_authentication(
 AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]
 
 
-async def get_body(request: Request) -> bytes:
-    """Asynchronously retrieve the request's body."""
-    return await request.body()
-
-
-AsyncBodyDep = Annotated[bytes, Depends(get_body)]
-
-
 def check_opa_authorization(
     *,
     request: Request,
+    body: bytes,
     user_info: dict[str, Any],
     settings: Settings,
     logger: Logger,
-    body: AsyncBodyDep,
 ) -> None:
     """Check user authorization via Open Policy Agent (OPA).
 
     Send the request data to the OPA server.
 
     Args:
-        user_info (dict): The authenticated user information.
         request (Request): The incoming request object containing user information.
+        body (bytes): Awaited request body
+        user_info (dict): The authenticated user information.
         settings (Settings): Application settings containing OPA server configuration.
         logger (Logger): Logger instance for logging authorization steps.
-        body (bytes): Awaited request body
 
     Returns:
         bool: True if the user is authorized to perform the operation on the endpoint.
@@ -241,8 +233,27 @@ def check_opa_authorization(
             )
 
 
+async def get_body(request: Request) -> bytes:
+    """Asynchronously retrieve the request's body.
+
+    Args:
+        request: The current FastAPI request object (provides logger in state).
+
+    Returns:
+        bytes: Awaited request body
+
+    """
+    return await request.body()
+
+
+AsyncBodyDep = Annotated[bytes, Depends(get_body)]
+
+
 def check_authorization(
-    request: Request, user_info: AuthenticationDep, settings: SettingsDep
+    request: Request,
+    user_info: AuthenticationDep,
+    body: AsyncBodyDep,
+    settings: SettingsDep,
 ) -> None:
     """Dependency to check user permissions.
 
@@ -251,6 +262,7 @@ def check_authorization(
     Args:
         request: The current FastAPI request object (provides logger in state).
         user_info: The authenticated user information.
+        body (bytes): Awaited request body
         settings: The application settings dependency.
 
     Raises:
@@ -271,5 +283,6 @@ def check_authorization(
                 request=request,
                 settings=settings,
                 logger=request.state.logger,
+                body=body,
             )
     return None
