@@ -50,9 +50,7 @@ def _sqlite_unique_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | N
             return f"{entity} with {', '.join(dup_values)} already exists"
 
 
-def _sqlite_foreign_key_constr_err(
-    err_msg: str, *, entity: str, **kwargs
-) -> str | None:
+def _sqlite_foreign_key_or_not_null_err(err_msg: str) -> str | None:
     """Raise delete fail exception from sqlite error.
 
     This problem arises when trying to delete an entity that is mandatory for another
@@ -61,17 +59,8 @@ def _sqlite_foreign_key_constr_err(
     Search for 'FOREIGN KEY constraint failed' string
     Example of exceptions:
     - FOREIGN KEY constraint failed
-    """
-    match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", err_msg)
-    if match is not None:
-        entity_id = kwargs.get("id")
-        message = f"{entity} with ID '{entity_id!s}' can't be deleted. "
-        message += "Pointed by another entity."
-        return message
 
-
-def _sqlite_not_null_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | None:
-    """Raise not null exception from sqlite error.
+    Raise not null exception from sqlite error.
 
     This problem arises when trying to delete an entity that is mandatory for another
     one and can't be deleted on cascade.
@@ -80,16 +69,17 @@ def _sqlite_not_null_constr_err(err_msg: str, *, entity: str, **kwargs) -> str |
     Examples:
     - NOT NULL constraint failed: identityprovider.created_by_id
     """
+    match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", err_msg)
+    if match is not None:
+        return "Pointed by another entity."
+
     match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+(?=$)", err_msg)
     if match is not None:
         matches = re.findall(
             r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
         )
         if len(matches) > 0:
-            entity_id = kwargs.get("id")
-            message = f"{entity}'s with ID '{entity_id!s}' can't be deleted. "
-            message += "Pointed by another entity"
-            return message
+            return "Pointed by another entity"
 
 
 def _mysql_duplicate_entry(err_msg: str, *, entity: str) -> str | None:
@@ -131,6 +121,13 @@ def _mysql_duplicate_entry(err_msg: str, *, entity: str) -> str | None:
             return f"{entity} with {args} already exists"
 
 
+def _mysql_foreign_key(err_msg: str) -> str | None:
+    # Search for 'Duplicate entry ' string and catch anything till the end of line
+    target = "Cannot delete or update a parent row: a foreign key constraint fails"
+    if target in err_msg:
+        return "Pointed by another entity."
+
+
 def _message_for_conflict(err_msg: str, entity: str, **kwargs) -> None:
     """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
 
@@ -152,13 +149,26 @@ def _message_for_conflict(err_msg: str, entity: str, **kwargs) -> None:
 
 
 def _message_for_delete(err_msg: str, entity: str, **kwargs):
+    """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
+
+    Raises:
+        NotNullError: If a NOT NULL constraint is violated.
+        ConflictError: If a UNIQUE constraint is violated.
+
+    """
+    entity_id = kwargs.get("id")
     element_str = split_camel_case(entity)
-    message = _sqlite_foreign_key_constr_err(err_msg, entity=element_str, **kwargs)
+    base_msg = f"{element_str} with ID '{entity_id!s}' can't be deleted. "
+
+    # SQLITE
+    message = _sqlite_foreign_key_or_not_null_err(err_msg)
     if message is not None:
-        return message
-    message = _sqlite_not_null_constr_err(err_msg, entity=element_str, **kwargs)
+        return base_msg + message
+
+    # MYSQL
+    message = _mysql_foreign_key(err_msg)
     if message is not None:
-        return message
+        return base_msg + message
 
 
 def _handle_special_date_fields(entity, k, v):
@@ -448,7 +458,7 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         session.commit()
     except sqlalchemy.exc.IntegrityError as e:
         session.rollback()
-        message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
+        message = _message_for_delete(e.args[0], entity.__name__, **kwargs)
         if message is None:
             raise DatabaseOperationError(e.args[0]) from e
         raise DeleteFailedError(message) from e
