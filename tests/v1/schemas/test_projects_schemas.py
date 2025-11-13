@@ -13,6 +13,7 @@ Tests in this file:
 import uuid
 from datetime import datetime
 
+import pytest
 from pydantic import AnyHttpUrl
 
 from fed_mgr.v1 import REGIONS_PREFIX
@@ -56,6 +57,12 @@ def test_project_base_fields():
     assert base.description == DUMMY_DESC
     assert base.iaas_project_id == DUMMY_IAAS_ID
     assert base.is_root
+
+
+def test_project_iaas_id_not_empty():
+    """Test ProjectBase field assignment and types."""
+    with pytest.raises(ValueError, match="Input value can't be empty string"):
+        ProjectBase(name=DUMMY_NAME, description=DUMMY_DESC, iaas_project_id="")
 
 
 def test_project_create_inheritance():

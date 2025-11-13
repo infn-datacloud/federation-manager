@@ -4,7 +4,7 @@ import urllib.parse
 import uuid
 from typing import Annotated
 
-from pydantic import AnyHttpUrl, computed_field
+from pydantic import AfterValidator, AnyHttpUrl, computed_field
 from sqlmodel import Field, SQLModel
 
 from fed_mgr.v1 import REGIONS_PREFIX
@@ -22,6 +22,24 @@ from fed_mgr.v1.schemas import (
 )
 
 
+def check_not_empty_string(value: str) -> str:
+    """Check input value is not an empty string.
+
+    Args:
+        value (str): input string
+
+    Returns:
+        str: the same string
+
+    Raises:
+        ValueError when len is 0.
+
+    """
+    if len(value) == 0:
+        raise ValueError("Input value can't be empty string")
+    return value
+
+
 class ProjectBase(ItemDescription):
     """Schema with the basic parameters of the Project entity."""
 
@@ -31,6 +49,7 @@ class ProjectBase(ItemDescription):
         Field(
             description="Tenant/Namespace/Project ID in the IaaS (resource provider)."
         ),
+        AfterValidator(check_not_empty_string),
     ]
     is_root: Annotated[
         bool,
