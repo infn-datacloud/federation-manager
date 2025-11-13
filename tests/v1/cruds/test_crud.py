@@ -489,7 +489,7 @@ def test_delete_item_success(session):
     assert statement._returning is not None
 
 
-def test_delete_item_fails(monkeypatch, session):
+def test_delete_item_fails(session):
     """Test delete_item executes the delete statement and commits."""
     item_id = uuid.uuid4()
 
@@ -502,7 +502,7 @@ def test_delete_item_fails(monkeypatch, session):
     session.exec.side_effect = exc
 
     with patch(
-        "fed_mgr.v1.crud._message_for_conflict", return_value="Generic error"
+        "fed_mgr.v1.crud._message_for_delete", return_value="Generic error"
     ) as mock_raise:
         with pytest.raises(DeleteFailedError):
             delete_item(entity=DummyEntity, session=session, id=item_id)
@@ -512,7 +512,7 @@ def test_delete_item_fails(monkeypatch, session):
     session.commit.assert_not_called()
 
     with patch(
-        "fed_mgr.v1.crud._message_for_conflict", return_value="Generic error"
+        "fed_mgr.v1.crud._message_for_delete", return_value="Generic error"
     ) as mock_raise:
         with pytest.raises(DeleteFailedError):
             delete_item(entity=DummyEntity, session=session, id=item_id)

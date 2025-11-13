@@ -2,7 +2,7 @@
 
 import re
 import uuid
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import sqlalchemy
 import sqlalchemy.exc
@@ -23,8 +23,8 @@ CreateModel = TypeVar("CreateModel", bound=SQLModel)
 UpdateModel = TypeVar("UpdateModel", bound=SQLModel)
 
 
-def _sqlite_unique_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | None:
-    """Raise conflict exception from sqlite error.
+def _sqlite_unique_constr_err(err_msg: str, **kwargs) -> str | None:
+    """Return an error message when a unique constraing is violated.
 
     This problem arises only on create and update operations.
 
@@ -32,112 +32,172 @@ def _sqlite_unique_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | N
     Example of exceptions:
     - UNIQUE constraint failed: user.sub, user.issuer
     - UNIQUE constraint failed: project.provider_id
+
+    Returns:
+        str | None: the error message or None
+
     """
     match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+(?=$)", err_msg)
     if match is not None:
-        matches = re.findall(
-            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
-        )
+        matches = re.findall(r"(?<=\.)\w*", match.group(0))
         if len(matches) > 0:
             dup_values = []
             for i in matches:
-                if i[1] == "provider_id":
-                    dup_values.append(f"{i[1]}={kwargs.get('provider').id!s}")
+                if i == "provider_id":
+                    dup_values.append(f"{i}={kwargs.get('provider').id!s}")
                 else:
-                    dup_values.append(f"{i[1]}={kwargs.get(i[1])!s}")
-            if len(matches) == 1 and matches[0][1] == "provider_id":
+                    dup_values.append(f"{i}={kwargs.get(i)!s}")
+            if len(matches) == 1 and matches[0] == "provider_id":
                 dup_values.append("is_root=True")
-            return f"{entity} with {', '.join(dup_values)} already exists"
+            return ", ".join(dup_values)
 
 
-def _sqlite_foreign_key_constr_err(
-    err_msg: str, *, entity: str, **kwargs
-) -> str | None:
-    """Raise delete fail exception from sqlite error.
+def _sqlite_foreign_key_or_not_null_err(err_msg: str) -> str | None:
+    """Return an error message when a foreign key or not null constraint is violated.
 
     This problem arises when trying to delete an entity that is mandatory for another
     one and can't be deleted on cascade.
 
-    Search for 'FOREIGN KEY constraint failed' string
+    Search for 'FOREIGN KEY constraint failed' or 'NOT NULL constraint failed: ' string.
     Example of exceptions:
     - FOREIGN KEY constraint failed
+    - NOT NULL constraint failed: identityprovider.created_by_id
+
+    Returns:
+        str | None: the error message or None
+
     """
     match = re.search(r"(?<=FOREIGN\sKEY\sconstraint\sfailed)(?=$)", err_msg)
     if match is not None:
-        entity_id = kwargs.get("id")
-        message = f"{entity} with ID '{entity_id!s}' can't be deleted. "
-        message += "Pointed by another entity."
-        return message
+        return "Pointed by another entity."
+
+    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+(?=$)", err_msg)
+    if match is not None:
+        matches = re.findall(r"(?<=\.)\w*", match.group(0))
+        if len(matches) > 0:
+            return "Pointed by another entity"
 
 
-def _sqlite_not_null_constr_err(err_msg: str, *, entity: str, **kwargs) -> str | None:
-    """Raise not null exception from sqlite error.
+def _mysql_duplicate_entry(err_msg: str) -> str | None:
+    r"""Return an error message when a unique constraing is violated.
+
+    This problem arises only on create and update operations.
+
+    Search for 'Duplicate entry ' string and catch anything till the of line. Based on
+    the violated constraint, the error can refers to a single column or more complex
+    rules.
+
+    Example of exceptions:
+    - Duplicate entry \'6252bba3-d63a-45f1-9cad-415ec82948ca-https://iam.cloud.infn.it/\'
+        for key \'user.unique_sub_issuer_couple\'
+    - Duplicate entry \'string-7c4531620ddb4100a7c6cf13078a5a90\' for key
+        \'project.unique_projid_provider_couple\'
+    - Duplicate entry \'7c4531620ddb4100a7c6cf13078a5a90\' for key
+        \'project.ix_unique_provider_root\'
+    - Duplicate entry \'https://example.com/\' for key \'identityprovider.endpoint\'
+    - Duplicate entry \'string\' for key \'provider.name\'
+
+    Returns:
+        str | None: the error message or None
+
+    """
+    # Search for 'Duplicate entry ' string and catch anything till the end of line
+    match = re.search(r"(?<=Duplicate\sentry\s).+(?=$)", err_msg)
+    if match is not None:
+        # Duplicate user's sub and issuer
+        matches = re.findall(
+            r"(?<=')([\w\-]*)(?=-([^\s]*)' for key '\w*\.unique_sub_issuer_couple')",
+            match.group(0),
+        )
+        if len(matches) > 0:
+            return f"sub={matches[0][0]!s}, issuer={matches[0][1]!s}"
+
+        # Duplicate project's iaas id on same provider
+        matches = re.findall(
+            r"(?<=')(.*)(?=-([\w]{32})' for key '\w*\.unique_projid_provider_couple')",
+            match.group(0),
+        )
+        if len(matches) > 0:
+            provider_id = uuid.UUID(matches[0][1])
+            return f"iaas_project_id={matches[0][0]!s}, provider_id={provider_id!s}"
+
+        # Duplicate root project on same provider
+        matches = re.findall(
+            r"(?<=')([\w]{32})(?=' for key '\w*\.ix_unique_provider_root')",
+            match.group(0),
+        )
+        if len(matches) > 0:
+            return "is_root=True"
+
+        # Duplicate key
+        matches = re.findall(r"(?<=')(.*)(?=' for key '(\w*)\.(\w*)')", match.group(0))
+        if len(matches) > 0:
+            return f"{matches[0][2]}={matches[0][0]!s}"
+
+
+def _mysql_foreign_key(err_msg: str) -> str | None:
+    """Return an error message when a foreign key constraint is violated.
 
     This problem arises when trying to delete an entity that is mandatory for another
     one and can't be deleted on cascade.
 
-    Search for 'NOT NULL constraint failed: ' string and catch anything till end of line
-    Examples:
-    - NOT NULL constraint failed: identityprovider.created_by_id
-    """
-    match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+(?=$)", err_msg)
-    if match is not None:
-        matches = re.findall(
-            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
-        )
-        if len(matches) > 0:
-            entity_id = kwargs.get("id")
-            message = f"{entity}'s with ID '{entity_id!s}' can't be deleted. "
-            message += "Pointed by another entity"
-            return message
+    Search for 'Cannot delete or update a parent row: a foreign key constraint fails'
+    string.
 
-
-def _mysql_duplicate_entry(err_msg: str, *, entity: str, **kwargs) -> str | None:
-    # Search for 'Duplicate entry ' string and catch anything till the end of line
-    match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", err_msg)
-    if match is not None:
-        if "unique_projid_provider_couple" in match.group(0):
-            attr = "provider_id"
-        elif "ix_unique_provider_root" in match.group(0):
-            attr = "is_root"
-        else:
-            # Keep column name and remove final char (')
-            attr = match.group(0).split(".")[1][:-1]
-        value = kwargs.get(attr)
-        return f"{entity} with {attr}={value!s} already exists"
-
-
-def _message_for_conflict(err_msg: str, entity: type[Entity], **kwargs) -> None:
-    """Handle and raise specific errors for NOT NULL and UNIQUE constraint violations.
-
-    Raises:
-        NotNullError: If a NOT NULL constraint is violated.
-        ConflictError: If a UNIQUE constraint is violated.
+    Returns:
+        str | None: the error message or None
 
     """
-    element_str = split_camel_case(entity.__name__)
+    target = "Cannot delete or update a parent row: a foreign key constraint fails"
+    if target in err_msg:
+        return "Pointed by another entity."
+
+
+def _message_for_conflict(err_msg: str, entity: str, **kwargs) -> str | None:
+    """Return an error message when failing to add or update an entry into the DB.
+
+    Returns:
+        str | None: the error message or None
+
+    """
+    element_str = split_camel_case(entity)
 
     # SQLITE
-    message = _sqlite_unique_constr_err(err_msg, entity=element_str, **kwargs)
+    message = _sqlite_unique_constr_err(err_msg, **kwargs)
     if message is not None:
-        return message
+        return f"{element_str} with {message} already exists"
+
     # MYSQL
-    message = _mysql_duplicate_entry(err_msg, entity=element_str, **kwargs)
+    message = _mysql_duplicate_entry(err_msg)
     if message is not None:
-        return message
+        return f"{element_str} with {message} already exists"
 
 
-def _message_for_delete(err_msg: str, entity: type[Entity], **kwargs):
-    element_str = split_camel_case(entity.__name__)
-    message = _sqlite_foreign_key_constr_err(err_msg, entity=element_str, **kwargs)
+def _message_for_delete(err_msg: str, entity: str, **kwargs) -> str | None:
+    """Return an error message when failing to delete an entry from DB.
+
+    Returns:
+        str | None: the error message or None
+
+    """
+    entity_id = kwargs.get("id")
+    element_str = split_camel_case(entity)
+    base_msg = f"{element_str} with ID '{entity_id!s}' can't be deleted. "
+
+    # SQLITE
+    message = _sqlite_foreign_key_or_not_null_err(err_msg)
     if message is not None:
-        return message
-    message = _sqlite_not_null_constr_err(err_msg, entity=element_str, **kwargs)
+        return base_msg + message
+
+    # MYSQL
+    message = _mysql_foreign_key(err_msg)
     if message is not None:
-        return message
+        return base_msg + message
 
 
-def _handle_special_date_fields(entity, k, v):
+def _handle_special_date_fields(
+    entity: type[Entity], k: str, v: Any
+) -> sqlalchemy.BinaryExpression | None:
     """Handle special date field filters for SQLAlchemy queries.
 
     Given an entity, a key, and a value, this function checks if the key corresponds
@@ -177,7 +237,9 @@ def _handle_special_date_fields(entity, k, v):
     return None
 
 
-def _handle_generic_field(entity, k, v):
+def _handle_generic_field(
+    entity: type[Entity], k: str, v: Any
+) -> sqlalchemy.BinaryExpression | None:
     """Handle the creation of SQLAlchemy filter expressions for a given entity's field.
 
     Args:
@@ -424,7 +486,7 @@ def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
         session.commit()
     except sqlalchemy.exc.IntegrityError as e:
         session.rollback()
-        message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
+        message = _message_for_delete(e.args[0], entity.__name__, **kwargs)
         if message is None:
             raise DatabaseOperationError(e.args[0]) from e
         raise DeleteFailedError(message) from e
