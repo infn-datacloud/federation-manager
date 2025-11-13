@@ -4,7 +4,7 @@ from logging import Logger
 from typing import Annotated, Any
 
 import requests
-from fastapi import Request, Security, status
+from fastapi import Depends, Request, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from flaat.exceptions import FlaatUnauthenticated
 from flaat.fastapi import Flaat
@@ -174,8 +174,21 @@ def check_authentication(
 AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]
 
 
-async def check_opa_authorization(
-    *, request: Request, user_info: dict[str, Any], settings: Settings, logger: Logger
+async def get_body(request: Request) -> bytes:
+    """Asynchronously retrieve the request's body."""
+    return await request.body()
+
+
+AsyncBodyDep = Annotated[bytes, Depends(get_body)]
+
+
+def check_opa_authorization(
+    *,
+    request: Request,
+    user_info: dict[str, Any],
+    settings: Settings,
+    logger: Logger,
+    body: AsyncBodyDep,
 ) -> None:
     """Check user authorization via Open Policy Agent (OPA).
 
@@ -186,6 +199,7 @@ async def check_opa_authorization(
         request (Request): The incoming request object containing user information.
         settings (Settings): Application settings containing OPA server configuration.
         logger (Logger): Logger instance for logging authorization steps.
+        body (bytes): Awaited request body
 
     Returns:
         bool: True if the user is authorized to perform the operation on the endpoint.
@@ -196,7 +210,6 @@ async def check_opa_authorization(
 
     """
     logger.debug("Authorization through OPA")
-    body = await request.body()
     data = {
         "input": {
             "user_info": user_info,
@@ -228,7 +241,7 @@ async def check_opa_authorization(
             )
 
 
-async def check_authorization(
+def check_authorization(
     request: Request, user_info: AuthenticationDep, settings: SettingsDep
 ) -> None:
     """Dependency to check user permissions.
@@ -253,7 +266,7 @@ async def check_authorization(
     else:
         # User based authentication.
         if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
-            return await check_opa_authorization(
+            return check_opa_authorization(
                 user_info=user_info,
                 request=request,
                 settings=settings,

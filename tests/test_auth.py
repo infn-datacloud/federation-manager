@@ -208,27 +208,27 @@ def test_check_authentication_none(logger):
     }
 
 
-@pytest.mark.asyncio
-async def test_check_opa_authorization_allow(user_infos, logger):
+def test_check_opa_authorization_allow(user_infos, logger):
     """Test that check_opa_authorization allows access when OPA returns allow=True."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body = async_body
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
     resp.status_code = status.HTTP_200_OK
     resp.json.return_value = {"result": {"allow": True}}
     with patch("requests.post", return_value=resp) as mock_opa:
-        result = await check_opa_authorization(
+        result = check_opa_authorization(
             request=request,
             user_info=user_infos.user_info,
             settings=settings,
             logger=logger,
+            body=body,
         )
         data = {
             "input": {
@@ -244,16 +244,15 @@ async def test_check_opa_authorization_allow(user_infos, logger):
         assert result is None
 
 
-@pytest.mark.asyncio
-async def test_check_opa_authorization_deny(user_infos, logger):
+def test_check_opa_authorization_deny(user_infos, logger):
     """Test that check_opa_authorization denies access when OPA returns allow=False."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body = async_body
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
@@ -263,11 +262,12 @@ async def test_check_opa_authorization_deny(user_infos, logger):
         with pytest.raises(
             UnauthorizedError, match="Unauthorized to perform this operation"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -282,16 +282,15 @@ async def test_check_opa_authorization_deny(user_infos, logger):
         )
 
 
-@pytest.mark.asyncio
-async def test_check_opa_authz_err_response(user_infos, logger):
+def test_check_opa_authz_err_response(user_infos, logger):
     """Test that check_opa_authorization raises HTTPException on OPA bad request."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body = async_body
     request.url.path = "/test"
     request.method = "GET"
     resp = MagicMock()
@@ -300,11 +299,12 @@ async def test_check_opa_authz_err_response(user_infos, logger):
         with pytest.raises(
             ServiceUnexpectedResponseError, match="OPA: Bad request sent to OPA server"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -323,11 +323,12 @@ async def test_check_opa_authz_err_response(user_infos, logger):
         with pytest.raises(
             ServiceUnexpectedResponseError, match="OPA: OPA server internal error"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -346,11 +347,12 @@ async def test_check_opa_authz_err_response(user_infos, logger):
         with pytest.raises(
             ServiceUnexpectedResponseError, match="OPA: Unexpected response code '418'"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -365,27 +367,27 @@ async def test_check_opa_authz_err_response(user_infos, logger):
         )
 
 
-@pytest.mark.asyncio
-async def test_check_opa_authorization_timeout(user_infos, logger):
+def test_check_opa_authorization_timeout(user_infos, logger):
     """Test that check_opa_authorization raises HTTPException on OPA timeout."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
         AUTHZ_MODE=AuthorizationMethodsEnum.opa,
         OPA_AUTHZ_URL="https://opa.test.com/",
     )
+    body = b"data"
     request = MagicMock()
-    request.body = async_body
     request.url.path = "/test"
     request.method = "GET"
     with patch("requests.post", side_effect=requests.Timeout) as mock_opa:
         with pytest.raises(
             ServiceUnreachableError, match="OPA: Server is not reachable"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -403,11 +405,12 @@ async def test_check_opa_authorization_timeout(user_infos, logger):
         with pytest.raises(
             ServiceUnreachableError, match="OPA: Server is not reachable"
         ):
-            await check_opa_authorization(
+            check_opa_authorization(
                 request=request,
                 user_info=user_infos.user_info,
                 settings=settings,
                 logger=logger,
+                body=body,
             )
         data = {
             "input": {
@@ -422,8 +425,7 @@ async def test_check_opa_authorization_timeout(user_infos, logger):
         )
 
 
-@pytest.mark.asyncio
-async def test_check_user_authz_opa(user_infos, logger):
+def test_check_user_authz_opa(user_infos, logger):
     """Test that check_authorization calls OPA authorization when mode is set to OPA."""
     settings = Settings(
         AUTHN_MODE=AuthenticationMethodsEnum.local,
@@ -432,33 +434,30 @@ async def test_check_user_authz_opa(user_infos, logger):
     request = MagicMock()
     request.state.logger = logger
     with patch("fed_mgr.auth.check_opa_authorization", return_value=None):
-        result = await check_authorization(request, user_infos.user_info, settings)
+        result = check_authorization(request, user_infos.user_info, settings)
         assert result is None
 
 
-@pytest.mark.asyncio
-async def test_check_user_authz_when_disabled(user_infos, logger):
+def test_check_user_authz_when_disabled(user_infos, logger):
     """Test that check_authorization does not raise when authorization mode is None."""
     settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local, AUTHZ_MODE=None)
     request = MagicMock()
     request.state.logger = logger
-    result = await check_authorization(request, user_infos.user_info, settings)
+    result = check_authorization(request, user_infos.user_info, settings)
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_check_script_authz_get(logger):
+def test_check_script_authz_get(logger):
     """Test that check_authorization does not raise when authorization mode is None."""
     settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local)
     request = MagicMock()
     request.state.logger = logger
     request.method = "GET"
-    result = await check_authorization(request, None, settings)
+    result = check_authorization(request, None, settings)
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_check_script_authz_forbidden(logger):
+def test_check_script_authz_forbidden(logger):
     """Test that check_authorization does not raise when authorization mode is None."""
     settings = Settings(AUTHN_MODE=AuthenticationMethodsEnum.local)
     request = MagicMock()
@@ -467,22 +466,22 @@ async def test_check_script_authz_forbidden(logger):
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        await check_authorization(request, None, settings)
+        check_authorization(request, None, settings)
 
     request.method = "PUT"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        await check_authorization(request, None, settings)
+        check_authorization(request, None, settings)
 
     request.method = "PATCH"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        await check_authorization(request, None, settings)
+        check_authorization(request, None, settings)
 
     request.method = "DELETE"
     with pytest.raises(
         UnauthorizedError, match="API Key credentials can be used only for GET requests"
     ):
-        await check_authorization(request, None, settings)
+        check_authorization(request, None, settings)
