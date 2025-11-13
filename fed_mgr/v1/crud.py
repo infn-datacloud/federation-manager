@@ -39,17 +39,15 @@ def _sqlite_unique_constr_err(err_msg: str, **kwargs) -> str | None:
     """
     match = re.search(r"(?<=UNIQUE\sconstraint\sfailed:\s).+(?=$)", err_msg)
     if match is not None:
-        matches = re.findall(
-            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
-        )
+        matches = re.findall(r"(?<=\.)\w*", match.group(0))
         if len(matches) > 0:
             dup_values = []
             for i in matches:
-                if i[1] == "provider_id":
-                    dup_values.append(f"{i[1]}={kwargs.get('provider').id!s}")
+                if i == "provider_id":
+                    dup_values.append(f"{i}={kwargs.get('provider').id!s}")
                 else:
-                    dup_values.append(f"{i[1]}={kwargs.get(i[1])!s}")
-            if len(matches) == 1 and matches[0][1] == "provider_id":
+                    dup_values.append(f"{i}={kwargs.get(i)!s}")
+            if len(matches) == 1 and matches[0] == "provider_id":
                 dup_values.append("is_root=True")
             return ", ".join(dup_values)
 
@@ -75,15 +73,13 @@ def _sqlite_foreign_key_or_not_null_err(err_msg: str) -> str | None:
 
     match = re.search(r"(?<=NOT\sNULL\sconstraint\sfailed:\s).+(?=$)", err_msg)
     if match is not None:
-        matches = re.findall(
-            r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)", match.group(0)
-        )
+        matches = re.findall(r"(?<=\.)\w*", match.group(0))
         if len(matches) > 0:
             return "Pointed by another entity"
 
 
 def _mysql_duplicate_entry(err_msg: str) -> str | None:
-    """Return an error message when a unique constraing is violated.
+    r"""Return an error message when a unique constraing is violated.
 
     This problem arises only on create and update operations.
 
@@ -92,20 +88,25 @@ def _mysql_duplicate_entry(err_msg: str) -> str | None:
     rules.
 
     Example of exceptions:
-    - Duplicate entry 'xxxxxx-xxxx-xxxx-xxxxxx-https://example.com' for key
-        'user.unique_sub_issuer_couple'.
+    - Duplicate entry \'6252bba3-d63a-45f1-9cad-415ec82948ca-https://iam.cloud.infn.it/\'
+        for key \'user.unique_sub_issuer_couple\'
+    - Duplicate entry \'string-7c4531620ddb4100a7c6cf13078a5a90\' for key
+        \'project.unique_projid_provider_couple\'
+    - Duplicate entry \'7c4531620ddb4100a7c6cf13078a5a90\' for key
+        \'project.ix_unique_provider_root\'
+    - Duplicate entry \'https://example.com/\' for key \'identityprovider.endpoint\'
+    - Duplicate entry \'string\' for key \'provider.name\'
 
     Returns:
         str | None: the error message or None
 
     """
     # Search for 'Duplicate entry ' string and catch anything till the end of line
-    match = re.search(r"(?<=Duplicate\sentry\s).+?(?=,|$)", err_msg)
+    match = re.search(r"(?<=Duplicate\sentry\s).+(?=$)", err_msg)
     if match is not None:
         # Duplicate user's sub and issuer
         matches = re.findall(
-            r"'([a-zA-Z0-9_\-][a-zA-Z0-9_\-]*)-(.*)' for key "
-            r"'(.*)\.unique_sub_issuer_couple'",
+            r"(?<=')([\w\-]*)(?=-([^\s]*)' for key '\w*\.unique_sub_issuer_couple')",
             match.group(0),
         )
         if len(matches) > 0:
@@ -113,8 +114,7 @@ def _mysql_duplicate_entry(err_msg: str) -> str | None:
 
         # Duplicate project's iaas id on same provider
         matches = re.findall(
-            r"'(.*)-(.*)' for key "
-            r"'(.*)\.unique_projid_provider_couple'",
+            r"(?<=')(.*)(?=-([\w]{32})' for key '\w*\.unique_projid_provider_couple')",
             match.group(0),
         )
         if len(matches) > 0:
@@ -123,13 +123,14 @@ def _mysql_duplicate_entry(err_msg: str) -> str | None:
 
         # Duplicate root project on same provider
         matches = re.findall(
-            r"'(.*)' for key '(.*)\.ix_unique_provider_root'", match.group(0)
+            r"(?<=')([\w]{32})(?=' for key '\w*\.ix_unique_provider_root')",
+            match.group(0),
         )
         if len(matches) > 0:
             return "is_root=True"
 
         # Duplicate key
-        matches = re.findall(r"'(.*)' for key '(.*)\.(.*)'", match.group(0))
+        matches = re.findall(r"(?<=')(.*)(?=' for key '(\w*)\.(\w*)')", match.group(0))
         if len(matches) > 0:
             return f"{matches[0][2]}={matches[0][0]!s}"
 
