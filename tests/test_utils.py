@@ -71,12 +71,12 @@ def test_encrypt_decrypt_different_keys():
     key1 = Fernet.generate_key()
     key2 = Fernet.generate_key()
 
-    enc1 = encrypt(value, key1)
-    enc2 = encrypt(value, key2)
+    enc1 = encrypt(value, Fernet(key1))
+    enc2 = encrypt(value, Fernet(key2))
     assert enc1 != enc2
 
-    dec1 = decrypt(enc1, key1)
-    dec2 = decrypt(enc2, key2)
+    dec1 = decrypt(enc1, Fernet(key1))
+    dec2 = decrypt(enc2, Fernet(key2))
     assert value == dec1
     assert value == dec2
 
@@ -87,12 +87,12 @@ def test_encrypt_decrypt_different_values():
     value1 = "secret1"
     value2 = "secret2"
 
-    enc1 = encrypt(value1, key)
-    enc2 = encrypt(value2, key)
+    enc1 = encrypt(value1, Fernet(key))
+    enc2 = encrypt(value2, Fernet(key))
     assert enc1 != enc2
 
-    dec1 = decrypt(enc1, key)
-    dec2 = decrypt(enc2, key)
+    dec1 = decrypt(enc1, Fernet(key))
+    dec2 = decrypt(enc2, Fernet(key))
     assert value1 == dec1
     assert value2 == dec2
 
@@ -102,11 +102,11 @@ def test_encrypt_decrypt_empty():
     value = ""
     key = Fernet.generate_key()
 
-    enc = encrypt(value, key)
+    enc = encrypt(value, Fernet(key))
     assert isinstance(enc, str)
     assert enc != ""
 
-    dec = decrypt(enc, key)
+    dec = decrypt(enc, Fernet(key))
     assert dec == value
 
 
@@ -115,9 +115,9 @@ def test_encrypt_decrypt_special_chars():
     value = "secret!@#$%^&*()"
     key = Fernet.generate_key()
 
-    enc = encrypt(value, key)
+    enc = encrypt(value, Fernet(key))
     assert isinstance(enc, str)
     assert enc != value
 
-    dec = decrypt(enc, key)
+    dec = decrypt(enc, Fernet(key))
     assert dec == value
