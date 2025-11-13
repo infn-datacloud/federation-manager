@@ -98,7 +98,7 @@ def test_add_provider(session):
             session=session,
             provider=provider,
             created_by=created_by,
-            secret_key=Fernet.generate_key(),
+            secret_key=Fernet(Fernet.generate_key()),
         )
         mock_add_item.assert_called_once_with(
             session=session,

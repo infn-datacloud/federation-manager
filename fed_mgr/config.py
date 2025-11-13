@@ -260,14 +260,14 @@ class Settings(BaseSettings):
         ),
     ]
     SECRET_KEY: Annotated[
-        bytes,
+        bytes | Fernet,
         Field(
             description="Secret key used to encrypt values. To generate a valid key "
             "run the following command in shell and copy the generated output: "
             '`python -c "from cryptography.fernet import Fernet; '
             'print(Fernet.generate_key().decode())"`'
         ),
-        AfterValidator(lambda x: Fernet(x)),
+        AfterValidator(lambda x: Fernet(x) if isinstance(x, bytes) else x),
     ]
 
     model_config = SettingsConfigDict(env_file=".env")
