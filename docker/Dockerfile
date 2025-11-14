@@ -4,7 +4,7 @@ ARG POETRY_VERSION=2.1
 FROM harbor.cloud.infn.it/datacloud-middleware/poetry:${POETRY_VERSION}-python${PYTHON_VERSION} AS base
 
 RUN apt-get update \
-    && apt-get install -y curl \
+    && apt-get --no-install-recommends install -y curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
