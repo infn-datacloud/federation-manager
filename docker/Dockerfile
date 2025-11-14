@@ -12,9 +12,12 @@ WORKDIR /app
 
 COPY ./pyproject.toml ./poetry.lock ./README.md /app/
 COPY ./fed_mgr /app/fed_mgr
+COPY ./alembic.ini /app/
+COPY ./alembic /app/alembic
+COPY --chmod=+x ./docker/start.sh /app/
 
 RUN poetry install --without dev --with rest-api,mysql
 
 USER ${USERNAME}
 
-CMD ["fastapi", "run", "/app/fed_mgr/main.py", "--port", "80"]
+CMD ["./start.sh"]
