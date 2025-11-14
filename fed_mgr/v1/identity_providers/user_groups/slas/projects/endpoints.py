@@ -76,7 +76,6 @@ def available_methods(response: Response) -> None:
     "subject, for this issuer, already exists in the DB. If the sub already exists, "
     "the endpoint raises a 409 error.",
     responses={
-        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
@@ -127,21 +126,12 @@ def connect_sla_to_proj(
     msg += f"'{config.project_id!s}'"
     request.state.logger.info(msg)
 
-    # update_provider_state(
-    #     request=request,
-    #     session=session,
-    #     provider=project.provider,
-    #     current_user=current_user,
-    #     next_state=ProviderStatus.ready,
-    # )
-
 
 @sla_proj_conn_router.get(
     "/",
     summary="Retrieve projects pointed by this SLA",
     description="Retrieve a paginated list of projects pointed by this SLA",
     responses={
-        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
         status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },

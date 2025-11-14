@@ -171,7 +171,7 @@ def provider_model(db_session: Session, user_model: User) -> Provider:
     """
     name = "foo"
     desc = "desc"
-    type = "openstack"
+    provider_type = "openstack"
     auth_endpoint = "https://example.com/auth"
     is_pub = True
     emails = ["admin@example.com"]
@@ -180,7 +180,7 @@ def provider_model(db_session: Session, user_model: User) -> Provider:
         updated_by=user_model,
         name=name,
         description=desc,
-        type=type,
+        type=provider_type,
         auth_endpoint=auth_endpoint,
         is_public=is_pub,
         support_emails=emails,
