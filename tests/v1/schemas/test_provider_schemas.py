@@ -39,6 +39,9 @@ DUMMY_EMAILS = ["admin@example.com"]
 DUMMY_IMG_TAGS = ["img1"]
 DUMMY_NET_TAGS = ["net1"]
 DUMMY_ENDPOINT = "https://example.com"
+DUMMY_FLOAT_IPS = True
+DUMMY_TEST_NET_ID = "net-id"
+DUMMY_TEST_FLAVOR_NAME = "flavor"
 
 
 def test_provider_type_enum():
@@ -80,6 +83,9 @@ def test_provider_base_fields():
         network_tags=DUMMY_NET_TAGS,
         rally_username=random_lower_string(),
         rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
     )
     assert obj.name == DUMMY_NAME
     assert obj.type == DUMMY_TYPE
@@ -90,6 +96,9 @@ def test_provider_base_fields():
     assert obj.network_tags == DUMMY_NET_TAGS
     assert obj.rally_username is not None
     assert obj.rally_password is not None
+    assert obj.floating_ips_enable == DUMMY_FLOAT_IPS
+    assert obj.test_flavor_name == DUMMY_TEST_FLAVOR_NAME
+    assert obj.test_network_id == DUMMY_TEST_NET_ID
 
 
 def test_provider_base_support_emails_empty():
@@ -149,6 +158,9 @@ def test_provider_update_default_values():
     assert obj.network_tags is None
     assert obj.rally_username is None
     assert obj.rally_password is None
+    assert obj.floating_ips_enable is None
+    assert obj.test_flavor_name is None
+    assert obj.test_network_id is None
 
 
 def test_provider_update_fields():
@@ -163,6 +175,9 @@ def test_provider_update_fields():
         network_tags=DUMMY_NET_TAGS,
         rally_username=random_lower_string(),
         rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
     )
     assert obj.name == DUMMY_NAME
     assert obj.auth_endpoint == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
@@ -172,6 +187,9 @@ def test_provider_update_fields():
     assert obj.network_tags == DUMMY_NET_TAGS
     assert obj.rally_username is not None
     assert obj.rally_password is not None
+    assert obj.floating_ips_enable == DUMMY_FLOAT_IPS
+    assert obj.test_flavor_name == DUMMY_TEST_FLAVOR_NAME
+    assert obj.test_network_id == DUMMY_TEST_NET_ID
 
 
 def test_provider_update_support_emails_empty():
@@ -210,6 +228,9 @@ def test_provider_read_inheritance():
         support_emails=DUMMY_EMAILS,
         rally_username=random_lower_string(),
         rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
         site_admins=ids,
         site_testers=ids,
         base_url=DUMMY_ENDPOINT,
@@ -253,6 +274,9 @@ def test_provider_list():
         support_emails=DUMMY_EMAILS,
         rally_username=random_lower_string(),
         rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
         site_admins=ids,
         site_testers=ids,
         base_url=DUMMY_ENDPOINT,
@@ -288,6 +312,9 @@ def test_provider_query_defaults():
     assert query.site_admins is None
     assert query.site_testers is None
     assert query.rally_username is None
+    assert query.floating_ips_enable is None
+    assert query.test_flavor_name is None
+    assert query.test_network_id is None
 
 
 def test_provider_query_with_values():
@@ -302,8 +329,11 @@ def test_provider_query_with_values():
         support_emails="admin@example.com",
         image_tags="img1",
         network_tags="net1",
-        status="active",
+        status=["active"],
         rally_username="user",
+        floating_ips_enable=True,
+        test_flavor_name="flavor",
+        test_network_id="net_id",
         site_admins=ids,
         site_testers=ids,
     )
@@ -315,7 +345,10 @@ def test_provider_query_with_values():
     assert query.support_emails == "admin@example.com"
     assert query.image_tags == "img1"
     assert query.network_tags == "net1"
-    assert query.status == "active"
+    assert query.status == ["active"]
     assert query.rally_username == "user"
     assert query.site_admins == ids
     assert query.site_testers == ids
+    assert query.floating_ips_enable
+    assert query.test_flavor_name == "flavor"
+    assert query.test_network_id == "net_id"

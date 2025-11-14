@@ -101,6 +101,16 @@ class ProviderBase(ItemDescription):
     ]
     rally_username: Annotated[str, Field(description="Rally service user's name")]
     rally_password: Annotated[str, Field(description="Rally service user's password")]
+    floating_ips_enable: Annotated[
+        bool,
+        Field(default=False, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str, Field(default="tiny", description="Flavor name used for the rally tests")
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
+    ]
 
 
 class ProviderInternal(SQLModel):
@@ -195,6 +205,17 @@ class ProviderUpdate(SQLModel):
     ]
     rally_password: Annotated[
         str | None, Field(default=None, description="Rally service user's password")
+    ]
+    floating_ips_enable: Annotated[
+        bool | None,
+        Field(default=None, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str | None,
+        Field(default=None, description="Flavor name used for the rally tests"),
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
     ]
 
 
@@ -342,7 +363,8 @@ class ProviderQuery(
         ),
     ]
     status: Annotated[
-        str | None, Field(default=None, description="Resource provider status")
+        list[str] | None,
+        Field(default=None, description="List of resource provider status"),
     ]
     site_admins: Annotated[
         list[uuid.UUID] | None,
@@ -351,4 +373,15 @@ class ProviderQuery(
     site_testers: Annotated[
         list[uuid.UUID] | None,
         Field(default=None, description="List of the provider/site testers IDs"),
+    ]
+    floating_ips_enable: Annotated[
+        bool | None,
+        Field(default=None, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str | None,
+        Field(default=None, description="Flavor name used for the rally tests"),
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
     ]

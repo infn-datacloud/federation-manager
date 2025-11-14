@@ -43,7 +43,7 @@ def test_provider_model(db_session: Session, user_model: User) -> None:
     """
     name = "foo"
     desc = "desc"
-    type = "openstack"
+    provider_type = "openstack"
     auth_endpoint = "https://example.com/auth"
     is_pub = True
     emails = ["admin@example.com"]
@@ -52,7 +52,7 @@ def test_provider_model(db_session: Session, user_model: User) -> None:
         updated_by=user_model,
         name=name,
         description=desc,
-        type=type,
+        type=provider_type,
         auth_endpoint=auth_endpoint,
         is_public=is_pub,
         support_emails=emails,
@@ -77,13 +77,16 @@ def test_provider_model(db_session: Session, user_model: User) -> None:
     assert isinstance(provider.auth_endpoint, AnyHttpUrl)
     assert provider.auth_endpoint == AnyHttpUrl(auth_endpoint)
     assert provider.name == name
-    assert provider.type == type
+    assert provider.type == provider_type
     assert provider.is_public == is_pub
     assert provider.support_emails == emails
     assert provider.rally_username is not None
     assert provider.rally_password is not None
     assert provider.image_tags == []
     assert provider.network_tags == []
+    assert not provider.floating_ips_enable
+    assert provider.test_flavor_name == "tiny"
+    assert provider.test_network_id is None
     assert provider.site_admins == [user_model]
     assert provider.site_testers == []
     assert provider.idps == []
@@ -100,14 +103,14 @@ def test_duplicate_name(
     db_session: Session, user_model: User, provider_model: Provider
 ) -> None:
     """Can't add provider with already existing name."""
-    type = "openstack"
+    provider_type = "openstack"
     auth_endpoint = "https://another.example.com/auth"
     emails = ["admin@example.com"]
     provider2 = Provider(
         created_by=user_model,
         updated_by=user_model,
         name=provider_model.name,
-        type=type,
+        type=provider_type,
         auth_endpoint=auth_endpoint,
         support_emails=emails,
         rally_username=random_lower_string(),
@@ -126,13 +129,13 @@ def test_duplicate_endpoint(
 ) -> None:
     """Can't add provider with already existing auth endpoint."""
     name = "Test provider2"
-    type = "openstack"
+    provider_type = "openstack"
     emails = ["admin@example.com"]
     provider2 = Provider(
         created_by=user_model,
         updated_by=user_model,
         name=name,
-        type=type,
+        type=provider_type,
         auth_endpoint=provider_model.auth_endpoint,
         support_emails=emails,
         rally_username=random_lower_string(),
