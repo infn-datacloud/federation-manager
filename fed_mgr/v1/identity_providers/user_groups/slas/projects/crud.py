@@ -7,13 +7,42 @@ and exception handling.
 
 from sqlmodel import Session
 
+from fed_mgr.exceptions import ConflictError
 from fed_mgr.v1.models import SLA, Project, User
+from fed_mgr.v1.providers.schemas import ProviderStatus
 
 
 def connect_proj_to_sla(
     *, session: Session, updated_by: User, project: Project, sla: SLA
 ) -> None:
     """Associates a given SLA (Service Level Agreement) with a project.
+
+    Args:
+        session (SessionDep): The database session used for committing changes.
+        updated_by (User): The user performing the update.
+        project (Project): The project instance to be updated.
+        sla (SLA): The SLA instance to associate with the project.
+
+    Returns:
+        None
+
+    """
+    if project.provider.status != ProviderStatus.draft:
+        raise ConflictError(
+            "An SLA can be added to a Project only when the hosting provider is in the "
+            f"{ProviderStatus.draft.name} state"
+        )
+    project.sla = sla
+    project.updated_by = updated_by
+    project.provider.status = ProviderStatus.ready
+    session.add(project)
+    session.commit()
+
+
+def reconnect_proj_to_sla(
+    *, session: Session, updated_by: User, project: Project, sla: SLA
+) -> None:
+    """Replace the SLA (Service Level Agreement) of a project.
 
     Args:
         session (SessionDep): The database session used for committing changes.
@@ -48,7 +77,13 @@ def disconnect_proj_from_sla(
         None
 
     """
+    if project.provider.status != ProviderStatus.ready:
+        raise ConflictError(
+            "An SLA can't be removed from a project hosted by a provider not in the "
+            f"{ProviderStatus.ready.name} state"
+        )
     project.sla = None
     project.updated_by = updated_by
+    project.provider.status = ProviderStatus.draft
     session.add(project)
     session.commit()
