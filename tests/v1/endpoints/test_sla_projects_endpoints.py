@@ -2,18 +2,18 @@
 
 Tests in this file:
 - test_options_slas
-- test_create_sla_success
-- test_create_sla_conflict
-- test_create_sla_not_null_error
-- test_create_sla_parent_idp_not_found
-- test_get_slas_success
+- test_connect_project_success
+- test_connect_project_conflict
+- test_connect_project_not_null_error
+- test_connect_project_parent_idp_not_found
+- test_get_project_sla_conn_success
 - test_get_sla_success
 - test_get_sla_not_found
 - test_edit_sla_success
 - test_edit_sla_not_found
 - test_edit_sla_conflict
 - test_edit_sla_not_null_error
-- test_delete_sla_success
+- test_delete_proj_conn_success
 """
 
 import uuid
@@ -84,7 +84,7 @@ def test_options_slas(client, idp_dep, user_group_dep, sla_dep):
 
 
 # POST endpoint
-def test_create_sla_parent_idp_not_found(client, user_group_dep, sla_dep):
+def test_connect_project_parent_idp_not_found(client, user_group_dep, sla_dep):
     """Test POST returns 404 if parent_user_group is None."""
     fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda: None
@@ -101,7 +101,7 @@ def test_create_sla_parent_idp_not_found(client, user_group_dep, sla_dep):
     )
 
 
-def test_create_sla_parent_user_group_not_found(client, idp_dep, sla_dep):
+def test_connect_project_parent_user_group_not_found(client, idp_dep, sla_dep):
     """Test POST returns 404 if parent_user_group is None."""
     fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = lambda: None
@@ -118,7 +118,7 @@ def test_create_sla_parent_user_group_not_found(client, idp_dep, sla_dep):
     )
 
 
-def test_create_sla_parent_sla_not_found(client, idp_dep, user_group_dep):
+def test_connect_project_parent_sla_not_found(client, idp_dep, user_group_dep):
     """Test POST returns 404 if parent_user_group is None."""
     fake_sla_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_sla] = lambda: None
@@ -132,7 +132,7 @@ def test_create_sla_parent_sla_not_found(client, idp_dep, user_group_dep):
     assert resp.json()["detail"] == f"SLA with ID '{fake_sla_id}' does not exist"
 
 
-def test_create_sla_target_project_not_found(
+def test_connect_project_target_project_not_found(
     client, session, current_user, idp_dep, user_group_dep, sla_dep
 ):
     """Test POST returns 404 if parent_user_group is None."""
@@ -154,7 +154,7 @@ def test_create_sla_target_project_not_found(
         )
 
 
-def test_create_sla_success(
+def test_connect_project_success(
     client, session, current_user, idp_dep, user_group_dep, sla_dep, project_dep
 ):
     """Test POST creates a user group and returns 201 with id."""
@@ -181,7 +181,7 @@ def test_create_sla_success(
 
 
 # GET (list) endpoint
-def test_get_slas_parent_idp_not_found(client, user_group_dep, sla_dep):
+def test_get_project_sla_conn_parent_idp_not_found(client, user_group_dep, sla_dep):
     """Test GET returns 404 if parent_user_group is None."""
     fake_idp_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_idp] = lambda: None
@@ -197,7 +197,7 @@ def test_get_slas_parent_idp_not_found(client, user_group_dep, sla_dep):
     )
 
 
-def test_get_slas_parent_user_group_not_found(client, idp_dep, sla_dep):
+def test_get_project_sla_conn_parent_user_group_not_found(client, idp_dep, sla_dep):
     """Test GET returns 404 if parent_user_group is None."""
     fake_user_group_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_user_group] = lambda: None
@@ -213,7 +213,7 @@ def test_get_slas_parent_user_group_not_found(client, idp_dep, sla_dep):
     )
 
 
-def test_get_slas_parent_sla_not_found(client, idp_dep, user_group_dep):
+def test_get_project_sla_conn_parent_sla_not_found(client, idp_dep, user_group_dep):
     """Test GET returns 404 if parent_user_group is None."""
     fake_sla_id = uuid.uuid4()
     sub_app_v1.dependency_overrides[get_sla] = lambda: None
@@ -226,7 +226,7 @@ def test_get_slas_parent_sla_not_found(client, idp_dep, user_group_dep):
     assert resp.json()["detail"] == f"SLA with ID '{fake_sla_id}' does not exist"
 
 
-def test_get_slas_success(
+def test_get_project_sla_conn_success(
     client, session, idp_dep, user_group_dep, sla_dep, project_data
 ):
     """Test GET returns paginated user group list."""
@@ -271,7 +271,7 @@ def test_get_slas_success(
 
 
 # DELETE endpoint
-def test_delete_sla_parent_idp_not_found(client, user_group_dep, sla_dep):
+def test_delete_proj_conn_parent_idp_not_found(client, user_group_dep, sla_dep):
     """Test DELETE returns 404 if parent_user_group is None."""
     fake_id = uuid.uuid4()
     fake_idp_id = uuid.uuid4()
@@ -288,7 +288,7 @@ def test_delete_sla_parent_idp_not_found(client, user_group_dep, sla_dep):
     )
 
 
-def test_delete_sla_parent_user_group_not_found(client, idp_dep, sla_dep):
+def test_delete_proj_conn_parent_user_group_not_found(client, idp_dep, sla_dep):
     """Test DELETE returns 404 if parent_user_group is None."""
     fake_id = uuid.uuid4()
     fake_user_group_id = uuid.uuid4()
@@ -305,7 +305,7 @@ def test_delete_sla_parent_user_group_not_found(client, idp_dep, sla_dep):
     )
 
 
-def test_delete_sla_parent_sla_not_found(client, idp_dep, user_group_dep):
+def test_delete_proj_conn_parent_sla_not_found(client, idp_dep, user_group_dep):
     """Test DELETE returns 404 if parent_user_group is None."""
     fake_id = uuid.uuid4()
     fake_sla_id = uuid.uuid4()
@@ -332,7 +332,7 @@ def test_delete_missing_project_success(
     assert resp.status_code == 204
 
 
-def test_delete_sla_success(
+def test_delete_proj_conn_success(
     client, session, current_user, idp_dep, user_group_dep, sla_dep, project_dep
 ):
     """Test DELETE returns 204 on success."""
@@ -349,7 +349,7 @@ def test_delete_sla_success(
         assert resp.status_code == 204
 
 
-def test_delete_sla_fail(
+def test_delete_proj_conn_fail(
     client, session, current_user, idp_dep, user_group_dep, sla_dep, project_dep
 ):
     """Test DELETE returns 400 on fail."""

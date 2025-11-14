@@ -17,7 +17,6 @@ from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import (
 from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
     connect_proj_to_sla,
     disconnect_proj_from_sla,
-    reconnect_proj_to_sla,
 )
 from fed_mgr.v1.identity_providers.user_groups.slas.projects.schemas import (
     ProjSLAConnectionCreate,
@@ -125,63 +124,6 @@ def connect_sla_to_proj(
     )
     msg = f"SLA with ID '{sla.id!s}' connected to Project with ID "
     msg += f"'{config.project_id!s}'"
-    request.state.logger.info(msg)
-
-
-@sla_proj_conn_router.put(
-    "/",
-    summary="Create a new sla",
-    description="Add a new sla to the DB. Check if a sla's "
-    "subject, for this issuer, already exists in the DB. If the sub already exists, "
-    "the endpoint raises a 409 error.",
-    responses={
-        status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
-    },
-)
-def reconnect_sla_to_proj(
-    request: Request,
-    session: SessionDep,
-    current_user: CurrentUserDep,
-    sla: SLARequiredDep,
-    config: ProjSLAConnectionCreate,
-) -> None:
-    """Create a new sla in the system.
-
-    Logs the creation attempt and result. If the sla already exists,
-    returns a 409 Conflict response. If no body is given, it retrieves from the access
-    token the sla data.
-
-    Args:
-        request (Request): The incoming HTTP request object, used for logging.
-        session (SessionDep): The database session dependency.
-        sla (SLA): The sla data to create.
-        current_user (CurrenUser): The DB user matching the current user retrieved
-            from the access token.
-        config (UserGroup): The parent user group associated with the sla.
-
-    Returns:
-        None
-
-    Raises:
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
-        404 Not Found: If the parent identity provider does not exists.
-        409 Conflict: If the user already exists (handled below).
-
-    """
-    project = get_project(session=session, project_id=config.project_id)
-    if project is None:
-        raise ItemNotFoundError(
-            f"Project with ID '{config.project_id!s}' does not exist"
-        )
-    msg = f"Replacing SLA with ID '{project.sla.id!s}' with SLA with ID "
-    msg += f"'{sla.id!s}' in Project with ID '{project.id!s}'"
-    request.state.logger.info(msg)
-    reconnect_proj_to_sla(
-        session=session, updated_by=current_user, sla=sla, project=project
-    )
-    msg = f"SLA with ID '{sla.id!s}' connected to Project with ID '{project.id!s}'"
     request.state.logger.info(msg)
 
 

@@ -12,7 +12,14 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
-from fed_mgr.v1.models import Project, Provider, User
+import pytest
+
+from fed_mgr.exceptions import DeleteFailedError
+from fed_mgr.v1.identity_providers.user_groups.slas.projects.crud import (
+    connect_proj_to_sla,
+    disconnect_proj_from_sla,
+)
+from fed_mgr.v1.models import SLA, Project, Provider, User
 from fed_mgr.v1.providers.projects.crud import (
     add_project,
     delete_project,
@@ -21,6 +28,7 @@ from fed_mgr.v1.providers.projects.crud import (
     update_project,
 )
 from fed_mgr.v1.providers.projects.schemas import ProjectCreate
+from fed_mgr.v1.providers.schemas import ProviderStatus
 
 
 def test_get_project_found(session):
@@ -124,3 +132,113 @@ def test_delete_project(session):
             session=session, entity=Project, id=project_id
         )
         assert result is None
+
+
+def test_connect_proj_to_sla(session):
+    """Connect a non-root project to an SLA."""
+    project = MagicMock(spec=Project)
+    project.is_root = False
+    project.provider = MagicMock(spec=Provider)
+    project.provider.status = ProviderStatus.draft
+    sla = MagicMock(spec=Project)
+    updated_by = MagicMock(spec=User)
+    connect_proj_to_sla(
+        session=session, updated_by=updated_by, project=project, sla=sla
+    )
+    session.add.assert_called_once_with(project)
+    session.commit.assert_called_once()
+    assert project.provider.status == ProviderStatus.draft
+    assert project.sla == sla
+    assert project.updated_by == updated_by
+
+
+def test_connect_root_proj_to_sla(session):
+    """Connect a root project to an SLA.
+
+    When the provider status is `draft `, this change to `ready`, otherwise it does not
+    change.
+    """
+    project = MagicMock(spec=Project)
+    project.is_root = True
+    project.provider = MagicMock(spec=Provider)
+    project.provider.status = ProviderStatus.draft
+    sla = MagicMock(spec=Project)
+    updated_by = MagicMock(spec=User)
+
+    # Connect and update provider state
+    connect_proj_to_sla(
+        session=session, updated_by=updated_by, project=project, sla=sla
+    )
+    session.add.assert_called_once_with(project)
+    session.commit.assert_called_once()
+    assert project.provider.status == ProviderStatus.ready
+    assert project.sla == sla
+    assert project.updated_by == updated_by
+
+    session.reset_mock()
+    # Connect and do not update provider state
+    connect_proj_to_sla(
+        session=session, updated_by=updated_by, project=project, sla=sla
+    )
+    session.add.assert_called_once_with(project)
+    session.commit.assert_called_once()
+    assert project.provider.status == ProviderStatus.ready
+    assert project.sla == sla
+    assert project.updated_by == updated_by
+
+
+def test_disconnect_proj_from_sla(session):
+    """Disconnect a project from its SLA.
+
+    It does not matter if the project has or does not have an SLA.
+    """
+    project = MagicMock(spec=Project)
+    project.is_root = False
+    project.provider = MagicMock(spec=Provider)
+    project.provider.status = ProviderStatus.draft
+    updated_by = MagicMock(spec=User)
+    disconnect_proj_from_sla(session=session, updated_by=updated_by, project=project)
+    session.add.assert_called_once_with(project)
+    session.commit.assert_called_once()
+    assert project.provider.status == ProviderStatus.draft
+    assert project.sla is None
+    assert project.updated_by == updated_by
+
+
+def test_disconnect_root_proj_from_sla(session):
+    """Disconnect a root project from its SLA when the provider is `ready`."""
+    project = MagicMock(spec=Project)
+    project.is_root = True
+    project.provider = MagicMock(spec=Provider)
+    project.provider.status = ProviderStatus.ready
+    project.sla = MagicMock(spec=SLA)
+    updated_by = MagicMock(spec=User)
+    disconnect_proj_from_sla(session=session, updated_by=updated_by, project=project)
+    session.add.assert_called_once_with(project)
+    session.commit.assert_called_once()
+    assert project.provider.status == ProviderStatus.draft
+    assert project.sla is None
+    assert project.updated_by == updated_by
+
+
+def test_fail_disconnect_root_proj_from_sla(session):
+    """Fail to disconnect a root project from a SLA.
+
+    This happens when the provider is not `ready`.
+    """
+    project = MagicMock(spec=Project)
+    project.is_root = True
+    project.provider = MagicMock(spec=Provider)
+    project.provider.status = ProviderStatus.submitted
+    project.sla = MagicMock(spec=SLA)
+    updated_by = MagicMock(spec=User)
+    with pytest.raises(
+        DeleteFailedError,
+        match="The SLA of the root project can't be removed if the hosting provider is "
+        f"not in the {ProviderStatus.ready.name} state",
+    ):
+        disconnect_proj_from_sla(
+            session=session, updated_by=updated_by, project=project
+        )
+    session.add.assert_not_called()
+    session.commit.assert_not_called()
