@@ -1,20 +1,13 @@
 """Logger modules."""
 
 import logging
-from enum import Enum
+
+from fed_mgr.config import LogLevelEnum, get_settings
 
 
-class LogLevelEnum(int, Enum):
-    """Enumeration of supported logging levels."""
-
-    DEBUG = logging.DEBUG
-    INFO = logging.INFO
-    WARNING = logging.WARNING
-    ERROR = logging.ERROR
-    CRITICAL = logging.CRITICAL
-
-
-def get_logger(log_level: LogLevelEnum) -> logging.Logger:
+def get_logger(
+    name: str = "fed-mgr-api", log_level: LogLevelEnum | None = None
+) -> logging.Logger:
     """Create and configure a logger for the fed-mgr API service.
 
     The logger outputs log messages to the console with a detailed format including
@@ -22,7 +15,9 @@ def get_logger(log_level: LogLevelEnum) -> logging.Logger:
     The log level is set based on the application settings.
 
     Args:
-        log_level (LogLevelEnum): Loggging level.
+        name: Name of the logger. Defaults to "fed-mgr-api".
+        log_level (LogLevelEnum):  Log level for the logger. Defaults to the application
+            settings.
 
     Returns:
         logging.Logger: The configured logger instance.
@@ -30,14 +25,14 @@ def get_logger(log_level: LogLevelEnum) -> logging.Logger:
     """
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s "
-        "[%(processName)s: %(process)d - %(threadName)s: %(thread)d] "
-        "%(message)s"
+        + "[%(processName)s: %(process)d - %(threadName)s: %(thread)d] "
+        + "%(message)s"
     )
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
 
-    logger = logging.getLogger("fed-mgr-api")
-    logger.setLevel(level=log_level)
+    logger = logging.getLogger(name)
+    logger.setLevel(level=log_level or get_settings().LOG_LEVEL)
     logger.addHandler(stream_handler)
 
     return logger
