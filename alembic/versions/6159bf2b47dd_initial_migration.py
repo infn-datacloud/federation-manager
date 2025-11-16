@@ -20,6 +20,9 @@ down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+USER_ID = "user.id"
+PROVIDER_ID = "provider.id"
+
 
 def upgrade() -> None:
     """Downgrade schema."""
@@ -48,11 +51,11 @@ def upgrade() -> None:
         sa.Column("updated_by_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("auth_endpoint"),
@@ -71,14 +74,14 @@ def upgrade() -> None:
         sa.Column("idp_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["idp_id"], ["identityprovider.id"], ondelete="RESTRICT"
         ),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name", "idp_id", name="unique_name_idp_couple"),
@@ -99,13 +102,13 @@ def upgrade() -> None:
         sa.Column("sla_id", sa.CHAR(length=32), nullable=True),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
-        sa.ForeignKeyConstraint(["provider_id"], ["provider.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["provider_id"], [PROVIDER_ID], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["sla_id"], ["sla.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -125,10 +128,10 @@ def upgrade() -> None:
         "evaluates",
         sa.Column("user_id", sa.CHAR(length=32), nullable=False),
         sa.Column("provider_id", sa.CHAR(length=32), nullable=False),
-        sa.ForeignKeyConstraint(["provider_id"], ["provider.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["provider_id"], [PROVIDER_ID], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["user_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("user_id", "provider_id"),
         if_not_exists=True,
@@ -137,10 +140,10 @@ def upgrade() -> None:
         "administrates",
         sa.Column("user_id", sa.CHAR(length=32), nullable=False),
         sa.Column("provider_id", sa.CHAR(length=32), nullable=False),
-        sa.ForeignKeyConstraint(["provider_id"], ["provider.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["provider_id"], [PROVIDER_ID], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["user_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("user_id", "provider_id"),
         if_not_exists=True,
@@ -160,11 +163,11 @@ def upgrade() -> None:
         sa.Column("updated_by_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("endpoint"),
@@ -184,7 +187,7 @@ def upgrade() -> None:
         sa.Column("project_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(["project_id"], ["project.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
@@ -193,7 +196,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("region_id", "project_id"),
         if_not_exists=True,
@@ -214,12 +217,12 @@ def upgrade() -> None:
         sa.Column("provider_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
-        sa.ForeignKeyConstraint(["provider_id"], ["provider.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["provider_id"], [PROVIDER_ID], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -241,16 +244,16 @@ def upgrade() -> None:
         sa.Column("provider_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["idp_id"],
             ["identityprovider.id"],
         ),
-        sa.ForeignKeyConstraint(["provider_id"], ["provider.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["provider_id"], [PROVIDER_ID], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.PrimaryKeyConstraint("idp_id", "provider_id"),
         if_not_exists=True,
@@ -270,11 +273,11 @@ def upgrade() -> None:
         sa.Column("user_group_id", sa.CHAR(length=32), nullable=False),
         sa.ForeignKeyConstraint(
             ["created_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["updated_by_id"],
-            ["user.id"],
+            [USER_ID],
         ),
         sa.ForeignKeyConstraint(
             ["user_group_id"], ["usergroup.id"], ondelete="RESTRICT"
