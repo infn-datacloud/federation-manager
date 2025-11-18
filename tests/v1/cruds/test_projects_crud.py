@@ -139,7 +139,7 @@ def test_connect_proj_to_sla(session):
     project = MagicMock(spec=Project)
     project.is_root = False
     project.provider = MagicMock(spec=Provider)
-    project.provider.status = ProviderStatus.draft
+    project.provider.status = ProviderStatus.submitted
     sla = MagicMock(spec=Project)
     updated_by = MagicMock(spec=User)
     connect_proj_to_sla(
@@ -147,7 +147,7 @@ def test_connect_proj_to_sla(session):
     )
     session.add.assert_called_once_with(project)
     session.commit.assert_called_once()
-    assert project.provider.status == ProviderStatus.draft
+    assert project.provider.status == ProviderStatus.submitted
     assert project.sla == sla
     assert project.updated_by == updated_by
 
@@ -161,7 +161,7 @@ def test_connect_root_proj_to_sla(session):
     project = MagicMock(spec=Project)
     project.is_root = True
     project.provider = MagicMock(spec=Provider)
-    project.provider.status = ProviderStatus.draft
+    project.provider.status = ProviderStatus.submitted
     sla = MagicMock(spec=Project)
     updated_by = MagicMock(spec=User)
 
@@ -195,12 +195,12 @@ def test_disconnect_proj_from_sla(session):
     project = MagicMock(spec=Project)
     project.is_root = False
     project.provider = MagicMock(spec=Provider)
-    project.provider.status = ProviderStatus.draft
+    project.provider.status = ProviderStatus.submitted
     updated_by = MagicMock(spec=User)
     disconnect_proj_from_sla(session=session, updated_by=updated_by, project=project)
     session.add.assert_called_once_with(project)
     session.commit.assert_called_once()
-    assert project.provider.status == ProviderStatus.draft
+    assert project.provider.status == ProviderStatus.submitted
     assert project.sla is None
     assert project.updated_by == updated_by
 
@@ -216,7 +216,7 @@ def test_disconnect_root_proj_from_sla(session):
     disconnect_proj_from_sla(session=session, updated_by=updated_by, project=project)
     session.add.assert_called_once_with(project)
     session.commit.assert_called_once()
-    assert project.provider.status == ProviderStatus.draft
+    assert project.provider.status == ProviderStatus.submitted
     assert project.sla is None
     assert project.updated_by == updated_by
 
@@ -229,7 +229,7 @@ def test_fail_disconnect_root_proj_from_sla(session):
     project = MagicMock(spec=Project)
     project.is_root = True
     project.provider = MagicMock(spec=Provider)
-    project.provider.status = ProviderStatus.submitted
+    project.provider.status = ProviderStatus.draft
     project.sla = MagicMock(spec=SLA)
     updated_by = MagicMock(spec=User)
     with pytest.raises(

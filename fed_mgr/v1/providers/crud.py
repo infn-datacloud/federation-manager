@@ -14,7 +14,7 @@ from sqlmodel import Session
 
 from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ItemNotFoundError, ProviderStateError
+from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
 from fed_mgr.kafka import send_provider_to_be_evaluated
 from fed_mgr.logger import get_logger
 from fed_mgr.utils import encrypt
@@ -26,9 +26,9 @@ from fed_mgr.v1.users.crud import get_user
 
 DEPRECATION_TIMEDELTA = 14  # days
 AVAILABLE_STATE_TRANSITIONS = {
-    ProviderStatus.draft: [ProviderStatus.ready],
-    ProviderStatus.ready: [ProviderStatus.submitted, ProviderStatus.draft],
-    ProviderStatus.submitted: [ProviderStatus.evaluation, ProviderStatus.removed],
+    ProviderStatus.draft: [ProviderStatus.submitted],
+    ProviderStatus.submitted: [ProviderStatus.ready, ProviderStatus.draft],
+    ProviderStatus.ready: [ProviderStatus.evaluation, ProviderStatus.removed],
     ProviderStatus.evaluation: [ProviderStatus.pre_production, ProviderStatus.removed],
     ProviderStatus.pre_production: [
         ProviderStatus.active,
@@ -212,6 +212,11 @@ def add_site_testers(
         Any exceptions raised by the session commit will propagate.
 
     """
+    if provider.status in [ProviderStatus.draft, ProviderStatus.submitted]:
+        msg = f"Provider with ID '{provider.id!s}' is in a state not "
+        msg += f"accepting site testers (current state: '{provider.status.name}')"
+        raise ProviderStateError(msg)
+
     users = check_users_exist(session=session, user_ids=user_ids)
     provider.site_testers = list(set(provider.site_testers) | set(users))
     provider.updated_by = updated_by
@@ -266,6 +271,18 @@ def remove_site_testers(
         IndexError: If the user is not found in the provider's site testers list.
 
     """
+    valid_states = [
+        ProviderStatus.draft,
+        ProviderStatus.ready,
+        ProviderStatus.submitted,
+        ProviderStatus.deprecated,
+        ProviderStatus.removed,
+    ]
+    if provider.status not in valid_states and len(provider.site_testers) == 1:
+        raise ConflictError(
+            "The last site tester can be removed only from providers in the following "
+            f"states: {valid_states}"
+        )
     users = check_users_exist(session=session, user_ids=user_ids)
     provider.site_testers = list(set(provider.site_testers) - set(users))
     provider.updated_by = updated_by
@@ -293,6 +310,10 @@ def remove_site_admins(
         IndexError: If the user is not found in the provider's site testers list.
 
     """
+    if len(provider.site_admins) == 1:
+        raise ConflictError(
+            f"This is the last site admin for provider with ID '{provider.id!s}'"
+        )
     users = check_users_exist(session=session, user_ids=user_ids)
     new_admins = list(set(provider.site_admins) - set(users))
     provider.site_admins = check_list_not_empty(new_admins)
@@ -321,7 +342,7 @@ def submit_provider(
     """
     if provider.status == ProviderStatus.submitted:
         return provider
-    if provider.status != ProviderStatus.ready:
+    if provider.status != ProviderStatus.draft:
         message = f"Transition from state '{provider.status.name}' to state "
         message += f"'{ProviderStatus.submitted.name}' is forbidden"
         raise ProviderStateError(message)
@@ -349,13 +370,13 @@ def unsubmit_provider(
         None
 
     """
-    if provider.status == ProviderStatus.ready:
+    if provider.status == ProviderStatus.draft:
         return provider
     if provider.status != ProviderStatus.submitted:
         message = f"Transition from state '{provider.status.name}' to state "
-        message += f"'{ProviderStatus.ready.name}' is forbidden"
+        message += f"'{ProviderStatus.draft.name}' is forbidden"
         raise ProviderStateError(message)
-    provider.status = ProviderStatus.ready
+    provider.status = ProviderStatus.draft
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()

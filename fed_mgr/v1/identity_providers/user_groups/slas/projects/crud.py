@@ -19,8 +19,8 @@ def connect_proj_to_sla(
 
     If the project already has an SLA associated, overwrite the existing one.
 
-    If the project is the root one and the provider is in the `draft` state, update the
-    provider state to `ready`.
+    If the project is the root one and the provider is in the `submitted` state, update
+    the provider state to `ready`.
 
     Args:
         session (SessionDep): The database session used for committing changes.
@@ -32,7 +32,7 @@ def connect_proj_to_sla(
         None
 
     """
-    if project.is_root and project.provider.status == ProviderStatus.draft:
+    if project.is_root and project.provider.status == ProviderStatus.submitted:
         project.provider.status = ProviderStatus.ready
     project.sla = sla
     project.updated_by = updated_by
@@ -49,7 +49,7 @@ def disconnect_proj_from_sla(
     raise a ConflictError.
 
     If the project it the root one and the hosting provider is in the `ready` state,
-    update the provider state to `draft`.
+    update the provider state to `submitted`.
 
     If the project it the root one and the hosting provider is in the `ready` state, or
     the project is not the root one (independently of the provider's state) sets the
@@ -71,7 +71,7 @@ def disconnect_proj_from_sla(
             f"not in the {ProviderStatus.ready.name} state"
         )
     if project.is_root:
-        project.provider.status = ProviderStatus.draft
+        project.provider.status = ProviderStatus.submitted
     project.sla = None
     project.updated_by = updated_by
     session.add(project)

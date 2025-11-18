@@ -7,7 +7,6 @@ from fastapi import APIRouter, Query, Request, Response, status
 
 from fed_mgr.config import SettingsDep
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ConflictError, ProviderStateError
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX
 from fed_mgr.v1.providers.crud import (
@@ -370,11 +369,6 @@ def assign_tester_to_provider(
     msg = f"Assigning tester with ID '{tester.id!s}' to resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    if provider.status in [ProviderStatus.draft, ProviderStatus.ready]:
-        msg = f"Provider with ID '{provider.id!s}' is in a state not "
-        msg += f"accepting site testers (current state: '{provider.status.name}')"
-        request.state.logger.info(msg)
-        raise ProviderStateError(msg)
     provider = add_site_testers(
         session=session,
         provider=provider,
@@ -428,18 +422,6 @@ def retract_tester_from_provider(
     msg = f"Retract tester with ID '{tester_id!s}' from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    valid_states = [
-        ProviderStatus.draft,
-        ProviderStatus.ready,
-        ProviderStatus.submitted,
-        ProviderStatus.deprecated,
-        ProviderStatus.removed,
-    ]
-    if provider.status not in valid_states and len(provider.site_testers) == 1:
-        raise ConflictError(
-            "The last site tester can be removed only from providers in the following "
-            f"states: {valid_states}"
-        )
     provider = remove_site_testers(
         session=session,
         provider=provider,
@@ -494,10 +476,7 @@ def assign_admin_to_provider(
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
     provider = add_site_admins(
-        session=session,
-        provider=provider,
-        user_ids=[admin.id],
-        updated_by=current_user,
+        session=session, provider=provider, user_ids=[admin.id], updated_by=current_user
     )
     msg = f"Admin with ID '{admin.id!s}' assigned to resource provider with ID "
     msg += f"'{provider.id!s}'"
@@ -546,15 +525,8 @@ def retract_admin_from_provider(
     msg = f"Retract admin with ID '{admin_id!s}' from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    if len(provider.site_admins) == 1:
-        raise ConflictError(
-            f"This is the last site admin for provider with ID '{provider.id}'"
-        )
     provider = remove_site_admins(
-        session=session,
-        provider=provider,
-        user_ids=[admin_id],
-        updated_by=current_user,
+        session=session, provider=provider, user_ids=[admin_id], updated_by=current_user
     )
     msg = f"Admin with ID '{admin_id!s}' retracted from resource provider with "
     msg += f"ID '{provider.id!s}'"
@@ -601,11 +573,8 @@ def submit_provider_request(
     msg = f"User with ID {current_user.id!s} submitted federation request for resource "
     msg += f"provider with ID: {provider.id!s}"
     request.state.logger.info(msg)
-    submit_provider(
-        request=request,
-        session=session,
-        provider=provider,
-        current_user=current_user,
+    provider = submit_provider(
+        session=session, provider=provider, updated_by=current_user
     )
     msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
     request.state.logger.info(msg)
@@ -651,11 +620,8 @@ def unsubmit_provider_request(
     msg = f"User with ID {current_user.id!s} revoked federation request for resource "
     msg += f"provider with ID: {provider.id!s}"
     request.state.logger.info(msg)
-    unsubmit_provider(
-        request=request,
-        session=session,
-        provider=provider,
-        current_user=current_user,
+    provider = unsubmit_provider(
+        session=session, provider=provider, updated_by=current_user
     )
     msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
     request.state.logger.info(msg)
