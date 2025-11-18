@@ -37,8 +37,8 @@ class ProviderStatus(int, Enum):
     """Enumeration of possible resource provider statuses."""
 
     draft = 0
-    ready = 1
-    submitted = 2
+    submitted = 1
+    ready = 2
     evaluation = 3
     pre_production = 4
     active = 5

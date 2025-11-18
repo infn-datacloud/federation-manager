@@ -54,8 +54,8 @@ def test_provider_status_enum_all_values():
     """Test all ProviderStatus enum values and their integer representations."""
     status_map = {
         "draft": 0,
-        "ready": 1,
-        "submitted": 2,
+        "submitted": 1,
+        "ready": 2,
         "evaluation": 3,
         "pre_production": 4,
         "active": 5,

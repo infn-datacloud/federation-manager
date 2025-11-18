@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from cryptography.fernet import Fernet
 
-from fed_mgr.exceptions import ItemNotFoundError, ProviderStateError
+from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
 from fed_mgr.v1.models import Provider, User
 from fed_mgr.v1.providers.crud import (
     add_provider,
@@ -308,9 +308,69 @@ def test_add_site_testers_already_exist(session):
         assert result.updated_by == updated_by
 
 
-def test_remove_site_testers(session):
+@pytest.mark.parametrize("status", [ProviderStatus.draft, ProviderStatus.submitted])
+def test_add_site_testers_provider_wrong_state(session, status):
     """Test update_provider calls update_item with correct arguments."""
     provider = MagicMock(spec=Provider)
+    provider.id = uuid.uuid4()
+    provider.status = status
+    updated_by = MagicMock(spec=User)
+    site_tester = MagicMock(spec=User)
+    new_site_testers = [site_tester.id]
+
+    with patch("fed_mgr.v1.providers.crud.get_user") as mock_get_user:
+        with pytest.raises(
+            ProviderStateError,
+            match=f"Provider with ID '{provider.id!s}' is in a state not accepting "
+            + "site testers",
+        ):
+            add_site_testers(
+                session=session,
+                provider=provider,
+                user_ids=new_site_testers,
+                updated_by=updated_by,
+            )
+        mock_get_user.assert_not_called()
+
+
+def test_remove_site_one_of_multi_testers(session):
+    """Test update_provider calls update_item with correct arguments."""
+    provider = MagicMock(spec=Provider)
+    site_tester1 = MagicMock(spec=User)
+    site_tester2 = MagicMock(spec=User)
+    site_tester1.id = uuid.uuid4()
+    provider.site_testers = [site_tester1, site_tester2]
+    updated_by = MagicMock(spec=User)
+    del_site_testers = [site_tester1.id]
+
+    with patch(
+        "fed_mgr.v1.providers.crud.get_user", return_value=site_tester1
+    ) as mock_get_user:
+        result = remove_site_testers(
+            session=session,
+            provider=provider,
+            user_ids=del_site_testers,
+            updated_by=updated_by,
+        )
+        mock_get_user.assert_called_once()
+        assert len(result.site_testers) == 1
+        assert result.updated_by == updated_by
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ProviderStatus.draft,
+        ProviderStatus.ready,
+        ProviderStatus.submitted,
+        ProviderStatus.deprecated,
+        ProviderStatus.removed,
+    ],
+)
+def test_remove_last_site_tester(session, status):
+    """Test update_provider calls update_item with correct arguments."""
+    provider = MagicMock(spec=Provider)
+    provider.status = status
     site_tester = MagicMock(spec=User)
     site_tester.id = uuid.uuid4()
     provider.site_testers = [site_tester]
@@ -334,8 +394,9 @@ def test_remove_site_testers(session):
 def test_remove_site_testers_missing(session):
     """Test update_provider calls update_item with correct arguments."""
     provider = MagicMock(spec=Provider)
-    site_tester = MagicMock(spec=User)
-    provider.site_testers = [site_tester]
+    site_tester1 = MagicMock(spec=User)
+    site_tester2 = MagicMock(spec=User)
+    provider.site_testers = [site_tester1, site_tester2]
     updated_by = MagicMock(spec=User)
     del_site_tester = MagicMock(spec=User)
     del_site_tester.id = uuid.uuid4()
@@ -351,9 +412,43 @@ def test_remove_site_testers_missing(session):
             updated_by=updated_by,
         )
         mock_get_user.assert_called_once()
-        assert len(result.site_testers) == 1
-        assert site_tester in result.site_testers
+        assert len(result.site_testers) == 2
         assert result.updated_by == updated_by
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ProviderStatus.evaluation,
+        ProviderStatus.pre_production,
+        ProviderStatus.active,
+        ProviderStatus.degraded,
+        ProviderStatus.maintenance,
+        ProviderStatus.re_evaluation,
+    ],
+)
+def test_fail_remove_last_site_testers(session, status):
+    """Test update_provider calls update_item with correct arguments."""
+    provider = MagicMock(spec=Provider)
+    provider.status = status
+    site_tester = MagicMock(spec=User)
+    provider.site_testers = [site_tester]
+    updated_by = MagicMock(spec=User)
+    del_site_testers = [site_tester.id]
+
+    with patch("fed_mgr.v1.providers.crud.get_user") as mock_get_user:
+        with pytest.raises(
+            ConflictError,
+            match="The last site tester can be removed only from providers in the "
+            "following states",
+        ):
+            remove_site_testers(
+                session=session,
+                provider=provider,
+                user_ids=del_site_testers,
+                updated_by=updated_by,
+            )
+            mock_get_user.assert_called_once()
 
 
 def test_add_site_admins(session):
@@ -441,24 +536,26 @@ def test_remove_site_admins_empty_list(session):
     updated_by = MagicMock(spec=User)
     del_site_admins = [site_admin.id]
 
-    with patch(
-        "fed_mgr.v1.providers.crud.get_user", return_value=site_admin
-    ) as mock_get_user:
-        with pytest.raises(ValueError, match="List must not be empty"):
+    with patch("fed_mgr.v1.providers.crud.get_user") as mock_get_user:
+        with pytest.raises(
+            ConflictError,
+            match=f"This is the last site admin for provider with ID '{provider.id!s}'",
+        ):
             remove_site_admins(
                 session=session,
                 provider=provider,
                 user_ids=del_site_admins,
                 updated_by=updated_by,
             )
-        mock_get_user.assert_called_once()
+        mock_get_user.assert_not_called()
 
 
 def test_remove_site_admins_missing(session):
     """Test update_provider calls update_item with correct arguments."""
     provider = MagicMock(spec=Provider)
-    site_admin = MagicMock(spec=User)
-    provider.site_admins = [site_admin]
+    site_admin1 = MagicMock(spec=User)
+    site_admin2 = MagicMock(spec=User)
+    provider.site_admins = [site_admin1, site_admin2]
     updated_by = MagicMock(spec=User)
     del_site_admin = MagicMock(spec=User)
     del_site_admin.id = uuid.uuid4()
@@ -474,15 +571,14 @@ def test_remove_site_admins_missing(session):
             updated_by=updated_by,
         )
         mock_get_user.assert_called_once()
-        assert len(result.site_admins) == 1
-        assert site_admin in result.site_admins
+        assert len(result.site_admins) == 2
         assert result.updated_by == updated_by
 
 
 def test_submit_provider(session):
     """Test update_provider calls update_item with correct arguments."""
     provider = MagicMock(spec=Provider)
-    provider.status = ProviderStatus.ready
+    provider.status = ProviderStatus.draft
     updated_by = MagicMock(spec=User)
     provider = submit_provider(
         session=session, provider=provider, updated_by=updated_by
@@ -501,7 +597,7 @@ def test_submit_provider(session):
 @pytest.mark.parametrize(
     "status",
     [
-        ProviderStatus.draft,
+        ProviderStatus.ready,
         ProviderStatus.evaluation,
         ProviderStatus.pre_production,
         ProviderStatus.active,
@@ -530,21 +626,21 @@ def test_unsubmit_provider(session):
     provider = unsubmit_provider(
         session=session, provider=provider, updated_by=updated_by
     )
-    assert provider.status == ProviderStatus.ready
+    assert provider.status == ProviderStatus.draft
     assert provider.updated_by == updated_by
 
     # if already in ready state, 'unsubmit again' does nothing
     provider = unsubmit_provider(
         session=session, provider=provider, updated_by=updated_by
     )
-    assert provider.status == ProviderStatus.ready
+    assert provider.status == ProviderStatus.draft
     assert provider.updated_by == updated_by
 
 
 @pytest.mark.parametrize(
     "status",
     [
-        ProviderStatus.draft,
+        ProviderStatus.ready,
         ProviderStatus.evaluation,
         ProviderStatus.pre_production,
         ProviderStatus.active,
@@ -560,7 +656,7 @@ def test_unsubmit_provider_wrong_state(session, status):
     provider = MagicMock(spec=Provider)
     provider.status = status
     updated_by = MagicMock(spec=User)
-    message = f"Transition from state '{status.name}' to state 'ready' is forbidden"
+    message = f"Transition from state '{status.name}' to state 'draft' is forbidden"
     with pytest.raises(ProviderStateError, match=message):
         unsubmit_provider(session=session, provider=provider, updated_by=updated_by)
 

@@ -20,10 +20,13 @@ Tests in this file:
 import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from fed_mgr.config import get_settings
-from fed_mgr.exceptions import ConflictError, DeleteFailedError, ItemNotFoundError
+from fed_mgr.exceptions import (
+    ConflictError,
+    DeleteFailedError,
+    ItemNotFoundError,
+    ProviderStateError,
+)
 from fed_mgr.main import sub_app_v1
 from fed_mgr.v1.models import Provider
 from fed_mgr.v1.providers.crud import get_provider
@@ -239,6 +242,7 @@ def test_delete_provider_success(client, session, current_user, provider_dep):
 def test_delete_not_existing_provider_success(client, current_user):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
     with patch(
         "fed_mgr.v1.providers.endpoints.revoke_provider", return_value=None
     ) as mock_delete:
@@ -287,6 +291,7 @@ def test_assign_site_tester_provider_not_found(client, current_user):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     fake_provider_id = uuid.uuid4()
     tester_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
     with patch("fed_mgr.v1.providers.endpoints.add_site_testers") as mock_add:
         resp = client.post(
             f"/api/v1/providers/{fake_provider_id}/testers", json={"id": str(tester_id)}
@@ -300,25 +305,28 @@ def test_assign_site_tester_provider_not_found(client, current_user):
         )
 
 
-@pytest.mark.parametrize("status", [ProviderStatus.draft, ProviderStatus.ready])
 def test_assign_site_tester_fail_wrong_state(
-    client, current_user, provider_dep, status
+    client, session, current_user, provider_dep
 ):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     tester_id = uuid.uuid4()
-    provider_dep.status = status
-    with patch("fed_mgr.v1.providers.endpoints.add_site_testers") as mock_add:
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_site_testers",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
         resp = client.post(
             f"/api/v1/providers/{provider_dep.id}/testers", json={"id": str(tester_id)}
         )
-        mock_add.assert_not_called()
+        mock_add.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
         assert resp.status_code == 400
         assert resp.json()["status"] == 400
-        assert (
-            resp.json()["detail"]
-            == f"Provider with ID '{provider_dep.id!s}' is in a state not "
-            f"accepting site testers (current state: '{provider_dep.status.name}')"
-        )
+        assert resp.json()["detail"] == error_msg
 
 
 def test_remove_site_tester(client, session, current_user, provider_dep):
@@ -343,6 +351,7 @@ def test_remove_site_tester_provider_not_found(client, current_user):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     fake_provider_id = uuid.uuid4()
     tester_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
     with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
         resp = client.delete(
             f"/api/v1/providers/{fake_provider_id}/testers/{tester_id}"
@@ -356,21 +365,9 @@ def test_remove_site_tester_provider_not_found(client, current_user):
         )
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        ProviderStatus.draft,
-        ProviderStatus.ready,
-        ProviderStatus.submitted,
-        ProviderStatus.deprecated,
-        ProviderStatus.removed,
-    ],
-)
-def test_remove_last_site_tester(client, session, current_user, provider_dep, status):
+def test_remove_last_site_tester(client, session, current_user, provider_dep):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     tester_id = uuid.uuid4()
-    provider_dep.status = status
-    provider_dep.site_testers = [MagicMock()]
     with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
         mock_del.assert_called_once_with(
@@ -382,23 +379,11 @@ def test_remove_last_site_tester(client, session, current_user, provider_dep, st
         assert resp.status_code == 204
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        ProviderStatus.evaluation,
-        ProviderStatus.active,
-        ProviderStatus.degraded,
-        ProviderStatus.maintenance,
-        ProviderStatus.re_evaluation,
-    ],
-)
 def test_leave_at_least_one_site_tester_when_mandatory(
-    client, session, current_user, provider_dep, status
+    client, session, current_user, provider_dep
 ):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     tester_id = uuid.uuid4()
-    provider_dep.status = status
-    provider_dep.site_testers = [MagicMock(), MagicMock()]
     with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
         mock_del.assert_called_once_with(
@@ -410,30 +395,24 @@ def test_leave_at_least_one_site_tester_when_mandatory(
         assert resp.status_code == 204
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        ProviderStatus.evaluation,
-        ProviderStatus.active,
-        ProviderStatus.degraded,
-        ProviderStatus.maintenance,
-        ProviderStatus.re_evaluation,
-    ],
-)
-def test_fail_to_remove_last_site_tester(client, current_user, provider_dep, status):
+def test_fail_to_remove_last_site_tester(client, session, current_user, provider_dep):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     tester_id = uuid.uuid4()
-    provider_dep.status = status
-    provider_dep.site_testers = [MagicMock()]
-    with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_testers",
+        side_effect=ConflictError(error_msg),
+    ) as mock_del:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
-        mock_del.assert_not_called()
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
         assert resp.status_code == 409
         assert resp.json()["status"] == 409
-        assert (
-            "The last site tester can be removed only from providers in the following "
-            "states:" in resp.json()["detail"]
-        )
+        assert resp.json()["detail"] == error_msg
 
 
 def test_assign_site_admin(client, session, current_user, provider_dep):
@@ -459,6 +438,7 @@ def test_assign_site_admin_provider_not_found(client, current_user):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     fake_provider_id = uuid.uuid4()
     admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
     with patch("fed_mgr.v1.providers.endpoints.add_site_admins") as mock_add:
         resp = client.post(
             f"/api/v1/providers/{fake_provider_id}/admins", json={"id": str(admin_id)}
@@ -493,6 +473,7 @@ def test_remove_site_admin_provider_not_found(client, current_user):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     fake_provider_id = uuid.uuid4()
     admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
     with patch("fed_mgr.v1.providers.endpoints.remove_site_admins") as mock_del:
         resp = client.delete(f"/api/v1/providers/{fake_provider_id}/admins/{admin_id}")
         mock_del.assert_not_called()
@@ -504,19 +485,118 @@ def test_remove_site_admin_provider_not_found(client, current_user):
         )
 
 
-def test_fail_to_remove_last_site_admin(client, current_user, provider_dep):
+def test_fail_to_remove_last_site_admin(client, session, current_user, provider_dep):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
     admin_id = uuid.uuid4()
-    provider_dep.site_admins = [MagicMock()]
-    with patch("fed_mgr.v1.providers.endpoints.remove_site_admins") as mock_del:
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_admins",
+        side_effect=ConflictError(error_msg),
+    ) as mock_del:
         resp = client.delete(f"/api/v1/providers/{provider_dep.id}/admins/{admin_id}")
-        mock_del.assert_not_called()
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[admin_id],
+            updated_by=current_user,
+        )
         assert resp.status_code == 409
         assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == error_msg
+
+
+def test_submit(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    with patch(
+        "fed_mgr.v1.providers.endpoints.submit_provider", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/submit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
+
+
+def test_submit_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.submit_provider") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/submit", json={"id": str(admin_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
         assert (
             resp.json()["detail"]
-            == f"This is the last site admin for provider with ID '{provider_dep.id}'"
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
         )
+
+
+def test_submit_fail(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.submit_provider",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/submit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 400
+        assert resp.json()["status"] == 400
+        assert resp.json()["detail"] == error_msg
+
+
+def test_unsubmit(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    with patch(
+        "fed_mgr.v1.providers.endpoints.unsubmit_provider", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/unsubmit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
+
+
+def test_unsubmit_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.unsubmit_provider") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/unsubmit", json={"id": str(admin_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
+
+
+def test_unsubmit_fail(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.unsubmit_provider",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/unsubmit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 400
+        assert resp.json()["status"] == 400
+        assert resp.json()["detail"] == error_msg
 
 
 # def test_update_provider_state_success(client, monkeypatch):
