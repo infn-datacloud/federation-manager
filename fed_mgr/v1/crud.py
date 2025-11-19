@@ -273,6 +273,8 @@ def _handle_generic_field(
             return entity.__table__.c.get(k) >= v
         else:
             return entity.__table__.c.get(k) == v
+    elif isinstance(v, list):
+        return entity.__table__.c.get(k).in_(v)
     return None
 
 
