@@ -573,7 +573,7 @@ async def update_provider_status(provider: Provider) -> Provider:
 
     """
     settings = get_settings()
-    logger = get_logger()
+    logger = get_logger(log_level=settings.LOG_LEVEL)
     match provider.status:
         case ProviderStatus.draft:
             if is_provider_ready(provider):
