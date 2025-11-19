@@ -1,5 +1,6 @@
 """Module with the configuration parameters."""
 
+import logging
 from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Literal
@@ -17,8 +18,6 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
-from fed_mgr.logger import LogLevelEnum
-
 API_V1_STR = "/api/v1/"
 
 
@@ -32,6 +31,16 @@ class AuthorizationMethodsEnum(str, Enum):
     """Enumeration of supported authorization methods."""
 
     opa = "opa"
+
+
+class LogLevelEnum(int, Enum):
+    """Enumeration of supported logging levels."""
+
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
 
 
 def get_level(value: int | str | LogLevelEnum) -> int:
