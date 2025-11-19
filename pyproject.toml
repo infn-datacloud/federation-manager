@@ -12,7 +12,7 @@ pydantic-settings = "^2.9.1"
 pydantic = {extras = ["email"], version = "^2.11.4"}
 sqlmodel = "^0.0.24"
 aiokafka = "^0.12.0"
-starlette = "^0.48.0"
+starlette = ">=0.49.1"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.5.0"
@@ -25,7 +25,7 @@ fastapi-cli = "^0.0"
 pytest-asyncio = "^0.26.0"
 
 [tool.poetry.group.rest-api.dependencies]
-fastapi = {extras = ["standard"], version = "^0.116"}
+fastapi = {extras = ["standard"], version = "^0.121.1"}
 sqlalchemy = "^2.0.41"
 flaat = "^1.2.0"
 opentelemetry-distro = "^0.55b1"
@@ -46,6 +46,7 @@ build-backend = "poetry.core.masonry.api"
 # ruff specific rules (RUF),
 # flake8-bugbear (B), flake8-logging-format (G), flake8-quotes (Q)
 extend-select = ["B", "C90", "E", "D", "F", "G", "I", "N", "Q", "RUF", "UP", "W"]
+ignore = ["D203", "D213"]
 
 [tool.coverage.run]
 relative_files = true

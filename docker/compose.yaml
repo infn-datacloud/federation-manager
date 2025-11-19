@@ -17,7 +17,7 @@ services:
       DB_HOST: db
       DB_NAME: fed_mgr
       AUTHN_MODE: local
-      AUTHZ_MODE: opa 
+      AUTHZ_MODE: opa
       TRUSTED_IDP_LIST: '["https://iam.cloud.infn.it/"]'
       OPA_AUTHZ_URL: http://opa:8181/v1/data/fed_mgr
       SECRET_KEY: changeit
@@ -25,6 +25,12 @@ services:
       - ../certs:/certs:ro
     networks:
       - fed-mgr-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health/"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   db:
     image: mysql:8
@@ -42,7 +48,17 @@ services:
     networks:
       - fed-mgr-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}", "--silent"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-p${MYSQL_ROOT_PASSWORD}",
+          "--silent",
+        ]
       interval: 5s
       timeout: 5s
       retries: 50

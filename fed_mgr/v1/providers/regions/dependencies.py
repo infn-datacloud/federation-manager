@@ -3,17 +3,16 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
 
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.models import Region
 from fed_mgr.v1.providers.regions.crud import get_region
 
 RegionDep = Annotated[Region | None, Depends(get_region)]
 
 
-def region_required(
-    request: Request, region_id: uuid.UUID, region: RegionDep
-) -> Region:
+def region_required(region_id: uuid.UUID, region: RegionDep) -> Region:
     """Dependency to ensure the specified resource region exists.
 
     Raises an HTTP 404 error if the resource region with the given region_id does
@@ -29,9 +28,7 @@ def region_required(
 
     """
     if region is None:
-        message = f"Region with ID '{region_id!s}' does not exist"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+        raise ItemNotFoundError(f"Region with ID '{region_id!s}' does not exist")
     return region
 
 

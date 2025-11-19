@@ -175,3 +175,7 @@ cython_debug/
 # VSCode and other IDEs
 **/.vscode/**
 !**/.vscode/launch.json
+codebook.toml
+
+# Data
+*.sqlite

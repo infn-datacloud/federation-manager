@@ -3,15 +3,19 @@
 import urllib.parse
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlmodel import Session
-from starlette.exceptions import HTTPException
 
 from fed_mgr.auth import configure_flaat
 from fed_mgr.config import API_V1_STR, get_settings
 from fed_mgr.db import create_db_and_tables, dispose_engine
+from fed_mgr.exceptions import (
+    add_auth_exception_handlers,
+    add_db_exception_handlers,
+    add_rest_exception_handlers,
+    add_service_exception_handlers,
+)
 from fed_mgr.kafka import KafkaApp
 from fed_mgr.logger import get_logger
 from fed_mgr.v1.providers.crud import start_tasks_to_remove_deprecated_providers
@@ -60,7 +64,7 @@ async def lifespan(app: FastAPI):
         dict: A dictionary with the logger instance, available in the request state.
 
     """
-    logger = get_logger(settings)
+    logger = get_logger(log_level=settings.LOG_LEVEL)
     configure_flaat(settings, logger)
     engine = create_db_and_tables(logger)
 
@@ -107,25 +111,9 @@ sub_app_v1 = FastAPI(
 sub_app_v1.include_router(secured_router_v1)
 sub_app_v1.include_router(public_router_v1)
 
-
-@sub_app_v1.exception_handler(HTTPException)
-def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTPException errors by returning a JSON response.
-
-    The new object contains the exception's status code and detail.
-
-    Args:
-        request (Request): The incoming HTTP request that caused the exception.
-        exc (HTTPException): The HTTP exception instance.
-
-    Returns:
-        JSONResponse: A JSON response with the status code and detail of the exception.
-
-    """
-    return JSONResponse(
-        content={"status": exc.status_code, "detail": exc.detail},
-        status_code=exc.status_code,
-    )
-
+add_auth_exception_handlers(sub_app_v1)
+add_db_exception_handlers(sub_app_v1)
+add_rest_exception_handlers(sub_app_v1)
+add_service_exception_handlers(sub_app_v1)
 
 app.mount(API_V1_STR, sub_app_v1)

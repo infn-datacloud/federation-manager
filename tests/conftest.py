@@ -1,5 +1,6 @@
 """Fixtures for fed-mgr tests."""
 
+import logging
 import os
 from unittest import mock
 
@@ -13,7 +14,6 @@ def clear_os_environment() -> None:
 
 
 @pytest.fixture
-def mock_logger():
+def logger():
     """Fixture that returns a mock logger object for testing purposes."""
-    logger = mock.Mock()
-    return logger
+    return mock.MagicMock(spec=logging.Logger)

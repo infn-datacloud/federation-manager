@@ -1,4 +1,17 @@
-"""Endpoints to manage User details."""
+"""Endpoints to manage application health.
+
+This module defines the health check endpoints for the application. It includes a
+liveness probe that verifies the connectivity and status of dependent services such as
+the database, OPA, and Kafka.
+
+Routes:
+    - GET /health: Returns the health status of the application and its dependencies.
+
+Dependencies:
+    - SettingsDep: Provides application settings.
+    - SessionDep: Provides a database session.
+
+"""
 
 import urllib.parse
 
@@ -20,9 +33,12 @@ health_router = APIRouter(prefix=HEALTH_PREFIX, tags=["health"])
 async def liveness_probe(
     request: Request, settings: SettingsDep, session: SessionDep
 ) -> Health:
-    """Restrieve service healthness.
+    """Retrieve service health status.
 
-    Check connection with related services.
+    This endpoint checks the health of the application and its dependencies, including:
+    - Database connection
+    - OPA (Open Policy Agent) connection (if enabled)
+    - Kafka connection (if enabled)
 
     Args:
         request (Request): The incoming HTTP request object, used for logging.
@@ -30,7 +46,8 @@ async def liveness_probe(
         session (SessionDep): Database session dependency.
 
     Returns:
-        Health: single connection status and general service status.
+        Health: An object containing the connection status of each dependency
+        and the overall service status.
 
     """
     data = {}

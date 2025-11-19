@@ -124,4 +124,4 @@ def delete_project(*, session: Session, project_id: uuid.UUID) -> None:
         None
 
     """
-    delete_item(session=session, entity=Project, id=project_id)
+    return delete_item(session=session, entity=Project, id=project_id)

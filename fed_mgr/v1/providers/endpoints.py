@@ -3,17 +3,10 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 
 from fed_mgr.config import SettingsDep
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-    ProviderStateChangeError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import PROVIDERS_PREFIX
 from fed_mgr.v1.providers.crud import (
@@ -29,7 +22,7 @@ from fed_mgr.v1.providers.crud import (
     unsubmit_provider,
     update_provider,
 )
-from fed_mgr.v1.providers.dependencies import ProviderRequiredDep
+from fed_mgr.v1.providers.dependencies import ProviderDep, ProviderRequiredDep
 from fed_mgr.v1.providers.schemas import (
     ProviderCreate,
     ProviderList,
@@ -39,7 +32,7 @@ from fed_mgr.v1.providers.schemas import (
     ProviderUpdate,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 provider_router = APIRouter(prefix=PROVIDERS_PREFIX, tags=["resource providers"])
 
@@ -80,7 +73,7 @@ def available_methods(response: Response) -> None:
 def create_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     settings: SettingsDep,
     provider: ProviderCreate,
 ) -> ItemID:
@@ -93,7 +86,7 @@ def create_provider(
     Args:
         request (Request): The incoming HTTP request object, used for logging.
         provider (ProviderCreate | None): The resource provider data to create.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
@@ -110,29 +103,13 @@ def create_provider(
     """
     msg = f"Creating resource provider with params: {provider.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_provider = add_provider(
-            session=session,
-            provider=provider,
-            created_by=current_user,
-            secret_key=settings.SECRET_KEY,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
-    msg = f"Resource provider created: {db_provider.model_dump_json()}"
+    db_provider = add_provider(
+        session=session,
+        provider=provider,
+        created_by=current_user,
+        secret_key=settings.SECRET_KEY,
+    )
+    msg = f"Provider created: {db_provider.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_provider.id}
 
@@ -231,7 +208,7 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
         404 Not Found: If the user does not exist (handled below).
 
     """
-    msg = f"Resource provider with ID '{provider.id!s}' found: "
+    msg = f"Provider with ID '{provider.id!s}' found: "
     msg += f"{provider.model_dump_json()}"
     request.state.logger.info(msg)
     provider = ProviderRead(
@@ -262,7 +239,7 @@ def retrieve_provider(request: Request, provider: ProviderRequiredDep) -> Provid
 def edit_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     settings: SettingsDep,
     provider_id: uuid.UUID,
     new_provider: ProviderUpdate,
@@ -276,7 +253,7 @@ def edit_provider(
         new_provider (UserCreate): The new resource provider data to update.
         settings (SettingsDep): Application ettings
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -289,30 +266,14 @@ def edit_provider(
     """
     msg = f"Update resource provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_provider(
-            session=session,
-            provider_id=provider_id,
-            new_provider=new_provider,
-            updated_by=current_user,
-            secret_key=settings.SECRET_KEY,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
-    msg = f"Resource provider with ID '{provider_id!s}' updated"
+    update_provider(
+        session=session,
+        provider_id=provider_id,
+        new_provider=new_provider,
+        updated_by=current_user,
+        secret_key=settings.SECRET_KEY,
+    )
+    msg = f"Provider with ID '{provider_id!s}' updated"
     request.state.logger.info(msg)
 
 
@@ -329,7 +290,11 @@ def edit_provider(
     responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
 )
 def remove_provider(
-    request: Request, session: SessionDep, provider_id: uuid.UUID
+    request: Request,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    provider: ProviderDep,
+    provider_id: uuid.UUID,
 ) -> None:
     """Remove a resource provider from the system by their unique identifier.
 
@@ -338,10 +303,13 @@ def remove_provider(
 
     Args:
         request (Request): The HTTP request object, used for logging and request context
-        provider_id (uuid.UUID): The unique identifier of the resource provider to be
-            removed
         session (SessionDep): The database session dependency used to perform the
             deletion.
+        provider_id (uuid.UUID): The unique identifier of the resource provider to be
+            removed
+        provider (Provider): Provider instance or None
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
+            from the access token.
 
     Returns:
         None
@@ -353,14 +321,9 @@ def remove_provider(
     """
     msg = f"Delete resource provider with ID '{provider_id!s}'"
     request.state.logger.info(msg)
-    try:
-        revoke_provider(session=session, provider_id=provider_id)
-    except (DeleteFailedError, Exception) as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
-    msg = f"Resource provider with ID '{provider_id!s}' deleted"
+    if provider is not None:
+        revoke_provider(session=session, provider=provider, updated_by=current_user)
+    msg = f"Provider with ID '{provider_id!s}' deleted"
     request.state.logger.info(msg)
 
 
@@ -376,7 +339,7 @@ def remove_provider(
 def assign_tester_to_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     tester: ItemID,
 ) -> None:
@@ -389,7 +352,7 @@ def assign_tester_to_provider(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         users (ProviderStatus): Target state to reach.
         tester: tester id
@@ -406,19 +369,13 @@ def assign_tester_to_provider(
     msg = f"Assigning tester with ID '{tester.id!s}' to resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    if provider.status != ProviderStatus.submitted:
-        msg = f"Resource provider with ID '{provider.id!s}' is not in state "
-        msg += f"'{ProviderStatus.submitted.name}' (current state: "
-        msg += f"'{provider.status.name}')"
-        request.state.logger.info(msg)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
-    add_site_testers(
+    provider = add_site_testers(
         session=session,
         provider=provider,
         user_ids=[tester.id],
         updated_by=current_user,
     )
-    msg = f"Tester with ID '{tester.id!s}' assigned to resource provider with ID "
+    msg = f"Tester with ID '{tester.id!s}' assigned to provider with ID "
     msg += f"'{provider.id!s}'"
     request.state.logger.info(msg)
 
@@ -436,7 +393,7 @@ def assign_tester_to_provider(
 def retract_tester_from_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     tester_id: uuid.UUID,
 ) -> None:
@@ -449,7 +406,7 @@ def retract_tester_from_provider(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         tester_id (ProviderStatus): Target state to reach.
 
@@ -465,7 +422,7 @@ def retract_tester_from_provider(
     msg = f"Retract tester with ID '{tester_id!s}' from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    remove_site_testers(
+    provider = remove_site_testers(
         session=session,
         provider=provider,
         user_ids=[tester_id],
@@ -488,7 +445,7 @@ def retract_tester_from_provider(
 def assign_admin_to_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     admin: ItemID,
 ) -> None:
@@ -501,7 +458,7 @@ def assign_admin_to_provider(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         users (ProviderStatus): Target state to reach.
         admin: admin id
@@ -518,11 +475,8 @@ def assign_admin_to_provider(
     msg = f"Assigning admin with ID '{admin.id!s}' to resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    add_site_admins(
-        session=session,
-        provider=provider,
-        user_ids=[admin.id],
-        updated_by=current_user,
+    provider = add_site_admins(
+        session=session, provider=provider, user_ids=[admin.id], updated_by=current_user
     )
     msg = f"Admin with ID '{admin.id!s}' assigned to resource provider with ID "
     msg += f"'{provider.id!s}'"
@@ -542,7 +496,7 @@ def assign_admin_to_provider(
 def retract_admin_from_provider(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     admin_id: uuid.UUID,
 ) -> None:
@@ -555,7 +509,7 @@ def retract_admin_from_provider(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         admin_id (ProviderStatus): Target state to reach.
 
@@ -571,17 +525,9 @@ def retract_admin_from_provider(
     msg = f"Retract admin with ID '{admin_id!s}' from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
-    try:
-        remove_site_admins(
-            session=session,
-            provider=provider,
-            user_ids=[admin_id],
-            updated_by=current_user,
-        )
-    except ValueError as e:
-        msg = f"This is the last site admin for provider with ID '{provider.id}'"
-        request.state.logger.error(msg)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg) from e
+    provider = remove_site_admins(
+        session=session, provider=provider, user_ids=[admin_id], updated_by=current_user
+    )
     msg = f"Admin with ID '{admin_id!s}' retracted from resource provider with "
     msg += f"ID '{provider.id!s}'"
     request.state.logger.info(msg)
@@ -599,7 +545,7 @@ def retract_admin_from_provider(
 def submit_provider_request(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
 ) -> None:
     """Change provider state.
@@ -611,7 +557,7 @@ def submit_provider_request(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         next_state (ProviderStatus): Target state to reach.
 
@@ -627,18 +573,9 @@ def submit_provider_request(
     msg = f"User with ID {current_user.id!s} submitted federation request for resource "
     msg += f"provider with ID: {provider.id!s}"
     request.state.logger.info(msg)
-    try:
-        submit_provider(
-            request=request,
-            session=session,
-            provider=provider,
-            current_user=current_user,
-        )
-    except ProviderStateChangeError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    provider = submit_provider(
+        session=session, provider=provider, updated_by=current_user
+    )
     msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
     request.state.logger.info(msg)
 
@@ -655,7 +592,7 @@ def submit_provider_request(
 def unsubmit_provider_request(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
 ) -> None:
     """Change provider state.
@@ -667,7 +604,7 @@ def unsubmit_provider_request(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         next_state (ProviderStatus): Target state to reach.
 
@@ -683,18 +620,9 @@ def unsubmit_provider_request(
     msg = f"User with ID {current_user.id!s} revoked federation request for resource "
     msg += f"provider with ID: {provider.id!s}"
     request.state.logger.info(msg)
-    try:
-        unsubmit_provider(
-            request=request,
-            session=session,
-            provider=provider,
-            current_user=current_user,
-        )
-    except ProviderStateChangeError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    provider = unsubmit_provider(
+        session=session, provider=provider, updated_by=current_user
+    )
     msg = f"Provider with ID '{provider.id!s}' state is now '{provider.status.name}'"
     request.state.logger.info(msg)
 
@@ -712,7 +640,7 @@ def unsubmit_provider_request(
 def update_provider_state(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     provider: ProviderRequiredDep,
     next_state: ProviderStatus,
 ) -> None:
@@ -725,7 +653,7 @@ def update_provider_state(
         request (Request): The incoming HTTP request object, used for logging.
         session (SessionDep): The database session dependency.
         provider (ProviderDep): The resource provider instance.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
         next_state (ProviderStatus): Target state to reach.
 

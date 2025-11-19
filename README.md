@@ -104,7 +104,7 @@ If you kafka instance has SSL communication enabled, copy in the certs folder of
 | LOG_LEVEL | str | No | INFO | Logs level. One between: _CRITICAL_, _ERROR_, _WARNING_, _INFO_ or _DEBUG_ |
 | BASE_URL | str (URI format) | No | http://localhost:8000 | Application base URL. Used to build documentation redirect links |
 | BACKEND_CORS_ORIGINS | list of str (URI format) | No | [http://localhost:3000/] | JSON-formatted list of allowed origins",
-| SECRET_KEY | str | Yes | None | Secret key used to encrypt values in the DB |
+| SECRET_KEY | str | Yes | None | Secret key used to encrypt values in the DB. **To generate a valid key run the following command in shell and copy the generated output: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`** |
 | DB_URL | str | No | sqlite+pysqlite:///:memory: | DB URL. By default it use an in memory SQLite DB. The application builds the DB URL starting from `DB_SCHEME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` and `DB_NAME` environment variables only if **all** of them have been defined. If `DB_URL` has been set to None and not all of these variables have been defined, DB URL can't be defined and the application can't start. |
 | DB_SCHEME | str | No | None | Database type and library (i.e _mysql+pymysql_) |
 | DB_USER | str | No | None | Database user |
@@ -220,3 +220,37 @@ curl -X POST http://localhost:8181/v1/data/fed-mgr/allow \
 ```
 
 The expected result should be: `{"result":true}`.
+
+### Run tests
+
+The application's tests makes use of the [pytest](https://docs.pytest.org/en/stable/) library. Tests are located in the `tests` directory and largely expolit fixtures and mocks. Here some examples on how to run tests:
+
+To run all tests:
+
+```bash
+pytest
+```
+
+To run all the tests in a specific folder and subfolder:
+
+```bash
+pytest /tests/v1/models/
+```
+
+To run all the tests in a specific file:
+
+```bash
+pytest /tests/auth.py
+```
+
+To run a specific test:
+
+```bash
+pytest /tests/auth.py::test_check_authentication_none
+```
+
+The coverage calculation is available thorugh the [pytest-cov](https://pytest-cov.readthedocs.io/en/latest/) library. To check the tests' coverage:
+
+```bash
+pytest --cov
+```

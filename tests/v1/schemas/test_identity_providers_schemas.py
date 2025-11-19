@@ -11,10 +11,10 @@ Tests in this file:
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
 from pydantic import AnyHttpUrl
 
+from fed_mgr.v1 import USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderBase,
     IdentityProviderCreate,
@@ -23,11 +23,9 @@ from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderQuery,
     IdentityProviderRead,
 )
-from fed_mgr.v1.models import IdentityProvider
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    CreationTime,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
@@ -35,65 +33,30 @@ from fed_mgr.v1.schemas import (
     ItemID,
     PaginationQuery,
     SortQuery,
-    UpdateTime,
 )
 
-DUMMY_ENDPOINT = "https://example.com"
+DUMMY_ISSUER = "https://issuer.example.com"
 DUMMY_NAME = "Test IdP"
 DUMMY_GROUPS_CLAIM = "groups"
 DUMMY_PROTOCOL = "openid"
 DUMMY_AUDIENCE = "aud1"
 DUMMY_DESC = "A test identity provider."
-
-
-def test_identity_provider_model():
-    """Test IdentityProvider model fields."""
-    creator = MagicMock()
-    id_ = uuid.uuid4()
-    now = datetime.now()
-    idp = IdentityProvider(
-        id=id_,
-        created_at=now,
-        created_by=creator,
-        updated_at=now,
-        updated_by=creator,
-        description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
-        name=DUMMY_NAME,
-        groups_claim=DUMMY_GROUPS_CLAIM,
-        protocol=DUMMY_PROTOCOL,
-        audience=DUMMY_AUDIENCE,
-    )
-    assert isinstance(idp, ItemID)
-    assert isinstance(idp, CreationTime)
-    assert isinstance(idp, UpdateTime)
-    assert isinstance(idp, IdentityProviderBase)
-    assert idp.id == id_
-    assert idp.created_at == now
-    assert idp.created_by == creator
-    assert idp.updated_at == now
-    assert idp.updated_by == creator
-    assert isinstance(idp.endpoint, str)
-    assert AnyHttpUrl(idp.endpoint) == AnyHttpUrl(DUMMY_ENDPOINT)
-    assert idp.name == DUMMY_NAME
-    assert idp.description == DUMMY_DESC
-    assert idp.groups_claim == DUMMY_GROUPS_CLAIM
-    assert idp.protocol == DUMMY_PROTOCOL
-    assert idp.audience == DUMMY_AUDIENCE
+DUMMY_ENDPOINT = "https://example.com"
 
 
 def test_identity_provider_base_fields():
     """Test IdentityProviderBase field assignment."""
     base = IdentityProviderBase(
         description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
+        endpoint=DUMMY_ISSUER,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
         audience=DUMMY_AUDIENCE,
     )
     assert isinstance(base, ItemDescription)
-    assert base.endpoint == AnyHttpUrl(DUMMY_ENDPOINT)
+    assert isinstance(base.endpoint, AnyHttpUrl)
+    assert base.endpoint == AnyHttpUrl(DUMMY_ISSUER)
     assert base.name == DUMMY_NAME
     assert base.groups_claim == DUMMY_GROUPS_CLAIM
     assert base.protocol == DUMMY_PROTOCOL
@@ -104,7 +67,7 @@ def test_identity_provider_create_is_base():
     """Test that IdentityProviderCreate is an instance of IdentityProviderBase."""
     idp_create = IdentityProviderCreate(
         description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
+        endpoint=DUMMY_ISSUER,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
@@ -131,7 +94,7 @@ def test_identity_provider_read_inheritance():
         updated_at=now,
         updated_by=creator,
         description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
+        endpoint=DUMMY_ISSUER,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
@@ -143,6 +106,9 @@ def test_identity_provider_read_inheritance():
     assert isinstance(idp_read, EditableRead)
     assert isinstance(idp_read, IdentityProviderBase)
     assert isinstance(idp_read.links, IdentityProviderLinks)
+    assert idp_read.links.user_groups == AnyHttpUrl(
+        f"{DUMMY_ENDPOINT}/{id_}{USER_GROUPS_PREFIX}"
+    )
 
 
 def test_identity_provider_list():
@@ -157,7 +123,7 @@ def test_identity_provider_list():
         updated_at=now,
         updated_by=creator,
         description=DUMMY_DESC,
-        endpoint=DUMMY_ENDPOINT,
+        endpoint=DUMMY_ISSUER,
         name=DUMMY_NAME,
         groups_claim=DUMMY_GROUPS_CLAIM,
         protocol=DUMMY_PROTOCOL,
@@ -169,7 +135,7 @@ def test_identity_provider_list():
         page_number=1,
         page_size=1,
         tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/idps"),
+        resource_url=DUMMY_ENDPOINT,
     )
     assert isinstance(idp_list.data, list)
     assert idp_list.data[0] == idp_read

@@ -10,20 +10,9 @@ import uuid
 from sqlmodel import Session
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ItemNotFoundError
-from fed_mgr.v1.crud import (
-    add_item,
-    delete_item,
-    get_item,
-    get_items,
-    update_item,
-)
-from fed_mgr.v1.identity_providers.crud import get_idp
-from fed_mgr.v1.models import IdpOverrides, Provider, User
-from fed_mgr.v1.providers.identity_providers.schemas import (
-    IdpOverridesBase,
-    ProviderIdPConnectionCreate,
-)
+from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
+from fed_mgr.v1.models import IdentityProvider, IdpOverrides, Provider, User
+from fed_mgr.v1.providers.identity_providers.schemas import IdpOverridesBase
 
 
 def get_idp_overrides(
@@ -83,25 +72,24 @@ def get_idp_overrides_list(
 def connect_prov_idp(
     *,
     session: Session,
-    config: ProviderIdPConnectionCreate,
+    idp: IdentityProvider,
     created_by: User,
     provider: Provider,
+    overrides: IdpOverridesBase,
 ) -> IdpOverrides:
     """Connect an existing resource provider to an existing identity provider.
 
     Args:
         session: The database session.
         provider: The target Resource Provider' ID to link.
-        config: The IdP attributes to override for this specific connection.
+        idp: target IDP
+        overrides: The IdP attributes to override for this specific connection.
         created_by: The User instance representing the creator of the identity provider.
 
     Returns:
         IdpOverrides: The relationship instance.
 
     """
-    idp = get_idp(session=session, idp_id=config.idp_id)
-    if idp is None:
-        raise ItemNotFoundError("Identity provider", id=config.idp_id)
     return add_item(
         session=session,
         entity=IdpOverrides,
@@ -109,7 +97,7 @@ def connect_prov_idp(
         idp=idp,
         created_by=created_by,
         updated_by=created_by,
-        **config.overrides.model_dump(),
+        **overrides.model_dump(),
     )
 
 
@@ -154,7 +142,7 @@ def disconnect_prov_idp(
         provider_id: The UUID of the relationship target resource provider.
 
     """
-    delete_item(
+    return delete_item(
         session=session,
         entity=IdpOverrides,
         idp_id=idp_id,

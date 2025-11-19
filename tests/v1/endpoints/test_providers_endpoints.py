@@ -18,39 +18,20 @@ Tests in this file:
 """
 
 import uuid
-from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from sqlmodel import Field, SQLModel
-
+from fed_mgr.config import get_settings
 from fed_mgr.exceptions import (
     ConflictError,
     DeleteFailedError,
     ItemNotFoundError,
-    NotNullError,
-    ProviderStateChangeError,
+    ProviderStateError,
 )
 from fed_mgr.main import sub_app_v1
+from fed_mgr.v1.models import Provider
 from fed_mgr.v1.providers.crud import get_provider
-from fed_mgr.v1.providers.schemas import ProviderStatus
-
-DUMMY_NAME = "foo"
-DUMMY_DESC = "desc"
-DUMMY_TYPE = "openstack"
-DUMMY_AUTH_ENDPOINT = "https://example.com/auth"
-DUMMY_IS_PUB = True
-DUMMY_EMAILS = ["admin@example.com"]
-DUMMY_CREATED_AT = datetime.now()
-DUMMY_ADMINS = [str(uuid.uuid4())]
-
-
-def fake_add_provider(fake_id):
-    """Return a fake resource provider object with the given id."""
-
-    class FakeProvider(SQLModel):
-        id: uuid.UUID = fake_id
-
-    return FakeProvider()
+from fed_mgr.v1.providers.schemas import ProviderCreate, ProviderStatus, ProviderUpdate
+from fed_mgr.v1.schemas import ItemID
 
 
 def test_options_providers(client):
@@ -60,274 +41,585 @@ def test_options_providers(client):
     assert "allow" in resp.headers or "Allow" in resp.headers
 
 
-def test_create_provider_success(client, monkeypatch):
+def test_create_provider_success(client, session, current_user, provider_data):
     """Test POST /providers/ creates an resource provider and returns 201 with id."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {
-        "description": DUMMY_DESC,
-        "name": DUMMY_NAME,
-        "type": DUMMY_TYPE,
-        "auth_endpoint": DUMMY_AUTH_ENDPOINT,
-        "is_public": DUMMY_IS_PUB,
-        "support_emails": DUMMY_EMAILS,
-        "site_admins": DUMMY_ADMINS,
-    }
+    fake_id = uuid.uuid4()
+    data = {**provider_data, "site_admins": [str(uuid.uuid4())]}
+    mock_settings = MagicMock()
+    sub_app_v1.dependency_overrides[get_settings] = lambda: mock_settings
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.add_provider",
-        lambda session, provider, created_by: fake_add_provider(fake_id),
-    )
-
-    resp = client.post("/api/v1/providers/", json=provider_data)
-    assert resp.status_code == 201
-    assert resp.json() == {"id": fake_id}
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_provider", return_value=ItemID(id=fake_id)
+    ) as mock_create:
+        resp = client.post("/api/v1/providers/", json=data)
+        mock_create.assert_called_once_with(
+            session=session,
+            provider=ProviderCreate(**data),
+            created_by=current_user,
+            secret_key=mock_settings.SECRET_KEY,
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {"id": str(fake_id)}
 
 
-def test_create_provider_conflict(client, monkeypatch):
+def test_create_provider_conflict(client, session, current_user, provider_data):
     """Test POST /providers/ returns 409 if resource provider already exists."""
-    provider_data = {
-        "description": DUMMY_DESC,
-        "name": DUMMY_NAME,
-        "type": DUMMY_TYPE,
-        "auth_endpoint": DUMMY_AUTH_ENDPOINT,
-        "is_public": DUMMY_IS_PUB,
-        "support_emails": DUMMY_EMAILS,
-        "site_admins": DUMMY_ADMINS,
-    }
+    err_msg = "Error message"
+    data = {**provider_data, "site_admins": [str(uuid.uuid4())]}
+    mock_settings = MagicMock()
+    sub_app_v1.dependency_overrides[get_settings] = lambda: mock_settings
 
-    def fake_add_provider(session, provider, created_by):
-        raise ConflictError("Provider", "auth_endpoint", DUMMY_AUTH_ENDPOINT)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.add_provider", fake_add_provider
-    )
-
-    resp = client.post("/api/v1/providers/", json=provider_data)
-    assert resp.status_code == 409
-    assert (
-        resp.json()["detail"]
-        == f"Provider with auth_endpoint={DUMMY_AUTH_ENDPOINT} already exists"
-    )
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_provider",
+        side_effect=ConflictError(err_msg),
+    ) as mock_create:
+        resp = client.post("/api/v1/providers/", json=data)
+        mock_create.assert_called_once_with(
+            session=session,
+            provider=ProviderCreate(**data),
+            created_by=current_user,
+            secret_key=mock_settings.SECRET_KEY,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
-def test_create_provider_not_null_error(client, monkeypatch):
-    """Test POST /providers/ returns 422 if a not null error occurs."""
-    provider_data = {
-        "description": DUMMY_DESC,
-        "name": DUMMY_NAME,
-        "type": DUMMY_TYPE,
-        "auth_endpoint": DUMMY_AUTH_ENDPOINT,
-        "is_public": DUMMY_IS_PUB,
-        "support_emails": DUMMY_EMAILS,
-        "site_admins": DUMMY_ADMINS,
-    }
-
-    def fake_add_provider(session, provider, created_by):
-        raise NotNullError("Provider", "endpoint")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.add_provider", fake_add_provider
-    )
-
-    resp = client.post("/api/v1/providers/", json=provider_data)
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
-
-
-def test_get_providers_success(client, monkeypatch):
+def test_get_providers_success(client, session, provider_data):
     """Test GET /providers/ returns paginated resource provider list."""
-    fake_providers = []
-    fake_total = 0
+    with patch(
+        "fed_mgr.v1.providers.endpoints.get_providers", return_value=([], 0)
+    ) as mock_get:
+        resp = client.get("/api/v1/providers/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 0
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
-    def fake_get_providers(session, skip, limit, sort, **kwargs):
-        return fake_providers, fake_total
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.get_providers", fake_get_providers
+    fake_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    provider1 = Provider(
+        **provider_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
     )
-    resp = client.get("/api/v1/providers/")
-    assert resp.status_code == 200
-    assert "data" in resp.json()
+    with patch(
+        "fed_mgr.v1.providers.endpoints.get_providers", return_value=([provider1], 1)
+    ) as mock_get:
+        resp = client.get("/api/v1/providers/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 1
+        assert "page" in resp.json()
+        assert "links" in resp.json()
+
+    provider2 = Provider(
+        **provider_data, id=fake_id, created_by_id=user_id, updated_by_id=user_id
+    )
+    with patch(
+        "fed_mgr.v1.providers.endpoints.get_providers",
+        return_value=([provider1, provider2], 2),
+    ) as mock_get:
+        resp = client.get("/api/v1/providers/")
+        mock_get.assert_called_once_with(
+            session=session, skip=0, limit=5, sort="-created_at"
+        )
+        assert resp.status_code == 200
+        assert "data" in resp.json()
+        assert "data" in resp.json()
+        assert len(resp.json()["data"]) == 2
+        assert "page" in resp.json()
+        assert "links" in resp.json()
 
 
-def test_get_provider_success(client):
+def test_get_provider_success(client, provider_dep):
     """Test GET /providers/{provider_id} returns resource provider if found."""
-    fake_id = str(uuid.uuid4())
-    site_admin = MagicMock()
-    site_admin.id = uuid.uuid4()
-    site_admins_ = [site_admin]
-
-    class FakeProvider(SQLModel):
-        id: uuid.UUID = fake_id
-        description: str = DUMMY_DESC
-        name: str = DUMMY_NAME
-        type: str = DUMMY_TYPE
-        auth_endpoint: str = DUMMY_AUTH_ENDPOINT
-        is_public: bool = DUMMY_IS_PUB
-        support_emails: list[str] = DUMMY_EMAILS
-        created_at: datetime = DUMMY_CREATED_AT
-        created_by_id: uuid.UUID = fake_id
-        updated_at: datetime = DUMMY_CREATED_AT
-        updated_by_id: uuid.UUID = fake_id
-        site_admins: list = Field(default=site_admins_, exclude=True)
-        site_testers: list = Field(default=[], exclude=True)
-
-    def fake_get_provider(provider_id, session=None):
-        return FakeProvider()
-
-    sub_app_v1.dependency_overrides[get_provider] = fake_get_provider
-
-    resp = client.get(f"/api/v1/providers/{fake_id}")
+    resp = client.get(f"/api/v1/providers/{provider_dep.id}")
     assert resp.status_code == 200
-    assert resp.json()["id"] == fake_id
+    assert resp.json()["id"] == str(provider_dep.id)
 
 
 def test_get_provider_not_found(client):
     """Test GET /providers/{provider_id} returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
-
-    sub_app_v1.dependency_overrides[get_provider] = (
-        lambda provider_id, session=None: None
-    )
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
 
     resp = client.get(f"/api/v1/providers/{fake_id}")
     assert resp.status_code == 404
-    assert "does not exist" in resp.json()["detail"]
-
-
-def test_edit_provider_no_changes(client, monkeypatch):
-    """Test PATCH /providers/{provider_id} returns 204 on successful update."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {}
-
-    def fake_update_provider(session, provider_id, new_provider, updated_by):
-        return None
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.update_provider", fake_update_provider
-    )
-
-    resp = client.patch(f"/api/v1/providers/{fake_id}", json=provider_data)
-    assert resp.status_code == 204
-
-
-def test_edit_provider_success(client, monkeypatch):
-    """Test PATCH /providers/{provider_id} returns 204 on successful update."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {"description": DUMMY_DESC}
-
-    def fake_update_provider(session, provider_id, new_provider, updated_by):
-        return None
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.update_provider", fake_update_provider
-    )
-
-    resp = client.patch(f"/api/v1/providers/{fake_id}", json=provider_data)
-    assert resp.status_code == 204
-
-
-def test_edit_provider_not_found(client, monkeypatch):
-    """Test PATCH /providers/{provider_id} returns 404 if not found."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {}
-
-    def fake_update_provider(session, provider_id, new_provider, updated_by):
-        raise ItemNotFoundError("Provider", id=provider_id)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.update_provider", fake_update_provider
-    )
-
-    resp = client.patch(f"/api/v1/providers/{fake_id}", json=provider_data)
-    assert resp.status_code == 404
+    assert resp.json()["status"] == 404
     assert resp.json()["detail"] == f"Provider with ID '{fake_id}' does not exist"
 
 
-def test_edit_provider_conflict(client, monkeypatch):
+def test_edit_provider_success(client, session, current_user):
+    """Test PATCH /providers/{provider_id} returns 204 on successful update."""
+    fake_id = uuid.uuid4()
+    new_data = {"name": "New name"}
+    mock_settings = MagicMock()
+    sub_app_v1.dependency_overrides[get_settings] = lambda: mock_settings
+
+    with patch(
+        "fed_mgr.v1.providers.endpoints.update_provider", return_value=None
+    ) as mock_edit:
+        resp = client.patch(f"/api/v1/providers/{fake_id}", json=new_data)
+        mock_edit.assert_called_once_with(
+            session=session,
+            provider_id=fake_id,
+            new_provider=ProviderUpdate(**new_data),
+            updated_by=current_user,
+            secret_key=mock_settings.SECRET_KEY,
+        )
+        assert resp.status_code == 204
+
+
+def test_edit_provider_not_found(client, session, current_user):
+    """Test PATCH /providers/{provider_id} returns 404 if not found."""
+    fake_id = uuid.uuid4()
+    err_msg = "Error err_msg"
+    new_data = {"name": "New name"}
+    mock_settings = MagicMock()
+    sub_app_v1.dependency_overrides[get_settings] = lambda: mock_settings
+
+    with patch(
+        "fed_mgr.v1.providers.endpoints.update_provider",
+        side_effect=ItemNotFoundError(err_msg),
+    ) as mock_edit:
+        resp = client.patch(f"/api/v1/providers/{fake_id}", json=new_data)
+        mock_edit.assert_called_once_with(
+            session=session,
+            provider_id=fake_id,
+            new_provider=ProviderUpdate(**new_data),
+            updated_by=current_user,
+            secret_key=mock_settings.SECRET_KEY,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert resp.json()["detail"] == err_msg
+
+
+def test_edit_provider_conflict(client, session, current_user):
     """Test PATCH /providers/{provider_id} returns 409 if conflict error occurs."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {"auth_endpoint": DUMMY_AUTH_ENDPOINT}
+    fake_id = uuid.uuid4()
+    err_msg = "Error message"
+    new_data = {"name": "New name"}
+    mock_settings = MagicMock()
+    sub_app_v1.dependency_overrides[get_settings] = lambda: mock_settings
 
-    def fake_update_provider(session, provider_id, new_provider, updated_by):
-        raise ConflictError("Provider", "auth_endpoint", DUMMY_AUTH_ENDPOINT)
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.update_provider", fake_update_provider
-    )
-
-    resp = client.patch(f"/api/v1/providers/{fake_id}", json=provider_data)
-    assert resp.status_code == 409
-    assert (
-        resp.json()["detail"]
-        == f"Provider with auth_endpoint={DUMMY_AUTH_ENDPOINT} already exists"
-    )
-
-
-def test_edit_provider_not_null_error(client, monkeypatch):
-    """Test PATCH /providers/{provider_id} returns 422 if not null error occurs."""
-    fake_id = str(uuid.uuid4())
-    provider_data = {}
-
-    def fake_update_provider(session, provider_id, new_provider, updated_by):
-        raise NotNullError("Provider", "endpoint")
-
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.update_provider", fake_update_provider
-    )
-
-    resp = client.patch(f"/api/v1/providers/{fake_id}", json=provider_data)
-    assert resp.status_code == 422
-    assert "can't be NULL" in resp.json()["detail"]
+    with patch(
+        "fed_mgr.v1.providers.endpoints.update_provider",
+        side_effect=ConflictError(err_msg),
+    ) as mock_edit:
+        resp = client.patch(f"/api/v1/providers/{fake_id}", json=new_data)
+        mock_edit.assert_called_once_with(
+            session=session,
+            provider_id=fake_id,
+            new_provider=ProviderUpdate(**new_data),
+            updated_by=current_user,
+            secret_key=mock_settings.SECRET_KEY,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
 
-def test_delete_provider_success(client, monkeypatch):
+def test_delete_provider_success(client, session, current_user, provider_dep):
     """Test DELETE /providers/{provider_id} returns 204 on success."""
-    fake_id = str(uuid.uuid4())
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.delete_provider",
-        lambda session, provider_id: None,
-    )
-    resp = client.delete(f"/api/v1/providers/{fake_id}")
-    assert resp.status_code == 204
+    with patch(
+        "fed_mgr.v1.providers.endpoints.revoke_provider", return_value=None
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}")
+        mock_delete.assert_called_once_with(
+            session=session, updated_by=current_user, provider=provider_dep
+        )
+        assert resp.status_code == 204
 
 
-def test_delete_provider_fail(client, monkeypatch):
+def test_delete_not_existing_provider_success(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch(
+        "fed_mgr.v1.providers.endpoints.revoke_provider", return_value=None
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/providers/{fake_id}")
+        mock_delete.assert_not_called()
+        assert resp.status_code == 204
+
+
+def test_delete_provider_fail(client, session, current_user, provider_dep):
     """Test DELETE /providers/{provider_id} returns 400 on fail."""
-    fake_id = str(uuid.uuid4())
+    err_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.revoke_provider",
+        side_effect=DeleteFailedError(err_msg),
+    ) as mock_delete:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}")
+        mock_delete.assert_called_once_with(
+            session=session, updated_by=current_user, provider=provider_dep
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == err_msg
 
-    def fake_delete_provider(session, provider_id):
-        raise DeleteFailedError("Failed to delete item")
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.delete_provider", fake_delete_provider
-    )
+def test_assign_site_tester(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    provider_dep.status = ProviderStatus.submitted
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_site_testers", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{provider_dep.id}/testers", json={"id": str(tester_id)}
+        )
+        mock_add.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
 
-    resp = client.delete(f"/api/v1/providers/{fake_id}")
-    assert resp.status_code == 400
+
+def test_assign_site_tester_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    tester_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.add_site_testers") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/testers", json={"id": str(tester_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
 
 
-def test_update_provider_state_success(client, monkeypatch):
-    """Test PUT /providers/{provider_id}/change_state/{next_state} returns 200."""
-    fake_id = str(uuid.uuid4())
-    next_state = ProviderStatus.submitted.value
+def test_assign_site_tester_fail_wrong_state(
+    client, session, current_user, provider_dep
+):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_site_testers",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{provider_dep.id}/testers", json={"id": str(tester_id)}
+        )
+        mock_add.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["status"] == 400
+        assert resp.json()["detail"] == error_msg
 
-    class FakeProvider:
-        id = fake_id
-        status = ProviderStatus.draft
 
-    def fake_get_provider(provider_id, session=None):
-        return FakeProvider()
+def test_remove_site_tester(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    provider_dep.status = ProviderStatus.submitted
+    provider_dep.site_testers = [MagicMock(), MagicMock()]
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_testers", return_value=provider_dep
+    ) as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 204
 
-    sub_app_v1.dependency_overrides[get_provider] = fake_get_provider
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.change_provider_state", lambda **kwargs: None
-    )
+def test_remove_site_tester_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    tester_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
+        resp = client.delete(
+            f"/api/v1/providers/{fake_provider_id}/testers/{tester_id}"
+        )
+        mock_del.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
 
-    resp = client.put(f"/api/v1/providers/{fake_id}/change_state/{next_state}")
-    assert resp.status_code == 200
-    sub_app_v1.dependency_overrides = {}
+
+def test_remove_last_site_tester(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 204
+
+
+def test_leave_at_least_one_site_tester_when_mandatory(
+    client, session, current_user, provider_dep
+):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    with patch("fed_mgr.v1.providers.endpoints.remove_site_testers") as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 204
+
+
+def test_fail_to_remove_last_site_tester(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    tester_id = uuid.uuid4()
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_testers",
+        side_effect=ConflictError(error_msg),
+    ) as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/testers/{tester_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[tester_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == error_msg
+
+
+def test_assign_site_admin(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    admin_id = uuid.uuid4()
+    with patch(
+        "fed_mgr.v1.providers.endpoints.add_site_admins", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{provider_dep.id}/admins", json={"id": str(admin_id)}
+        )
+        mock_add.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[admin_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
+
+
+def test_assign_site_admin_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.add_site_admins") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/admins", json={"id": str(admin_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
+
+
+def test_remove_site_admin(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    admin_id = uuid.uuid4()
+    provider_dep.site_admins = [MagicMock(), MagicMock()]
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_admins", return_value=provider_dep
+    ) as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/admins/{admin_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[admin_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 204
+
+
+def test_remove_site_admin_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.remove_site_admins") as mock_del:
+        resp = client.delete(f"/api/v1/providers/{fake_provider_id}/admins/{admin_id}")
+        mock_del.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
+
+
+def test_fail_to_remove_last_site_admin(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    admin_id = uuid.uuid4()
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.remove_site_admins",
+        side_effect=ConflictError(error_msg),
+    ) as mock_del:
+        resp = client.delete(f"/api/v1/providers/{provider_dep.id}/admins/{admin_id}")
+        mock_del.assert_called_once_with(
+            session=session,
+            provider=provider_dep,
+            user_ids=[admin_id],
+            updated_by=current_user,
+        )
+        assert resp.status_code == 409
+        assert resp.json()["status"] == 409
+        assert resp.json()["detail"] == error_msg
+
+
+def test_submit(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    with patch(
+        "fed_mgr.v1.providers.endpoints.submit_provider", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/submit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
+
+
+def test_submit_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.submit_provider") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/submit", json={"id": str(admin_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
+
+
+def test_submit_fail(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.submit_provider",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/submit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 400
+        assert resp.json()["status"] == 400
+        assert resp.json()["detail"] == error_msg
+
+
+def test_unsubmit(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    with patch(
+        "fed_mgr.v1.providers.endpoints.unsubmit_provider", return_value=provider_dep
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/unsubmit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 200
+        assert resp.json() is None
+
+
+def test_unsubmit_provider_not_found(client, current_user):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    fake_provider_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    sub_app_v1.dependency_overrides[get_provider] = lambda: None
+    with patch("fed_mgr.v1.providers.endpoints.unsubmit_provider") as mock_add:
+        resp = client.post(
+            f"/api/v1/providers/{fake_provider_id}/unsubmit", json={"id": str(admin_id)}
+        )
+        mock_add.assert_not_called()
+        assert resp.status_code == 404
+        assert resp.json()["status"] == 404
+        assert (
+            resp.json()["detail"]
+            == f"Provider with ID '{fake_provider_id!s}' does not exist"
+        )
+
+
+def test_unsubmit_fail(client, session, current_user, provider_dep):
+    """Test DELETE /providers/{provider_id} returns 204 on success."""
+    error_msg = "Error message"
+    with patch(
+        "fed_mgr.v1.providers.endpoints.unsubmit_provider",
+        side_effect=ProviderStateError(error_msg),
+    ) as mock_add:
+        resp = client.post(f"/api/v1/providers/{provider_dep.id}/unsubmit")
+        mock_add.assert_called_once_with(
+            session=session, provider=provider_dep, updated_by=current_user
+        )
+        assert resp.status_code == 400
+        assert resp.json()["status"] == 400
+        assert resp.json()["detail"] == error_msg
+
+
+# def test_update_provider_state_success(client, monkeypatch):
+#     """Test PUT /providers/{provider_id}/change_state/{next_state} returns 200."""
+#     fake_id = str(uuid.uuid4())
+#     next_state = ProviderStatus.submitted.value
+
+#     class FakeProvider:
+#         id = fake_id
+#         status = ProviderStatus.draft
+
+#     def fake_get_provider(provider_id, session=None):
+#         return FakeProvider()
+
+#     sub_app_v1.dependency_overrides[get_provider] = fake_get_provider
+
+#     monkeypatch.setattr(
+#         "fed_mgr.v1.providers.endpoints.change_provider_state", lambda: None
+#     )
+
+#     resp = client.put(f"/api/v1/providers/{fake_id}/change_state/{next_state}")
+#     assert resp.status_code == 200
+#     sub_app_v1.dependency_overrides = {}
 
 
 # def test_update_provider_state_forbidden(client, monkeypatch):
@@ -358,29 +650,29 @@ def test_update_provider_state_success(client, monkeypatch):
 #     sub_app_v1.dependency_overrides = {}
 
 
-def test_update_provider_not_existing_state(client, monkeypatch):
-    """Test PUT /providers/{provider_id}/change_state/{next_state} returns 422."""
-    fake_id = str(uuid.uuid4())
-    next_state = 1000  # Invalid state value
+# def test_update_provider_not_existing_state(client, monkeypatch):
+#     """Test PUT /providers/{provider_id}/change_state/{next_state} returns 422."""
+#     fake_id = str(uuid.uuid4())
+#     next_state = 1000  # Invalid state value
 
-    class FakeProvider:
-        id = fake_id
-        status = ProviderStatus.draft
+#     class FakeProvider:
+#         id = fake_id
+#         status = ProviderStatus.draft
 
-    def fake_get_provider(provider_id, session=None):
-        return FakeProvider()
+#     def fake_get_provider(provider_id, session=None):
+#         return FakeProvider()
 
-    sub_app_v1.dependency_overrides[get_provider] = fake_get_provider
+#     sub_app_v1.dependency_overrides[get_provider] = fake_get_provider
 
-    def fake_change_provider_state(**kwargs):
-        raise ProviderStateChangeError("forbidden transition")
+#     def fake_change_provider_state(**kwargs):
+#         raise ProviderStateError("forbidden transition")
 
-    monkeypatch.setattr(
-        "fed_mgr.v1.providers.endpoints.change_provider_state",
-        fake_change_provider_state,
-    )
+#     monkeypatch.setattr(
+#         "fed_mgr.v1.providers.endpoints.change_provider_state",
+#         fake_change_provider_state,
+#     )
 
-    resp = client.put(f"/api/v1/providers/{fake_id}/change_state/{next_state}")
-    assert resp.status_code == 422
-    assert "Input should be " in resp.json()["detail"][0]["msg"]
-    sub_app_v1.dependency_overrides = {}
+#     resp = client.put(f"/api/v1/providers/{fake_id}/change_state/{next_state}")
+#     assert resp.status_code == 422
+#     assert "Input should be " in resp.json()["detail"][0]["msg"]
+#     sub_app_v1.dependency_overrides = {}

@@ -5,8 +5,16 @@ from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Literal
 
+from cryptography.fernet import Fernet
 from fastapi import Depends
-from pydantic import AnyHttpUrl, BeforeValidator, EmailStr, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AnyHttpUrl,
+    BeforeValidator,
+    EmailStr,
+    Field,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -45,7 +53,7 @@ def get_level(value: int | str | LogLevelEnum) -> int:
         int: The corresponding logging level integer.
 
     """
-    if isinstance(value, str):
+    if isinstance(value, str) and value.upper() in LogLevelEnum.__members__:
         return LogLevelEnum.__getitem__(value.upper())
     return value
 
@@ -101,7 +109,7 @@ class Settings(BaseSettings):
     ]
     DB_HOST: Annotated[str | None, Field(default=None, description="Database hostname")]
     DB_PORT: Annotated[
-        int | None, Field(default=None, description="Database exposed port")
+        int | None, Field(default=None, ge=1, description="Database exposed port")
     ]
     DB_NAME: Annotated[
         str | None,
@@ -132,7 +140,7 @@ class Settings(BaseSettings):
         ),
     ]
     IDP_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for IDP")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for IDP")
     ]
     OPA_AUTHZ_URL: Annotated[
         AnyHttpUrl,
@@ -142,7 +150,7 @@ class Settings(BaseSettings):
         ),
     ]
     OPA_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for OPA")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for OPA")
     ]
     API_KEY: Annotated[
         str | None,
@@ -199,6 +207,7 @@ class Settings(BaseSettings):
         int,
         Field(
             default=104857600,
+            ge=0,
             description="Maximum size of the request to send in bytes.",
         ),
     ]
@@ -220,7 +229,16 @@ class Settings(BaseSettings):
     KAFKA_SSL_PASSWORD: Annotated[
         str | None, Field(default=None, description="Private key decryption password.")
     ]
-    SECRET_KEY: Annotated[str, Field(description="Secret key used to encrypt values")]
+    SECRET_KEY: Annotated[
+        bytes | Fernet,
+        Field(
+            description="Secret key used to encrypt values. To generate a valid key "
+            "run the following command in shell and copy the generated output: "
+            '`python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"`'
+        ),
+        AfterValidator(lambda x: Fernet(x) if isinstance(x, bytes) else x),
+    ]
 
     model_config = SettingsConfigDict(env_file=".env")
 

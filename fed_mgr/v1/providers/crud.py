@@ -11,13 +11,12 @@ import typing
 import uuid
 from datetime import date, datetime, timedelta
 
-from fastapi import BackgroundTasks
 from sqlalchemy import event
 from sqlmodel import Session
 
 from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import ItemNotFoundError, ProviderStateChangeError
+from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
 from fed_mgr.logger import get_logger
 from fed_mgr.utils import encrypt
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
@@ -28,9 +27,9 @@ from fed_mgr.v1.users.crud import get_user
 
 DEPRECATION_TIMEDELTA = 14  # days
 AVAILABLE_STATE_TRANSITIONS = {
-    ProviderStatus.draft: [ProviderStatus.ready],
-    ProviderStatus.ready: [ProviderStatus.submitted, ProviderStatus.draft],
-    ProviderStatus.submitted: [ProviderStatus.evaluation, ProviderStatus.removed],
+    ProviderStatus.draft: [ProviderStatus.submitted],
+    ProviderStatus.submitted: [ProviderStatus.ready, ProviderStatus.draft],
+    ProviderStatus.ready: [ProviderStatus.evaluation, ProviderStatus.removed],
     ProviderStatus.evaluation: [ProviderStatus.pre_production, ProviderStatus.removed],
     ProviderStatus.pre_production: [
         ProviderStatus.active,
@@ -111,7 +110,7 @@ def add_provider(
 
     """
     site_admins = check_users_exist(session=session, user_ids=provider.site_admins)
-    provider.rally_password = encrypt(secret_key, provider.rally_password)
+    provider.rally_password = encrypt(provider.rally_password, secret_key)
     return add_item(
         session=session,
         entity=Provider,
@@ -145,7 +144,8 @@ def update_provider(
         None
 
     """
-    new_provider.rally_password = encrypt(secret_key, new_provider.rally_password)
+    if new_provider.rally_password is not None:
+        new_provider.rally_password = encrypt(new_provider.rally_password, secret_key)
     return update_item(
         session=session,
         entity=Provider,
@@ -166,7 +166,7 @@ def delete_provider(*, session: Session, provider_id: uuid.UUID) -> None:
         None
 
     """
-    delete_item(session=session, entity=Provider, id=provider_id)
+    return delete_item(session=session, entity=Provider, id=provider_id)
 
 
 def check_users_exist(session: Session, user_ids: list[uuid.UUID]) -> list[User]:
@@ -189,14 +189,14 @@ def check_users_exist(session: Session, user_ids: list[uuid.UUID]) -> list[User]
     for user_id in user_ids:
         user = get_user(session=session, user_id=user_id)
         if user is None:
-            raise ItemNotFoundError("User", id=user_id)
+            raise ItemNotFoundError(f"User with ID '{user_id!s}' does not exist")
         users.append(user)
     return users
 
 
 def add_site_testers(
     *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
-) -> None:
+) -> Provider:
     """Add a user to the list of site testers for a given provider.
 
     Args:
@@ -213,16 +213,22 @@ def add_site_testers(
         Any exceptions raised by the session commit will propagate.
 
     """
+    if provider.status in [ProviderStatus.draft, ProviderStatus.submitted]:
+        msg = f"Provider with ID '{provider.id!s}' is in a state not "
+        msg += f"accepting site testers (current state: '{provider.status.name}')"
+        raise ProviderStateError(msg)
+
     users = check_users_exist(session=session, user_ids=user_ids)
     provider.site_testers = list(set(provider.site_testers) | set(users))
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+    return provider
 
 
 def add_site_admins(
     *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
-) -> None:
+) -> Provider:
     """Add a user to the list of site testers for a given provider.
 
     Args:
@@ -244,11 +250,12 @@ def add_site_admins(
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+    return provider
 
 
 def remove_site_testers(
     *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
-) -> None:
+) -> Provider:
     """Remove a specified user from the list of site testers associated with a provider.
 
     Args:
@@ -265,16 +272,29 @@ def remove_site_testers(
         IndexError: If the user is not found in the provider's site testers list.
 
     """
+    valid_states = [
+        ProviderStatus.draft,
+        ProviderStatus.ready,
+        ProviderStatus.submitted,
+        ProviderStatus.deprecated,
+        ProviderStatus.removed,
+    ]
+    if provider.status not in valid_states and len(provider.site_testers) == 1:
+        raise ConflictError(
+            "The last site tester can be removed only from providers in the following "
+            f"states: {valid_states}"
+        )
     users = check_users_exist(session=session, user_ids=user_ids)
     provider.site_testers = list(set(provider.site_testers) - set(users))
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+    return provider
 
 
 def remove_site_admins(
     *, session: Session, provider: Provider, user_ids: list[uuid.UUID], updated_by: User
-) -> None:
+) -> Provider:
     """Remove a specified user from the list of site testers associated with a provider.
 
     Args:
@@ -291,12 +311,112 @@ def remove_site_admins(
         IndexError: If the user is not found in the provider's site testers list.
 
     """
+    if len(provider.site_admins) == 1:
+        raise ConflictError(
+            f"This is the last site admin for provider with ID '{provider.id!s}'"
+        )
     users = check_users_exist(session=session, user_ids=user_ids)
     new_admins = list(set(provider.site_admins) - set(users))
     provider.site_admins = check_list_not_empty(new_admins)
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
+    return provider
+
+
+def submit_provider(
+    *, session: Session, provider: Provider, updated_by: User
+) -> Provider:
+    """Submit a provider for further processing by updating its status.
+
+    Args:
+        session (Session): The database session used to commit changes.
+        provider (Provider): The provider instance to be submitted.
+        updated_by (User): The user performing the submission.
+
+    Raises:
+        ProviderStateError: If the provider's current status is not 'ready'.
+
+    Returns:
+        None
+
+    """
+    if provider.status == ProviderStatus.submitted:
+        return provider
+    if provider.status != ProviderStatus.draft:
+        message = f"Transition from state '{provider.status.name}' to state "
+        message += f"'{ProviderStatus.submitted.name}' is forbidden"
+        raise ProviderStateError(message)
+    provider.status = ProviderStatus.submitted
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+    return provider
+
+
+def unsubmit_provider(
+    *, session: Session, provider: Provider, updated_by: User
+) -> Provider:
+    """Revert a provider's status from 'submitted' to 'ready'.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+        updated_by (User): The user performing the update.
+
+    Raises:
+        ProviderStateError: If the provider's current status is not 'submitted'.
+
+    Returns:
+        None
+
+    """
+    if provider.status == ProviderStatus.draft:
+        return provider
+    if provider.status != ProviderStatus.submitted:
+        message = f"Transition from state '{provider.status.name}' to state "
+        message += f"'{ProviderStatus.draft.name}' is forbidden"
+        raise ProviderStateError(message)
+    provider.status = ProviderStatus.draft
+    provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+    return provider
+
+
+def remove_deprecated_provider(
+    *, session: Session, provider: Provider, updated_by: User | None = None
+) -> Provider:
+    """If the expiration date has been reached, remove the deprecated provider.
+
+    Args:
+        session (Session): The database session to use for committing changes.
+        provider (Provider): The provider instance whose status will be updated.
+        updated_by (User | None): The user performing the update. If None, the operation
+            has been executed by the automated task.
+
+    Returns:
+        bool: Operation success
+
+    """
+    if provider.status == ProviderStatus.removed:
+        return provider
+    if provider.status != ProviderStatus.deprecated:
+        message = f"Transition from state '{provider.status.name}' to state "
+        message += f"'{ProviderStatus.removed.name}' is forbidden"
+        raise ProviderStateError(message)
+    if (
+        provider.status == ProviderStatus.deprecated
+        and date.today() < provider.expiration_date
+    ):
+        message = "Deprecated provider can't be removed before its expiration date"
+        raise ProviderStateError(message)
+    provider.status = ProviderStatus.removed
+    if updated_by is not None:
+        provider.updated_by = updated_by
+    session.add(provider)
+    session.commit()
+    return provider
 
 
 def change_provider_state(
@@ -318,7 +438,7 @@ def change_provider_state(
         None
 
     Raises:
-        ProviderStateChangeError: If the target state is not reachable from the current
+        ProviderStateError: If the target state is not reachable from the current
             state.
 
     """
@@ -326,79 +446,6 @@ def change_provider_state(
     provider.updated_by = updated_by
     session.add(provider)
     session.commit()
-
-
-def submit_provider(*, session: Session, provider: Provider, updated_by: User) -> None:
-    """Submit a provider for further processing by updating its status.
-
-    Args:
-        session (Session): The database session used to commit changes.
-        provider (Provider): The provider instance to be submitted.
-        updated_by (User): The user performing the submission.
-
-    Raises:
-        ProviderStateChangeError: If the provider's current status is not 'ready'.
-
-    Returns:
-        None
-
-    """
-    if provider.status != ProviderStatus.ready:
-        raise ProviderStateChangeError(provider.status, ProviderStatus.submitted)
-    provider.status = ProviderStatus.submitted
-    provider.updated_by = updated_by
-    session.add(provider)
-    session.commit()
-
-
-def unsubmit_provider(
-    *, session: Session, provider: Provider, updated_by: User
-) -> None:
-    """Revert a provider's status from 'submitted' to 'ready'.
-
-    Args:
-        session (Session): The database session to use for committing changes.
-        provider (Provider): The provider instance whose status will be updated.
-        updated_by (User): The user performing the update.
-
-    Raises:
-        ProviderStateChangeError: If the provider's current status is not 'submitted'.
-
-    Returns:
-        None
-
-    """
-    if provider.status != ProviderStatus.submitted:
-        raise ProviderStateChangeError(provider.status, ProviderStatus.ready)
-    provider.status = ProviderStatus.ready
-    provider.updated_by = updated_by
-    session.add(provider)
-    session.commit()
-
-
-def remove_deprecated_provider(
-    *, session: Session, provider: Provider, updated_by: User | None = None
-) -> bool:
-    """If the expiration date has been reached, remove the deprecated provider.
-
-    Args:
-        session (Session): The database session to use for committing changes.
-        provider (Provider): The provider instance whose status will be updated.
-        updated_by (User | None): The user performing the update. If None, the operation
-            has been executed by the automated task.
-
-    Returns:
-        bool: Operation success
-
-    """
-    if date.today() >= provider.expiration_date:
-        provider.status = ProviderStatus.removed
-        if updated_by is not None:
-            provider.updated_by = updated_by
-        session.add(provider)
-        session.commit()
-        return True
-    return False
 
 
 def task_remove_deprecated_provider(*, session: Session, provider: Provider):
@@ -426,16 +473,13 @@ def task_remove_deprecated_provider(*, session: Session, provider: Provider):
         remove_deprecated_provider(session=session, provider=provider)
 
 
-def revoke_provider(
-    *, session: Session, provider: Provider, updated_by: User, bg_tasks: BackgroundTasks
-) -> None:
+def revoke_provider(*, session: Session, provider: Provider, updated_by: User) -> None:
     """Site admin revoke provider submission.
 
     Args:
         session (Session): The database session to use for committing changes.
         provider (Provider): The provider instance whose status will be updated.
         updated_by (User): The user performing the update.
-        bg_tasks (BackgroundTasks): List of background tasks.
 
     Returns:
         None
@@ -443,7 +487,7 @@ def revoke_provider(
     """
     match provider.status:
         case ProviderStatus.draft | ProviderStatus.ready:
-            delete_provider(session=session, provider_id=provider.id)
+            return delete_provider(session=session, provider_id=provider.id)
         case (
             ProviderStatus.submitted
             | ProviderStatus.evaluation
@@ -463,9 +507,6 @@ def revoke_provider(
             provider.updated_by = updated_by
             session.add(provider)
             session.commit()
-            bg_tasks.add_task(
-                task_remove_deprecated_provider, session=session, provider=provider
-            )
         case ProviderStatus.deprecated:
             if not remove_deprecated_provider(
                 session=session, provider=provider, updated_by=updated_by
@@ -554,7 +595,7 @@ async def update_provider_status(provider: Provider) -> Provider:
 
     """
     settings = get_settings()
-    logger = get_logger(settings)
+    logger = get_logger(log_level=settings.LOG_LEVEL)
     match provider.status:
         case ProviderStatus.draft:
             if is_provider_ready(provider):

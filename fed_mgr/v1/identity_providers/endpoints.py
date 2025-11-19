@@ -1,24 +1,36 @@
-"""Endpoints to manage identity provider details."""
+"""Endpoints to manage identity provider details.
+
+This module defines the API endpoints for managing identity providers. It includes
+operations for creating, retrieving, updating, and deleting identity providers, as well
+as listing available endpoints and retrieving paginated lists of identity providers.
+
+Routes:
+    - OPTIONS /identity-providers: List available endpoints for this resource.
+    - POST /identity-providers: Create a new identity provider.
+    - GET /identity-providers: Retrieve a paginated list of identity providers.
+    - GET /identity-providers/{idp_id}: Retrieve a specific identity provider by ID.
+    - PUT /identity-providers/{idp_id}: Update an existing identity provider by ID.
+    - DELETE /identity-providers/{idp_id}: Delete an identity provider by ID.
+
+Dependencies:
+    - SessionDep: Provides a database session.
+    - CurrentUserDep: Provides the current authenticated user.
+    - IdentityProviderRequiredDep: Ensures the identity provider exists.
+
+Exceptions:
+    - ConflictError: Raised when a conflict occurs (e.g., duplicate identity provider).
+    - NotNullError: Raised when a required field is null.
+    - ItemNotFoundError: Raised when an item is not found.
+    - DeleteFailedError: Raised when deletion fails.
+
+"""
 
 import uuid
 from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    HTTPException,
-    Query,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX
 from fed_mgr.v1.identity_providers.crud import add_idp, delete_idp, get_idps, update_idp
@@ -30,7 +42,7 @@ from fed_mgr.v1.identity_providers.schemas import (
     IdentityProviderRead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 idp_router = APIRouter(prefix=IDPS_PREFIX, tags=["identity providers"])
 
@@ -43,6 +55,9 @@ idp_router = APIRouter(prefix=IDPS_PREFIX, tags=["identity providers"])
 )
 def available_methods(response: Response) -> None:
     """Add the HTTP 'Allow' header to the response.
+
+    This endpoint lists the available HTTP methods for the identity providers resource
+    by adding the 'Allow' header to the response.
 
     Args:
         response (Response): The HTTP response object to which the 'Allow' header will
@@ -58,94 +73,105 @@ def available_methods(response: Response) -> None:
 @idp_router.post(
     "/",
     summary="Create a new identity provider",
-    description="Add a new identity provider to the DB. Check if a identity provider's "
-    "subject, for this issuer, already exists in the DB. If the sub already exists, "
-    "the endpoint raises a 409 error.",
+    description="Creates a new identity provider in the system. This endpoint validates"
+    " the provided data, ensures no duplicate identity providers exist, and persists"
+    " the new provider in the database.",
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
+        status.HTTP_201_CREATED: {
+            "description": "Identity provider successfully created",
+            "model": ItemID,
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Invalid request data",
+            "model": ErrorMessage,
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Identity provider already exists",
+            "model": ErrorMessage,
+        },
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Required fields missing or invalid",
+            "model": ErrorMessage,
+        },
     },
 )
 def create_idp(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     idp: IdentityProviderCreate,
 ) -> ItemID:
     """Create a new identity provider in the system.
 
-    Logs the creation attempt and result. If the identity provider already exists,
-    returns a 409 Conflict response. If no body is given, it retrieves from the access
-    token the identity provider data.
+    This endpoint creates a new identity provider with the provided data. It validates
+    the input, checks for duplicates, and handles various error conditions such as
+    conflicts and invalid data.
 
     Args:
         request (Request): The incoming HTTP request object, used for logging.
-        idp (IdentityProviderCreate | None): The identity provider data to create.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
-            from the access token.
-        session (SessionDep): The database session dependency.
+        session (SessionDep): The database session dependency for DB operations.
+        current_user (CurrentUserDep): The authenticated user creating the provider.
+        idp (IdentityProviderCreate): The identity provider data to create.
 
     Returns:
-        ItemID: A dictionary containing the ID of the created identity provider on
-        success.
+        ItemID: A dictionary containing the ID of the created identity provider.
 
     Raises:
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
-        409 Conflict: If the user already exists (handled below).
+        HTTPException 409: If a provider with the same endpoint already exists.
+        HTTPException 422: If required fields are missing or invalid.
+        HTTPException 401: If the user is not authenticated.
+        HTTPException 403: If the user does not have required permissions.
 
     """
     msg = f"Creating identity provider with params: {idp.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_idp = add_idp(session=session, idp=idp, created_by=current_user)
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
-    msg = f"Identity Provider created: {db_idp.model_dump_json()}"
+    db_idp = add_idp(session=session, idp=idp, created_by=current_user)
+    msg = f"Identity provider created: {db_idp.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_idp.id}
 
 
 @idp_router.get(
     "/",
-    summary="Retrieve identity providers",
-    description="Retrieve a paginated list of identity providers.",
+    summary="List all identity providers",
+    description="Retrieves a paginated list of identity providers with support for"
+    " filtering, sorting, and pagination. Results can be filtered by endpoint, name,"
+    " groups claim, protocol, and audience.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "List of identity providers successfully retrieved",
+            "model": IdentityProviderList,
+        }
+    },
 )
 def retrieve_idps(
     request: Request,
     session: SessionDep,
     params: Annotated[IdentityProviderQuery, Query()],
 ) -> IdentityProviderList:
-    """Retrieve a paginated list of identity providers based on query parameters.
+    """Retrieve a paginated list of identity providers.
 
-    Logs the query parameters and the number of identity providers retrieved. Fetches
-    identity providers from the database using pagination, sorting, and additional
-    filters provided in the query parameters. Returns the identity providers in a
-    paginated response format.
+    This endpoint returns a paginated list of identity providers, with support for
+    filtering, sorting, and pagination through query parameters. It includes URLs for
+    pagination and related resources.
 
     Args:
-        request (Request): The HTTP request object, used for logging and URL generation.
-        params (IdentityProviderQuery): Dependency containing query parameters for
-            filtering, sorting, and pagination.
-        session (SessionDep): Database session dependency.
+        request (Request): The HTTP request object for URL generation and logging.
+        session (SessionDep): Database session dependency for DB operations.
+        params (IdentityProviderQuery): Query parameters for filtering, sorting,
+            and pagination.
 
     Returns:
-        IdentityProviderList: A paginated list of identity providers matching the query
-            parameters.
+        IdentityProviderList: A paginated list containing:
+            - List of identity providers with their details
+            - Total number of items
+            - Current page number and size
+            - Resource URL
 
     Raises:
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
+        HTTPException 401: If the user is not authenticated.
+        HTTPException 403: If the user does not have required permissions.
 
     """
     msg = f"Retrieve identity providers. Query params: {params.model_dump_json()}"
@@ -180,37 +206,47 @@ def retrieve_idps(
 
 @idp_router.get(
     "/{idp_id}",
-    summary="Retrieve identity provider with given ID",
-    description="Check if the given identity provider's ID already exists in the DB "
-    "and return it. If the identity provider does not exist in the DB, the endpoint "
-    "raises a 404 error.",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ErrorMessage}},
+    summary="Get a specific identity provider",
+    description="Retrieves detailed information about a specific identity provider"
+    " using its unique identifier. Returns a 404 error if the provider does not"
+    " exist.",
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Identity provider successfully retrieved",
+            "model": IdentityProviderRead,
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Identity provider not found",
+            "model": ErrorMessage,
+        },
+    },
 )
 def retrieve_idp(
     request: Request, idp: IdentityProviderRequiredDep
 ) -> IdentityProviderRead:
-    """Retrieve a identity provider by their unique identifier.
+    """Retrieve a specific identity provider by ID.
 
-    Logs the retrieval attempt, checks if the identity provider exists, and returns the
-    identity provider object if found. If the identity provider does not exist, logs an
-    error and returns a JSON response with a 404 status.
+    This endpoint returns detailed information about a single identity provider,
+    including its endpoint, name, groups claim, protocol, and audit information.
+    The existence of the identity provider is guaranteed by the dependency.
 
     Args:
-        request (Request): The incoming HTTP request object.
-        idp_id (uuid.UUID): The unique identifier of the identity provider to retrieve.
-        idp (IdentityProvider | None): The identity provider object, if found.
+        request (Request): The incoming HTTP request object, used for URL generation
+            and logging.
+        idp (IdentityProviderRequiredDep): The identity provider from the database,
+            guaranteed to exist by the dependency.
 
     Returns:
-        IdentityProvider: The identity provider object if found.
-        JSONResponse: A 404 response if the identity provider does not exist.
+        IdentityProviderRead: Detailed information about the identity provider,
+            including all its attributes and related links.
 
     Raises:
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
-        404 Not Found: If the user does not exist (handled below).
+        HTTPException 401: If the user is not authenticated.
+        HTTPException 403: If the user lacks required permissions.
+        ItemNotFoundError: If the provider doesn't exist (handled by dependency).
 
     """
-    msg = f"Identity Provider with ID '{idp.id!s}' found: {idp.model_dump_json()}"
+    msg = f"Identity provider with ID '{idp.id!s}' found: {idp.model_dump_json()}"
     request.state.logger.info(msg)
     idp = IdentityProviderRead(
         **idp.model_dump(),  # Does not return created_by and updated_by
@@ -223,99 +259,108 @@ def retrieve_idp(
 
 @idp_router.put(
     "/{idp_id}",
-    summary="Update identity provider with the given id",
-    description="Update a identity provider with the given id in the DB",
+    summary="Update an identity provider",
+    description="Updates an existing identity provider with new data. All fields will"
+    " be replaced with the provided values. Returns a 404 error if the provider"
+    " doesn't exist, or a 409 if the update would create a duplicate.",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
-        status.HTTP_404_NOT_FOUND: {"model": ErrorMessage},
-        status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Identity provider successfully updated"
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Invalid request data",
+            "model": ErrorMessage,
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Identity provider not found",
+            "model": ErrorMessage,
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Update would create a duplicate provider",
+            "model": ErrorMessage,
+        },
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Required fields missing or invalid",
+            "model": ErrorMessage,
+        },
     },
 )
 def edit_idp(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     idp_id: uuid.UUID,
     new_idp: IdentityProviderCreate,
 ) -> None:
-    """Update an existing identity provider in the database with the given idp ID.
+    """Update an existing identity provider in the database.
+
+    This endpoint updates all fields of an existing identity provider with new data.
+    The operation validates the input data, checks for conflicts with existing
+    providers, and ensures all required fields are present.
 
     Args:
-        request (Request): The current request object.
+        request (Request): The current request object, used for logging.
+        session (SessionDep): The database session for DB operations.
+        current_user (CurrentUserDep): The authenticated user performing the update.
         idp_id (uuid.UUID): The unique identifier of the identity provider to update.
-        new_idp (UserCreate): The new identity provider data to update.
-        session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
-            from the access token.
+        new_idp (IdentityProviderCreate): The new data for the identity provider.
 
     Raises:
-        HTTPException: If the identity provider is not found or another update error
-        occurs.
+        ItemNotFoundError: If the identity provider does not exist.
+        ConflictError: If the update would create a duplicate provider.
+        NotNullError: If required fields are missing or null.
+        HTTPException 401: If the user is not authenticated.
+        HTTPException 403: If the user lacks required permissions.
 
     """
     msg = f"Update identity provider with ID '{idp_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_idp(
-            session=session, idp_id=idp_id, new_idp=new_idp, updated_by=current_user
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.message
-        ) from e
-    msg = f"Identity Provider with ID '{idp_id!s}' updated"
+    update_idp(session=session, idp_id=idp_id, new_idp=new_idp, updated_by=current_user)
+    msg = f"Identity provider with ID '{idp_id!s}' updated"
     request.state.logger.info(msg)
 
 
 @idp_router.delete(
     "/{idp_id}",
-    summary="Delete identity provider with given sub",
-    description="Delete a identity provider with the given subject, for this issuer, "
-    "from the DB.",
+    summary="Delete an identity provider",
+    description="Removes an identity provider from the system. The operation fails if"
+    " the provider has associated resources that prevent deletion.",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage}},
+    responses={
+        status.HTTP_204_NO_CONTENT: {
+            "description": "Identity provider successfully deleted"
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Cannot delete provider due to existing dependencies",
+            "model": ErrorMessage,
+        },
+    },
 )
 def remove_idp(request: Request, session: SessionDep, idp_id: uuid.UUID) -> None:
-    """Remove a identity provider from the system by their unique identifier.
+    """Delete an identity provider from the system.
 
-    Logs the deletion process and delegates the actual removal to the `delete_idp`
-    function.
+    This endpoint permanently removes an identity provider from the system. The
+    operation will fail if there are any resources (e.g., user groups) that depend
+    on this provider. All dependent resources must be deleted first.
 
     Args:
-        request (Request): The HTTP request object, used for logging and request context
-        idp_id (uuid.UUID): The unique identifier of the identity provider to be removed
-        session (SessionDep): The database session dependency used to perform the
-            deletion.
+        request (Request): The HTTP request object for logging.
+        session (SessionDep): The database session for deletion operations.
+        idp_id (uuid.UUID): The unique identifier of the provider to delete.
+
+    Raises:
+        DeleteFailedError: If the provider has dependent resources preventing deletion.
+        HTTPException 401: If the user is not authenticated.
+        HTTPException 403: If the user lacks required permissions.
+        ItemNotFoundError: If the provider doesn't exist.
 
     Returns:
         None
 
-    Raises:
-        401 Unauthorized: If the user is not authenticated (handled by dependencies).
-        403 Forbidden: If the user does not have permission (handled by dependencies).
-
     """
     msg = f"Delete identity provider with ID '{idp_id!s}'"
     request.state.logger.info(msg)
-    try:
-        delete_idp(session=session, idp_id=idp_id)
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
-    msg = f"Identity Provider with ID '{idp_id!s}' deleted"
+    delete_idp(session=session, idp_id=idp_id)
+    msg = f"Identity provider with ID '{idp_id!s}' deleted"
     request.state.logger.info(msg)

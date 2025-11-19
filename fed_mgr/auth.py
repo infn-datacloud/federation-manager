@@ -1,10 +1,10 @@
 """Authentication and authorization rules."""
 
 from logging import Logger
-from typing import Annotated
+from typing import Annotated, Any
 
 import requests
-from fastapi import HTTPException, Request, Security, status
+from fastapi import Depends, Request, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from flaat.exceptions import FlaatUnauthenticated
 from flaat.fastapi import Flaat
@@ -16,6 +16,17 @@ from fed_mgr.config import (
     Settings,
     SettingsDep,
 )
+from fed_mgr.exceptions import (
+    ServiceUnexpectedResponseError,
+    ServiceUnreachableError,
+    UnauthenticatedError,
+    UnauthorizedError,
+)
+
+FAKE_USER_NAME = "fake_name"
+FAKE_USER_EMAIL = "fake@email.com"
+FAKE_USER_SUBJECT = "fake_sub"
+FAKE_USER_ISSUER = "https://fake.iss.it"
 
 flaat = Flaat()
 
@@ -70,15 +81,9 @@ def check_flaat_authentication(
     try:
         user_infos = flaat.get_user_infos_from_access_token(authz_creds.credentials)
     except FlaatUnauthenticated as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=e.render()["error_description"],
-        ) from e
+        raise UnauthenticatedError(e.render()["error_description"]) from e
     if user_infos is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User details can't be retrieved",
-        )
+        raise UnauthenticatedError("User details can't be retrieved")
     return user_infos
 
 
@@ -101,9 +106,7 @@ def check_api_key_authentication(
     """
     logger.debug("Authentication through API Key")
     if settings.API_KEY is None or api_key != settings.API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key"
-        )
+        raise UnauthenticatedError("Invalid API Key")
 
 
 http_bearer = HTTPBearer(auto_error=False)
@@ -122,7 +125,7 @@ def check_authentication(
     authz_creds: HttpAuthzCredsDep,
     api_key: ApiKeyDep,
     settings: SettingsDep,
-) -> UserInfos | None:
+) -> dict[str, Any] | None:
     """Check user authentication.
 
     Depending on the authentication mode specified in the settings, this function
@@ -146,40 +149,47 @@ def check_authentication(
     """
     if settings.AUTHN_MODE == AuthenticationMethodsEnum.local:
         if authz_creds is not None:
-            return check_flaat_authentication(
+            data = check_flaat_authentication(
                 authz_creds=authz_creds, logger=request.state.logger
             )
+            return data.user_info
         elif api_key is not None:
             return check_api_key_authentication(
                 api_key=api_key, settings=settings, logger=request.state.logger
             )
         else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated"
-            )
+            raise UnauthenticatedError("No credentials provided")
+
     request.state.logger.debug(
         "No authentication mode. Providing fake user credentials"
     )
-    return UserInfos(
-        access_token_info=None,
-        user_info={"sub": "fake_sub", "iss": "http://fake.iss.it"},
-        introspection_info=None,
-    )
+    return {
+        "sub": FAKE_USER_SUBJECT,
+        "username": FAKE_USER_NAME,
+        "email": FAKE_USER_EMAIL,
+        "iss": FAKE_USER_ISSUER,
+    }
 
 
-AuthenticationDep = Annotated[UserInfos | None, Security(check_authentication)]
+AuthenticationDep = Annotated[dict[str, Any] | None, Security(check_authentication)]
 
 
-async def check_opa_authorization(
-    *, request: Request, user_infos: UserInfos, settings: Settings, logger: Logger
+def check_opa_authorization(
+    *,
+    request: Request,
+    body: bytes,
+    user_info: dict[str, Any],
+    settings: Settings,
+    logger: Logger,
 ) -> None:
     """Check user authorization via Open Policy Agent (OPA).
 
     Send the request data to the OPA server.
 
     Args:
-        user_infos (UserInfos): The authenticated user information.
         request (Request): The incoming request object containing user information.
+        body (bytes): Awaited request body
+        user_info (dict): The authenticated user information.
         settings (Settings): Application settings containing OPA server configuration.
         logger (Logger): Logger instance for logging authorization steps.
 
@@ -192,10 +202,9 @@ async def check_opa_authorization(
 
     """
     logger.debug("Authorization through OPA")
-    body = await request.body()
     data = {
         "input": {
-            "user_info": user_infos.user_info,
+            "user_info": user_info,
             "path": request.url.path,
             "method": request.method,
             "has_body": len(body) > 0,
@@ -207,39 +216,44 @@ async def check_opa_authorization(
             settings.OPA_AUTHZ_URL, json=data, timeout=settings.OPA_TIMEOUT
         )
     except (requests.Timeout, ConnectionError) as e:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Authentication failed: OPA server is not reachable",
-        ) from e
+        raise ServiceUnreachableError("OPA: Server is not reachable") from e
     match resp.status_code:
         case status.HTTP_200_OK:
             resp = resp.json().get("result", {"allow": False})
             if resp["allow"]:
                 return None
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Unauthorized to perform this operation",
-            )
+            raise UnauthorizedError("Unauthorized to perform this operation")
         case status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Authentication failed: Bad request sent to OPA server",
-            )
+            raise ServiceUnexpectedResponseError("OPA: Bad request sent to OPA server")
         case status.HTTP_500_INTERNAL_SERVER_ERROR:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Authentication failed: OPA server internal error",
-            )
+            raise ServiceUnexpectedResponseError("OPA: OPA server internal error")
         case _:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Authentication failed: OPA unexpected response code "
-                f"'{resp.status_code}'",
+            raise ServiceUnexpectedResponseError(
+                f"OPA: Unexpected response code '{resp.status_code}'",
             )
 
 
-async def check_authorization(
-    request: Request, user_infos: AuthenticationDep, settings: SettingsDep
+async def get_body(request: Request) -> bytes:
+    """Asynchronously retrieve the request's body.
+
+    Args:
+        request: The current FastAPI request object (provides logger in state).
+
+    Returns:
+        bytes: Awaited request body
+
+    """
+    return await request.body()
+
+
+AsyncBodyDep = Annotated[bytes, Depends(get_body)]
+
+
+def check_authorization(
+    request: Request,
+    user_info: AuthenticationDep,
+    body: AsyncBodyDep,
+    settings: SettingsDep,
 ) -> None:
     """Dependency to check user permissions.
 
@@ -247,27 +261,28 @@ async def check_authorization(
 
     Args:
         request: The current FastAPI request object (provides logger in state).
-        user_infos: The authenticated user information.
+        user_info: The authenticated user information.
+        body (bytes): Awaited request body
         settings: The application settings dependency.
 
     Raises:
         HTTPException: If the user does not have user-level access.
 
     """
-    if user_infos is None:
+    if user_info is None:
         # Script based authentication
         if request.method != "GET":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="API Key credentials can be used only for GET requests",
+            raise UnauthorizedError(
+                "API Key credentials can be used only for GET requests"
             )
     else:
         # User based authentication.
         if settings.AUTHZ_MODE == AuthorizationMethodsEnum.opa:
-            return await check_opa_authorization(
-                user_infos=user_infos,
+            return check_opa_authorization(
+                user_info=user_info,
                 request=request,
                 settings=settings,
                 logger=request.state.logger,
+                body=body,
             )
     return None

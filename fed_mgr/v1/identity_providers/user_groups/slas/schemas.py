@@ -2,19 +2,19 @@
 
 import urllib.parse
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import AnyHttpUrl, computed_field
-from sqlmodel import TIMESTAMP, Field, SQLModel
+from pydantic import AnyHttpUrl, computed_field, model_validator
+from sqlmodel import DATE, Field, SQLModel
 
 from fed_mgr.v1 import PROJECTS_PREFIX
+from fed_mgr.v1.adapters import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
-    HttpUrlType,
     ItemDescription,
     ItemID,
     PaginatedList,
@@ -38,14 +38,14 @@ class SLABase(ItemDescription):
     start_date: Annotated[
         date,
         Field(
-            sa_type=TIMESTAMP(timezone=True),
+            sa_type=DATE,
             description="The SLA is valid starting from this date",
         ),
     ]
     end_date: Annotated[
         date,
         Field(
-            sa_type=TIMESTAMP(timezone=True),
+            sa_type=DATE,
             description="The SLA is valid before this date",
         ),
     ]
@@ -53,6 +53,13 @@ class SLABase(ItemDescription):
 
 class SLACreate(SLABase):
     """Schema used to create an SLA."""
+
+    @model_validator(mode="after")
+    def check_dates_consistency(self) -> Self:
+        """Verify start date is lower than end date."""
+        if self.start_date >= self.end_date:
+            raise ValueError("Start date must be lower than end date")
+        return self
 
 
 class SLALinks(SQLModel):
