@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy
+from sqlalchemy.dialects.sqlite import dialect
 from sqlmodel import Field, SQLModel
 
 from fed_mgr.exceptions import (
@@ -23,7 +24,14 @@ from fed_mgr.exceptions import (
     DeleteFailedError,
     ItemNotFoundError,
 )
-from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
+from fed_mgr.v1.crud import (
+    _handle_generic_field,
+    add_item,
+    delete_item,
+    get_item,
+    get_items,
+    update_item,
+)
 
 
 class DummyEntity(SQLModel, table=True):
@@ -37,7 +45,13 @@ class DummyEntity(SQLModel, table=True):
     start_date: int = Field(default=0)
     end_date: int = Field(default=0)
     name: str = Field(default="foo")
-    value: int = Field(default=0)
+    age: int = Field(default=0)
+    score: float = Field(default=0.0)
+
+
+def compile_expr(expr):
+    """Compile SQLAlchemy expression to SQL string for assertion."""
+    return str(expr.compile(dialect=dialect())).lower()
 
 
 # def test_raise_from_db_error_unique(session):
@@ -66,18 +80,6 @@ class DummyEntity(SQLModel, table=True):
 #         entity=DummyEntity, session=session, error=error, **item.model_dump()
 #     )
 #     session.rollback.assert_called_once()
-
-
-# def test_get_conditions_str_and_numeric():
-#     """Test get_conditions with string and numeric filters."""
-#     conds = get_conditions(
-#         entity=DummyEntity, name="bar", value=5, value_gte=1, value_lte=10
-#     )
-#     conds = [str(c) for c in conds]
-#     assert "lower(dummyentity.name) LIKE '%' || lower(:name_1) || '%'" in conds
-#     assert "dummyentity.value <= :value_1" in conds
-#     assert "dummyentity.value >= :value_1" in conds
-#     assert "dummyentity.value = :value_1" in conds
 
 
 # def test_get_conditions_created_updated():
@@ -112,16 +114,6 @@ class DummyEntity(SQLModel, table=True):
 #     assert "dummyentity.end_date >= :end_date_1" in conds
 
 
-# def test_get_conditions_unsupported_type():
-#     """Test get_conditions returns no condition for unsupported value types."""
-
-#     class DummyUnsupported:
-#         pass
-
-#     conds = get_conditions(entity=DummyEntity, unsupported=DummyUnsupported())
-#     assert conds == []
-
-
 def test_get_item_with_id(session):
     """Test get_item correctly filters using id parameter."""
     item_id = uuid.uuid4()
@@ -131,7 +123,7 @@ def test_get_item_with_id(session):
     session.exec.assert_called_once()
     first_call_args = session.exec.call_args_list[0][0]
     statement = first_call_args[0]
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
 
     assert result == "test_item"
 
@@ -145,7 +137,7 @@ def test_get_item_with_item_id(session):
     session.exec.assert_called_once()
     first_call_args = session.exec.call_args_list[0][0]
     statement = first_call_args[0]
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
 
     assert result == "test_item"
 
@@ -159,7 +151,7 @@ def test_get_item_not_found(session):
     session.exec.assert_called_once()
     first_call_args = session.exec.call_args_list[0][0]
     statement = first_call_args[0]
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
 
     assert result is None
 
@@ -168,19 +160,19 @@ def test_get_item_with_multiple_filters(session):
     """Test get_item correctly applies multiple filter conditions."""
     item_id = uuid.uuid4()
     name = "test_name"
-    value = 123
+    age = 123
     session.exec.return_value.first.return_value = "test_item"
 
     result = get_item(
-        entity=DummyEntity, session=session, id=item_id, name=name, value=value
+        entity=DummyEntity, session=session, id=item_id, name=name, age=age
     )
 
     session.exec.assert_called_once()
     first_call_args = session.exec.call_args_list[0][0]
     statement = first_call_args[0]
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
-    assert any(["dummyentity.name =" in str(i) for i in statement._where_criteria])
-    assert any(["dummyentity.value =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
+    assert any("dummyentity.name =" in str(i) for i in statement._where_criteria)
+    assert any("dummyentity.age =" in str(i) for i in statement._where_criteria)
 
     assert result == "test_item"
 
@@ -259,7 +251,7 @@ def test_get_items_with_args(session):
     ]
     key = "created_at"
     name = "test_name"
-    value = 123
+    age = 123
 
     # Call get_items
     items, tot = get_items(
@@ -269,7 +261,7 @@ def test_get_items_with_args(session):
         limit=10,
         sort=key,
         name=name,
-        value=value,
+        age=age,
     )
 
     # Check the first call to session.exec
@@ -284,9 +276,9 @@ def test_get_items_with_args(session):
     assert statement._offset == 5
     assert any("created_at" in str(o) for o in statement._order_by_clauses)
     assert any(
-        ["lower(dummyentity.name) LIKE" in str(i) for i in statement._where_criteria]
+        "lower(dummyentity.name) LIKE" in str(i) for i in statement._where_criteria
     )
-    assert any(["dummyentity.value =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.age =" in str(i) for i in statement._where_criteria)
 
     # Check the second call to session.exec (for count)
     second_call_args = session.exec.call_args_list[1][0]
@@ -297,9 +289,9 @@ def test_get_items_with_args(session):
     assert hasattr(statement, "order_by")
     assert any("created_at" in str(o) for o in statement._order_by_clauses)
     assert any(
-        ["lower(dummyentity.name) LIKE" in str(i) for i in statement._where_criteria]
+        "lower(dummyentity.name) LIKE" in str(i) for i in statement._where_criteria
     )
-    assert any(["dummyentity.value =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.age =" in str(i) for i in statement._where_criteria)
 
     assert items == ["item1", "item2"]
     assert tot == 2
@@ -389,10 +381,10 @@ def test_update_item_success(session):
     # The statement should be a select on DummyEntity with correct offset, limit, and
     # order_by
     assert hasattr(statement, "values")
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
-    assert any(["dummyentity.id" in str(i) for i in statement._values])
-    assert any(["dummyentity.name" in str(i) for i in statement._values])
-    assert any(["updated_by_id" in str(i) for i in statement._values])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
+    assert any("dummyentity.id" in str(i) for i in statement._values)
+    assert any("dummyentity.name" in str(i) for i in statement._values)
+    assert any("updated_by_id" in str(i) for i in statement._values)
     assert statement._returning is not None
 
 
@@ -485,7 +477,7 @@ def test_delete_item_success(session):
     statement = first_call_args[0]
     # The statement should be a select on DummyEntity with correct offset, limit, and
     # order_by
-    assert any(["dummyentity.id =" in str(i) for i in statement._where_criteria])
+    assert any("dummyentity.id =" in str(i) for i in statement._where_criteria)
     assert statement._returning is not None
 
 
@@ -520,3 +512,56 @@ def test_delete_item_fails(session):
     session.exec.assert_called()
     session.rollback.assert_called()
     session.commit.assert_not_called()
+
+
+def test_uuid_equality():
+    """UUID input should produce an equality filter."""
+    uid = uuid.uuid4()
+    expr = _handle_generic_field(DummyEntity, "id", uid)
+    sql = compile_expr(expr)
+    assert "id =" in sql
+
+
+def test_string_icontains():
+    """String input should produce an icontains LIKE filter."""
+    expr = _handle_generic_field(DummyEntity, "name", "abc")
+    sql = compile_expr(expr)
+    # using ILIKE/LIKE depending on backend, so check for LIKE pattern
+    assert "like" in sql
+
+
+def test_numeric_equality():
+    """Numeric input without suffix should produce equality filter."""
+    expr = _handle_generic_field(DummyEntity, "age", 30)
+    sql = compile_expr(expr)
+    assert "age =" in sql
+
+
+def test_numeric_lte():
+    """_lte suffix should produce <= filter."""
+    expr = _handle_generic_field(DummyEntity, "score_lte", 50.5)
+    sql = compile_expr(expr)
+    assert "score <=" in sql
+
+
+def test_numeric_gte():
+    """_gte suffix should produce >= filter."""
+    expr = _handle_generic_field(DummyEntity, "score_gte", 10)
+    sql = compile_expr(expr)
+    assert "score >=" in sql
+
+
+def test_list_in_operator():
+    """List value should produce an IN clause."""
+    expr = _handle_generic_field(DummyEntity, "age", [1, 2, 3])
+    sql = compile_expr(expr)
+    assert "age in" in sql
+
+
+def test_unsupported_type_returns_none():
+    """Unsupported types should return None."""
+
+    class X:
+        pass
+
+    assert _handle_generic_field(DummyEntity, "name", X()) is None
