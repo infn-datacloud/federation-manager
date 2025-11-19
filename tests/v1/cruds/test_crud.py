@@ -11,6 +11,7 @@ These tests cover:
 """
 
 import uuid
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,6 +27,7 @@ from fed_mgr.exceptions import (
 )
 from fed_mgr.v1.crud import (
     _handle_generic_field,
+    _handle_special_date_fields,
     add_item,
     delete_item,
     get_item,
@@ -80,38 +82,6 @@ def compile_expr(expr):
 #         entity=DummyEntity, session=session, error=error, **item.model_dump()
 #     )
 #     session.rollback.assert_called_once()
-
-
-# def test_get_conditions_created_updated():
-#     """Test get_conditions with created/updated before/after filters."""
-#     conds = get_conditions(
-#         entity=DummyEntity,
-#         created_before=1,
-#         created_after=2,
-#         updated_before=3,
-#         updated_after=4,
-#     )
-#     conds = [str(c) for c in conds]
-#     assert "dummyentity.created_at <= :created_at_1" in conds
-#     assert "dummyentity.created_at >= :created_at_1" in conds
-#     assert "dummyentity.updated_at <= :updated_at_1" in conds
-#     assert "dummyentity.updated_at >= :updated_at_1" in conds
-
-
-# def test_get_conditions_start_end():
-#     """Test get_conditions with start/end before/after filters."""
-#     conds = get_conditions(
-#         entity=DummyEntity,
-#         start_before=1,
-#         start_after=2,
-#         end_before=3,
-#         end_after=4,
-#     )
-#     conds = [str(c) for c in conds]
-#     assert "dummyentity.start_date <= :start_date_1" in conds
-#     assert "dummyentity.start_date >= :start_date_1" in conds
-#     assert "dummyentity.end_date <= :end_date_1" in conds
-#     assert "dummyentity.end_date >= :end_date_1" in conds
 
 
 def test_get_item_with_id(session):
@@ -565,3 +535,72 @@ def test_unsupported_type_returns_none():
         pass
 
     assert _handle_generic_field(DummyEntity, "name", X()) is None
+
+
+def test_created_before():
+    """created_before should produce created_at <= v."""
+    dt = datetime(2024, 1, 1)
+    expr = _handle_special_date_fields(DummyEntity, "created_before", dt)
+    sql = compile_expr(expr)
+    assert "created_at <=" in sql
+
+
+def test_created_after():
+    """created_after should produce created_at >= v."""
+    dt = datetime(2024, 1, 2)
+    expr = _handle_special_date_fields(DummyEntity, "created_after", dt)
+    sql = compile_expr(expr)
+    assert "created_at >=" in sql
+
+
+def test_updated_before():
+    """updated_before should produce updated_at <= v."""
+    dt = datetime(2024, 2, 1)
+    expr = _handle_special_date_fields(DummyEntity, "updated_before", dt)
+    sql = compile_expr(expr)
+    assert "updated_at <=" in sql
+
+
+def test_updated_after():
+    """updated_after should produce updated_at >= v."""
+    dt = datetime(2024, 2, 2)
+    expr = _handle_special_date_fields(DummyEntity, "updated_after", dt)
+    sql = compile_expr(expr)
+    assert "updated_at >=" in sql
+
+
+def test_start_before():
+    """start_before should produce start_date <= v."""
+    dt = datetime(2024, 3, 1)
+    expr = _handle_special_date_fields(DummyEntity, "start_before", dt)
+    sql = compile_expr(expr)
+    assert "start_date <=" in sql
+
+
+def test_start_after():
+    """start_after should produce start_date >= v."""
+    dt = datetime(2024, 3, 2)
+    expr = _handle_special_date_fields(DummyEntity, "start_after", dt)
+    sql = compile_expr(expr)
+    assert "start_date >=" in sql
+
+
+def test_end_before():
+    """end_before should produce end_date <= v."""
+    dt = datetime(2024, 4, 1)
+    expr = _handle_special_date_fields(DummyEntity, "end_before", dt)
+    sql = compile_expr(expr)
+    assert "end_date <=" in sql
+
+
+def test_end_after():
+    """end_after should produce end_date >= v."""
+    dt = datetime(2024, 4, 2)
+    expr = _handle_special_date_fields(DummyEntity, "end_after", dt)
+    sql = compile_expr(expr)
+    assert "end_date >=" in sql
+
+
+def test_unsupported_key_returns_none():
+    """Unsupported key should return None."""
+    assert _handle_special_date_fields(DummyEntity, "not_a_key", datetime.now()) is None
