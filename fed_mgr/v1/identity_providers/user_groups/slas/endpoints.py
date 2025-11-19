@@ -1,23 +1,11 @@
 """Endpoints to manage sla details."""
 
 import uuid
+from typing import Annotated
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Request,
-    Response,
-    status,
-)
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from fed_mgr.db import SessionDep
-from fed_mgr.exceptions import (
-    ConflictError,
-    DeleteFailedError,
-    ItemNotFoundError,
-    NotNullError,
-)
 from fed_mgr.utils import add_allow_header_to_resp
 from fed_mgr.v1 import IDPS_PREFIX, SLAS_PREFIX, USER_GROUPS_PREFIX
 from fed_mgr.v1.identity_providers.dependencies import idp_required
@@ -35,11 +23,11 @@ from fed_mgr.v1.identity_providers.user_groups.slas.dependencies import SLARequi
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import (
     SLACreate,
     SLAList,
-    SLAQueryDep,
+    SLAQuery,
     SLARead,
 )
 from fed_mgr.v1.schemas import ErrorMessage, ItemID
-from fed_mgr.v1.users.dependencies import CurrenUserDep
+from fed_mgr.v1.users.dependencies import CurrentUserDep
 
 sla_router = APIRouter(
     prefix=IDPS_PREFIX
@@ -86,13 +74,13 @@ def available_methods(response: Response) -> None:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def create_sla(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     user_group: UserGroupRequiredDep,
     sla: SLACreate,
 ) -> ItemID:
@@ -123,20 +111,9 @@ def create_sla(
     """
     msg = f"Creating SLA with params: {sla.model_dump_json()}"
     request.state.logger.info(msg)
-    try:
-        db_sla = add_sla(
-            session=session, sla=sla, created_by=current_user, user_group=user_group
-        )
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    db_sla = add_sla(
+        session=session, sla=sla, created_by=current_user, user_group=user_group
+    )
     msg = f"User created: {db_sla.model_dump_json()}"
     request.state.logger.info(msg)
     return {"id": db_sla.id}
@@ -151,7 +128,7 @@ def retrieve_slas(
     request: Request,
     session: SessionDep,
     user_group: UserGroupRequiredDep,
-    params: SLAQueryDep,
+    params: Annotated[SLAQuery, Query()],
 ) -> SLAList:
     """Retrieve a paginated list of slas based on query parameters.
 
@@ -162,7 +139,7 @@ def retrieve_slas(
 
     Args:
         request (Request): The HTTP request object, used for logging and URL generation.
-        params (SLAQueryDep): Dependency containing query parameters for
+        params (SLAQuery): Dependency containing query parameters for
             filtering, sorting, and pagination.
         session (SessionDep): Database session dependency.
         user_group: Parent user group ID
@@ -255,13 +232,13 @@ def retrieve_sla(request: Request, sla: SLARequiredDep) -> SLARead:
     responses={
         status.HTTP_400_BAD_REQUEST: {"model": ErrorMessage},
         status.HTTP_409_CONFLICT: {"model": ErrorMessage},
-        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorMessage},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorMessage},
     },
 )
 def edit_sla(
     request: Request,
     session: SessionDep,
-    current_user: CurrenUserDep,
+    current_user: CurrentUserDep,
     sla_id: uuid.UUID,
     new_sla: SLACreate,
 ) -> None:
@@ -272,7 +249,7 @@ def edit_sla(
         sla_id (uuid.UUID): The unique identifier of the sla to update.
         new_sla (UserCreate): The new sla data to update.
         session (SessionDep): The database session dependency.
-        current_user (CurrenUserDep): The DB user matching the current user retrieved
+        current_user (CurrentUserDep): The DB user matching the current user retrieved
             from the access token.
 
     Raises:
@@ -282,28 +259,7 @@ def edit_sla(
     """
     msg = f"Update SLA with ID '{sla_id!s}'"
     request.state.logger.info(msg)
-    try:
-        update_sla(
-            session=session,
-            sla_id=sla_id,
-            new_sla=new_sla,
-            updated_by=current_user,
-        )
-    except ItemNotFoundError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=e.message
-        ) from e
-    except ConflictError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=e.message
-        ) from e
-    except NotNullError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=e.message
-        ) from e
+    update_sla(session=session, sla_id=sla_id, new_sla=new_sla, updated_by=current_user)
     msg = f"SLA with ID '{sla_id!s}' updated"
     request.state.logger.info(msg)
 
@@ -338,12 +294,6 @@ def remove_sla(request: Request, session: SessionDep, sla_id: uuid.UUID) -> None
     """
     msg = f"Delete SLA with ID '{sla_id!s}'"
     request.state.logger.info(msg)
-    try:
-        delete_sla(session=session, sla_id=sla_id)
-    except DeleteFailedError as e:
-        request.state.logger.error(e.message)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=e.message
-        ) from e
+    delete_sla(session=session, sla_id=sla_id)
     msg = f"SLA with ID '{sla_id!s}' deleted"
     request.state.logger.info(msg)

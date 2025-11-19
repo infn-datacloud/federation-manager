@@ -2,15 +2,15 @@
 
 import urllib.parse
 import uuid
+from datetime import date
 from enum import Enum
 from typing import Annotated
 
-from fastapi import Query
 from pydantic import AfterValidator, AnyHttpUrl, EmailStr, computed_field
 from sqlmodel import JSON, AutoString, Column, Field, SQLModel
 
-from fed_mgr.utils import HttpUrlType, check_list_not_empty
 from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
+from fed_mgr.v1.adapters import HttpUrlType
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
@@ -22,6 +22,7 @@ from fed_mgr.v1.schemas import (
     PaginatedList,
     PaginationQuery,
     SortQuery,
+    check_list_not_empty,
 )
 
 
@@ -36,8 +37,8 @@ class ProviderStatus(int, Enum):
     """Enumeration of possible resource provider statuses."""
 
     draft = 0
-    ready = 1
-    submitted = 2
+    submitted = 1
+    ready = 2
     evaluation = 3
     pre_production = 4
     active = 5
@@ -98,6 +99,18 @@ class ProviderBase(ItemDescription):
             "'openstack' provider types)",
         ),
     ]
+    rally_username: Annotated[str, Field(description="Rally service user's name")]
+    rally_password: Annotated[str, Field(description="Rally service user's password")]
+    floating_ips_enable: Annotated[
+        bool,
+        Field(default=False, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str, Field(default="tiny", description="Flavor name used for the rally tests")
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
+    ]
 
 
 class ProviderInternal(SQLModel):
@@ -106,6 +119,13 @@ class ProviderInternal(SQLModel):
     status: Annotated[
         ProviderStatus,
         Field(default=ProviderStatus.draft, description="Resource provider status"),
+    ]
+    expiration_date: Annotated[
+        date | None,
+        Field(
+            default=None,
+            description="Date of when the provider will be no more available",
+        ),
     ]
 
 
@@ -179,6 +199,23 @@ class ProviderUpdate(SQLModel):
             description="List of tags used to filter provider networks (used only with "
             "'openstack' provider types)",
         ),
+    ]
+    rally_username: Annotated[
+        str | None, Field(default=None, description="Rally service user's name")
+    ]
+    rally_password: Annotated[
+        str | None, Field(default=None, description="Rally service user's password")
+    ]
+    floating_ips_enable: Annotated[
+        bool | None,
+        Field(default=None, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str | None,
+        Field(default=None, description="Flavor name used for the rally tests"),
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
     ]
 
 
@@ -318,8 +355,16 @@ class ProviderQuery(
             "string",
         ),
     ]
+    rally_username: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="Rally service user's name must contain this string",
+        ),
+    ]
     status: Annotated[
-        str | None, Field(default=None, description="Resource provider status")
+        list[str] | None,
+        Field(default=None, description="List of resource provider status"),
     ]
     site_admins: Annotated[
         list[uuid.UUID] | None,
@@ -329,6 +374,14 @@ class ProviderQuery(
         list[uuid.UUID] | None,
         Field(default=None, description="List of the provider/site testers IDs"),
     ]
-
-
-ProviderQueryDep = Annotated[ProviderQuery, Query()]
+    floating_ips_enable: Annotated[
+        bool | None,
+        Field(default=None, description="The provider supports floating IPs creation"),
+    ]
+    test_flavor_name: Annotated[
+        str | None,
+        Field(default=None, description="Flavor name used for the rally tests"),
+    ]
+    test_network_id: Annotated[
+        str | None, Field(default=None, description="Network used fro the rally tests")
+    ]

@@ -2,11 +2,11 @@
 
 import logging
 
-from fed_mgr.config import get_settings
+from fed_mgr.config import LogLevelEnum, get_settings
 
 
 def get_logger(
-    name: str = "fed-mgr-api", log_level: int | None = None
+    name: str = "fed-mgr-api", log_level: LogLevelEnum | None = None
 ) -> logging.Logger:
     """Create and configure a logger for the fed-mgr API service.
 
@@ -16,7 +16,8 @@ def get_logger(
 
     Args:
         name: Name of the logger. Defaults to "fed-mgr-api".
-        log_level: Log level for the logger. Defaults to the application settings.
+        log_level (LogLevelEnum):  Log level for the logger. Defaults to the application
+            settings.
 
     Returns:
         logging.Logger: The configured logger instance.

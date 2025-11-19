@@ -8,7 +8,7 @@ These tests cover:
 
 from pydantic import AnyHttpUrl
 
-from fed_mgr.utils import HttpUrlType
+from fed_mgr.v1.adapters import HttpUrlType
 
 
 class DummyDialect:

@@ -3,8 +3,9 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
 
+from fed_mgr.exceptions import ItemNotFoundError
 from fed_mgr.v1.models import IdpOverrides
 from fed_mgr.v1.providers.identity_providers.crud import get_idp_overrides
 
@@ -12,10 +13,7 @@ IdpOverridesDep = Annotated[IdpOverrides | None, Depends(get_idp_overrides)]
 
 
 def idp_overrides_required(
-    request: Request,
-    provider_id: uuid.UUID,
-    idp_id: uuid.UUID,
-    idp_overrides: IdpOverridesDep,
+    provider_id: uuid.UUID, idp_id: uuid.UUID, idp_overrides: IdpOverridesDep
 ) -> IdpOverrides:
     """Dependency to ensure the specified identity provider exists.
 
@@ -35,8 +33,7 @@ def idp_overrides_required(
     if idp_overrides is None:
         message = f"Provider with ID '{provider_id!s}' does not define overrides for "
         message += f"identity provider with ID '{idp_id!s}'"
-        request.state.logger.error(message)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+        raise ItemNotFoundError(message)
     return idp_overrides
 
 

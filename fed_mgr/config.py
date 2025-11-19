@@ -5,8 +5,16 @@ from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Literal
 
+from cryptography.fernet import Fernet
 from fastapi import Depends
-from pydantic import AnyHttpUrl, BeforeValidator, EmailStr, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AnyHttpUrl,
+    BeforeValidator,
+    EmailStr,
+    Field,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 
@@ -45,7 +53,7 @@ def get_level(value: int | str | LogLevelEnum) -> int:
         int: The corresponding logging level integer.
 
     """
-    if isinstance(value, str):
+    if isinstance(value, str) and value.upper() in LogLevelEnum.__members__:
         return LogLevelEnum.__getitem__(value.upper())
     return value
 
@@ -89,6 +97,24 @@ class Settings(BaseSettings):
             description="DB URL. By default it use an in memory SQLite DB.",
         ),
     ]
+    DB_SCHEME: Annotated[
+        str | None,
+        Field(
+            default=None, description="Database type and library (i.e mysql+pymysql)"
+        ),
+    ]
+    DB_USER: Annotated[str | None, Field(default=None, description="Database user")]
+    DB_PASSWORD: Annotated[
+        str | None, Field(default=None, description="Database user password")
+    ]
+    DB_HOST: Annotated[str | None, Field(default=None, description="Database hostname")]
+    DB_PORT: Annotated[
+        int | None, Field(default=None, ge=1, description="Database exposed port")
+    ]
+    DB_NAME: Annotated[
+        str | None,
+        Field(default=None, description="Name of the database's schema to use"),
+    ]
     DB_ECO: Annotated[
         bool, Field(default=False, description="Eco messages exchanged with the DB")
     ]
@@ -114,7 +140,7 @@ class Settings(BaseSettings):
         ),
     ]
     IDP_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for IDP")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for IDP")
     ]
     OPA_AUTHZ_URL: Annotated[
         AnyHttpUrl,
@@ -124,7 +150,14 @@ class Settings(BaseSettings):
         ),
     ]
     OPA_TIMEOUT: Annotated[
-        int, Field(default=5, description="Communication timeout for OPA")
+        int, Field(default=5, ge=0, description="Communication timeout (s) for OPA")
+    ]
+    API_KEY: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="API Key to set into the header field 'X-API-Key'",
+        ),
     ]
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyHttpUrl | Literal["*"]],
@@ -179,6 +212,7 @@ class Settings(BaseSettings):
         int,
         Field(
             default=104857600,
+            ge=0,
             description="Maximum size of a request to send to kafka (B).",
         ),
     ]
@@ -234,6 +268,16 @@ class Settings(BaseSettings):
             "It defines the fields in the message sent to kafka",
         ),
     ]
+    SECRET_KEY: Annotated[
+        bytes | Fernet,
+        Field(
+            description="Secret key used to encrypt values. To generate a valid key "
+            "run the following command in shell and copy the generated output: "
+            '`python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"`'
+        ),
+        AfterValidator(lambda x: Fernet(x) if isinstance(x, bytes) else x),
+    ]
 
     model_config = SettingsConfigDict(env_file=".env")
 
@@ -254,6 +298,30 @@ class Settings(BaseSettings):
                 "If authorization mode is defined, authentication mode can't be "
                 "undefined."
             )
+        return self
+
+    @model_validator(mode="after")
+    def build_db_url(self) -> Self:
+        """Replace DB_URL with one build from the single values.
+
+        If any of the involved value is None, keep the existing one. If port is None,
+        the default one, for that DB type, is used.
+
+        Returns:
+            Self: Returns the current instance for method chaining.
+
+        """
+        if (
+            self.DB_SCHEME is not None
+            and self.DB_USER is not None
+            and self.DB_PASSWORD is not None
+            and self.DB_HOST is not None
+            and self.DB_NAME is not None
+        ):
+            if self.DB_PORT is None:
+                self.DB_URL = f"{self.DB_SCHEME}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}/{self.DB_NAME}"
+            else:
+                self.DB_URL = f"{self.DB_SCHEME}://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         return self
 
 

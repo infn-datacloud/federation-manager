@@ -2,12 +2,11 @@
 
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
 import pytest
 from pydantic import AnyHttpUrl, ValidationError
 
-from fed_mgr.v1.models import Provider
+from fed_mgr.v1 import IDPS_PREFIX, PROJECTS_PREFIX, REGIONS_PREFIX
 from fed_mgr.v1.providers.schemas import (
     ProviderBase,
     ProviderCreate,
@@ -22,15 +21,14 @@ from fed_mgr.v1.providers.schemas import (
 from fed_mgr.v1.schemas import (
     CreationQuery,
     CreationRead,
-    CreationTime,
     DescriptionQuery,
     EditableQuery,
     EditableRead,
     ItemID,
     PaginationQuery,
     SortQuery,
-    UpdateTime,
 )
+from tests.utils import random_lower_string
 
 DUMMY_NAME = "foo"
 DUMMY_DESC = "desc"
@@ -38,7 +36,12 @@ DUMMY_TYPE = ProviderType.openstack
 DUMMY_AUTH_ENDPOINT = "https://example.com/auth"
 DUMMY_IS_PUB = True
 DUMMY_EMAILS = ["admin@example.com"]
+DUMMY_IMG_TAGS = ["img1"]
+DUMMY_NET_TAGS = ["net1"]
 DUMMY_ENDPOINT = "https://example.com"
+DUMMY_FLOAT_IPS = True
+DUMMY_TEST_NET_ID = "net-id"
+DUMMY_TEST_FLAVOR_NAME = "flavor"
 
 
 def test_provider_type_enum():
@@ -51,8 +54,8 @@ def test_provider_status_enum_all_values():
     """Test all ProviderStatus enum values and their integer representations."""
     status_map = {
         "draft": 0,
-        "ready": 1,
-        "submitted": 2,
+        "submitted": 1,
+        "ready": 2,
         "evaluation": 3,
         "pre_production": 4,
         "active": 5,
@@ -67,48 +70,7 @@ def test_provider_status_enum_all_values():
         assert int(enum_member) == value
 
 
-def test_identity_provider_model():
-    """Test IdentityProvider model fields."""
-    creator = MagicMock()
-    id_ = uuid.uuid4()
-    now = datetime.now()
-    site_admin = MagicMock()
-    site_admins = [site_admin]
-    provider = Provider(
-        id=id_,
-        created_at=now,
-        created_by=creator,
-        updated_at=now,
-        updated_by=creator,
-        name=DUMMY_NAME,
-        description=DUMMY_DESC,
-        type=DUMMY_TYPE,
-        auth_endpoint=DUMMY_AUTH_ENDPOINT,
-        is_public=DUMMY_IS_PUB,
-        support_emails=DUMMY_EMAILS,
-        site_admins=site_admins,
-    )
-    assert isinstance(provider, ItemID)
-    assert isinstance(provider, CreationTime)
-    assert isinstance(provider, UpdateTime)
-    assert isinstance(provider, ProviderBase)
-    assert provider.id == id_
-    assert provider.created_at == now
-    assert provider.created_by == creator
-    assert provider.updated_at == now
-    assert provider.updated_by == creator
-    assert isinstance(provider.auth_endpoint, str)
-    assert AnyHttpUrl(provider.auth_endpoint) == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
-    assert provider.name == DUMMY_NAME
-    assert provider.type == DUMMY_TYPE
-    assert provider.is_public == DUMMY_IS_PUB
-    assert provider.support_emails == DUMMY_EMAILS
-    assert provider.image_tags == []
-    assert provider.network_tags == []
-    assert provider.site_admins == site_admins
-
-
-def test_provider_base_required_fields():
+def test_provider_base_fields():
     """Test ProviderBase requires name, type, auth_endpoint, support_emails."""
     obj = ProviderBase(
         name=DUMMY_NAME,
@@ -117,19 +79,31 @@ def test_provider_base_required_fields():
         auth_endpoint=DUMMY_AUTH_ENDPOINT,
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
+        image_tags=DUMMY_IMG_TAGS,
+        network_tags=DUMMY_NET_TAGS,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
     )
     assert obj.name == DUMMY_NAME
     assert obj.type == DUMMY_TYPE
     assert obj.auth_endpoint == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
     assert obj.is_public == DUMMY_IS_PUB
     assert obj.support_emails == DUMMY_EMAILS
-    assert obj.image_tags == []
-    assert obj.network_tags == []
+    assert obj.image_tags == DUMMY_IMG_TAGS
+    assert obj.network_tags == DUMMY_NET_TAGS
+    assert obj.rally_username is not None
+    assert obj.rally_password is not None
+    assert obj.floating_ips_enable == DUMMY_FLOAT_IPS
+    assert obj.test_flavor_name == DUMMY_TEST_FLAVOR_NAME
+    assert obj.test_network_id == DUMMY_TEST_NET_ID
 
 
 def test_provider_base_support_emails_empty():
     """Test ProviderBase support_emails must not be empty."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="List must not be empty"):
         ProviderBase(
             name=DUMMY_NAME,
             description=DUMMY_DESC,
@@ -137,33 +111,9 @@ def test_provider_base_support_emails_empty():
             auth_endpoint=DUMMY_AUTH_ENDPOINT,
             is_public=DUMMY_IS_PUB,
             support_emails=[],
+            rally_username=random_lower_string(),
+            rally_password=random_lower_string(),
         )
-
-
-def test_provider_base_image_network_tags():
-    """Test ProviderBase image_tags and network_tags default to empty list."""
-    obj = ProviderBase(
-        name=DUMMY_NAME,
-        description=DUMMY_DESC,
-        type=DUMMY_TYPE,
-        auth_endpoint=DUMMY_AUTH_ENDPOINT,
-        is_public=DUMMY_IS_PUB,
-        support_emails=DUMMY_EMAILS,
-    )
-    assert obj.image_tags == []
-    assert obj.network_tags == []
-    # Custom values
-    obj2 = ProviderBase(
-        name="bar",
-        type=ProviderType.kubernetes,
-        auth_endpoint="https://example.com/auth2",
-        is_public=False,
-        support_emails=["admin2@example.com"],
-        image_tags=["img1"],
-        network_tags=["net1"],
-    )
-    assert obj2.image_tags == ["img1"]
-    assert obj2.network_tags == ["net1"]
 
 
 def test_provider_create_is_base():
@@ -171,11 +121,11 @@ def test_provider_create_is_base():
     site_admins = [uuid.uuid4()]
     provider_create = ProviderCreate(
         name=DUMMY_NAME,
-        description=DUMMY_DESC,
         type=DUMMY_TYPE,
         auth_endpoint=DUMMY_AUTH_ENDPOINT,
-        is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
         site_admins=site_admins,
     )
     assert isinstance(provider_create, ProviderBase)
@@ -184,14 +134,14 @@ def test_provider_create_is_base():
 
 def test_provider_create_site_admins_empty():
     """Test ProviderCreate site_admins must not be empty."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="List must not be empty"):
         ProviderCreate(
             name=DUMMY_NAME,
-            description=DUMMY_DESC,
             type=DUMMY_TYPE,
             auth_endpoint=DUMMY_AUTH_ENDPOINT,
-            is_public=DUMMY_IS_PUB,
             support_emails=DUMMY_EMAILS,
+            rally_username=random_lower_string(),
+            rally_password=random_lower_string(),
             site_admins=[],
         )
 
@@ -206,6 +156,11 @@ def test_provider_update_default_values():
     assert obj.support_emails is None
     assert obj.image_tags is None
     assert obj.network_tags is None
+    assert obj.rally_username is None
+    assert obj.rally_password is None
+    assert obj.floating_ips_enable is None
+    assert obj.test_flavor_name is None
+    assert obj.test_network_id is None
 
 
 def test_provider_update_fields():
@@ -216,20 +171,30 @@ def test_provider_update_fields():
         auth_endpoint=DUMMY_AUTH_ENDPOINT,
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
-        image_tags=["img1"],
-        network_tags=["net1"],
+        image_tags=DUMMY_IMG_TAGS,
+        network_tags=DUMMY_NET_TAGS,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
     )
     assert obj.name == DUMMY_NAME
     assert obj.auth_endpoint == AnyHttpUrl(DUMMY_AUTH_ENDPOINT)
     assert obj.is_public == DUMMY_IS_PUB
     assert obj.support_emails == DUMMY_EMAILS
-    assert obj.image_tags == ["img1"]
-    assert obj.network_tags == ["net1"]
+    assert obj.image_tags == DUMMY_IMG_TAGS
+    assert obj.network_tags == DUMMY_NET_TAGS
+    assert obj.rally_username is not None
+    assert obj.rally_password is not None
+    assert obj.floating_ips_enable == DUMMY_FLOAT_IPS
+    assert obj.test_flavor_name == DUMMY_TEST_FLAVOR_NAME
+    assert obj.test_network_id == DUMMY_TEST_NET_ID
 
 
 def test_provider_update_support_emails_empty():
     """Test ProviderUpdate support_emails must not be empty (if not None)."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="List must not be empty"):
         ProviderUpdate(support_emails=[])
 
 
@@ -248,8 +213,7 @@ def test_provider_read_inheritance():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    site_admin = uuid.uuid4()
-    site_admins = [site_admin]
+    ids = [uuid.uuid4()]
     provider_read = ProviderRead(
         id=id_,
         created_at=now,
@@ -262,8 +226,13 @@ def test_provider_read_inheritance():
         auth_endpoint=DUMMY_AUTH_ENDPOINT,
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
-        site_admins=site_admins,
-        status=ProviderStatus.active,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
+        site_admins=ids,
+        site_testers=ids,
         base_url=DUMMY_ENDPOINT,
     )
     assert isinstance(provider_read, ItemID)
@@ -271,8 +240,18 @@ def test_provider_read_inheritance():
     assert isinstance(provider_read, EditableRead)
     assert isinstance(provider_read, ProviderRead)
     assert isinstance(provider_read.links, ProviderLinks)
-    assert provider_read.status == ProviderStatus.active
-    assert provider_read.site_admins == site_admins
+    assert provider_read.links.idps == AnyHttpUrl(
+        f"{DUMMY_ENDPOINT}/{id_}{IDPS_PREFIX}"
+    )
+    assert provider_read.links.regions == AnyHttpUrl(
+        f"{DUMMY_ENDPOINT}/{id_}{REGIONS_PREFIX}"
+    )
+    assert provider_read.links.projects == AnyHttpUrl(
+        f"{DUMMY_ENDPOINT}/{id_}{PROJECTS_PREFIX}"
+    )
+    assert provider_read.status == ProviderStatus.draft
+    assert provider_read.site_admins == ids
+    assert provider_read.site_testers == ids
 
 
 def test_provider_list():
@@ -280,8 +259,7 @@ def test_provider_list():
     creator = uuid.uuid4()
     id_ = uuid.uuid4()
     now = datetime.now()
-    site_admin = uuid.uuid4()
-    site_admins = [site_admin]
+    ids = [uuid.uuid4()]
     read = ProviderRead(
         id=id_,
         created_at=now,
@@ -294,8 +272,13 @@ def test_provider_list():
         auth_endpoint=DUMMY_AUTH_ENDPOINT,
         is_public=DUMMY_IS_PUB,
         support_emails=DUMMY_EMAILS,
-        site_admins=site_admins,
-        status=ProviderStatus.active,
+        rally_username=random_lower_string(),
+        rally_password=random_lower_string(),
+        floating_ips_enable=DUMMY_FLOAT_IPS,
+        test_flavor_name=DUMMY_TEST_FLAVOR_NAME,
+        test_network_id=DUMMY_TEST_NET_ID,
+        site_admins=ids,
+        site_testers=ids,
         base_url=DUMMY_ENDPOINT,
     )
     plist = ProviderList(
@@ -303,7 +286,7 @@ def test_provider_list():
         page_number=1,
         page_size=1,
         tot_items=1,
-        resource_url=AnyHttpUrl("https://api.com/providers"),
+        resource_url=DUMMY_ENDPOINT,
     )
     assert isinstance(plist.data, list)
     assert plist.data[0] == read
@@ -327,29 +310,45 @@ def test_provider_query_defaults():
     assert query.network_tags is None
     assert query.status is None
     assert query.site_admins is None
+    assert query.site_testers is None
+    assert query.rally_username is None
+    assert query.floating_ips_enable is None
+    assert query.test_flavor_name is None
+    assert query.test_network_id is None
 
 
 def test_provider_query_with_values():
     """Test that ProviderQuery assigns provided values to its fields."""
-    site_admins = [uuid.uuid4()]
+    ids = [uuid.uuid4()]
     query = ProviderQuery(
-        name=DUMMY_NAME,
-        description=DUMMY_DESC,
+        name="foo",
+        description="bar",
         type="openstack",
-        auth_endpoint=DUMMY_AUTH_ENDPOINT,
-        is_public=DUMMY_IS_PUB,
+        auth_endpoint="auth",
+        is_public=True,
         support_emails="admin@example.com",
         image_tags="img1",
         network_tags="net1",
-        status="active",
-        site_admins=site_admins,
+        status=["active"],
+        rally_username="user",
+        floating_ips_enable=True,
+        test_flavor_name="flavor",
+        test_network_id="net_id",
+        site_admins=ids,
+        site_testers=ids,
     )
-    assert query.name == DUMMY_NAME
+    assert query.name == "foo"
+    assert query.description == "bar"
     assert query.type == "openstack"
-    assert query.auth_endpoint == DUMMY_AUTH_ENDPOINT
-    assert query.is_public is DUMMY_IS_PUB
+    assert query.auth_endpoint == "auth"
+    assert query.is_public
     assert query.support_emails == "admin@example.com"
     assert query.image_tags == "img1"
     assert query.network_tags == "net1"
-    assert query.status == "active"
-    assert query.site_admins == site_admins
+    assert query.status == ["active"]
+    assert query.rally_username == "user"
+    assert query.site_admins == ids
+    assert query.site_testers == ids
+    assert query.floating_ips_enable
+    assert query.test_flavor_name == "flavor"
+    assert query.test_network_id == "net_id"
