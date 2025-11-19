@@ -273,6 +273,8 @@ def _handle_generic_field(
             return entity.__table__.c.get(k) >= v
         else:
             return entity.__table__.c.get(k) == v
+    elif isinstance(v, list):
+        return entity.__table__.c.get(k).in_(v)
     return None
 
 
@@ -294,10 +296,9 @@ def _get_conditions(
     """
     conditions = []
     for k, v in kwargs.items():
-        cond = _handle_special_date_fields(entity, k, v)
-        if cond is not None:
-            conditions.append(cond)
-        cond = _handle_generic_field(entity, k, v)
+        cond = _handle_special_date_fields(entity, k, v) or _handle_generic_field(
+            entity, k, v
+        )
         if cond is not None:
             conditions.append(cond)
     return conditions
