@@ -26,6 +26,7 @@ from fed_mgr.exceptions import (
     ItemNotFoundError,
 )
 from fed_mgr.v1.crud import (
+    _get_conditions,
     _handle_generic_field,
     _handle_special_date_fields,
     add_item,
@@ -604,3 +605,86 @@ def test_end_after():
 def test_unsupported_key_returns_none():
     """Unsupported key should return None."""
     assert _handle_special_date_fields(DummyEntity, "not_a_key", datetime.now()) is None
+
+
+def test_collects_special_and_generic():
+    """Should collect both special and generic conditions."""
+    fake_special = MagicMock(name="special_cond")
+    fake_generic = MagicMock(name="generic_cond")
+
+    with (
+        patch(
+            "fed_mgr.v1.crud._handle_special_date_fields", return_value=fake_special
+        ) as m_special,
+        patch(
+            "fed_mgr.v1.crud._handle_generic_field", return_value=fake_generic
+        ) as m_generic,
+    ):
+        conds = _get_conditions(entity=DummyEntity, created_before="x")
+
+        assert conds == [fake_special]
+        m_special.assert_called_once_with(DummyEntity, "created_before", "x")
+        m_generic.assert_not_called()
+
+
+def test_uses_generic_when_special_is_none():
+    """Should use generic when special helper returns None."""
+    fake_generic = MagicMock(name="generic_cond")
+
+    with (
+        patch(
+            "fed_mgr.v1.crud._handle_special_date_fields", return_value=None
+        ) as m_special,
+        patch(
+            "fed_mgr.v1.crud._handle_generic_field", return_value=fake_generic
+        ) as m_generic,
+    ):
+        conds = _get_conditions(entity=DummyEntity, age=25)
+
+        assert conds == [fake_generic]
+        m_special.assert_called_once_with(DummyEntity, "age", 25)
+        m_generic.assert_called_once_with(DummyEntity, "age", 25)
+
+
+def test_ignores_when_both_helpers_return_none():
+    """Should ignore kwargs if both helpers return None."""
+    with (
+        patch(
+            "fed_mgr.v1.crud._handle_special_date_fields", return_value=None
+        ) as m_special,
+        patch("fed_mgr.v1.crud._handle_generic_field", return_value=None) as m_generic,
+    ):
+        conds = _get_conditions(entity=DummyEntity, foo="bar")
+
+        assert conds == []
+        m_special.assert_called_once_with(DummyEntity, "foo", "bar")
+        m_generic.assert_called_once_with(DummyEntity, "foo", "bar")
+
+
+def test_multiple_kwargs_collects_multiple():
+    """Should collect one condition per matched helper call."""
+    fake_1 = MagicMock(name="cond1")
+    fake_2 = MagicMock(name="cond2")
+
+    # First kwarg → special
+    # Second kwarg → generic
+    def special_side_effect(ent, k, v):
+        return fake_1 if k == "created_before" else None
+
+    def generic_side_effect(ent, k, v):
+        return fake_2 if k == "age" else None
+
+    with (
+        patch(
+            "fed_mgr.v1.crud._handle_special_date_fields",
+            side_effect=special_side_effect,
+        ) as m_special,
+        patch(
+            "fed_mgr.v1.crud._handle_generic_field", side_effect=generic_side_effect
+        ) as m_generic,
+    ):
+        conds = _get_conditions(entity=DummyEntity, created_before="x", age=10)
+
+        assert conds == [fake_1, fake_2]
+        assert m_special.call_count == 2
+        assert m_generic.call_count == 1  # Only when the field is not a special one
