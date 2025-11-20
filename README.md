@@ -7,7 +7,7 @@ The Federation-Manager is a REST API, written in python, used to manage:
 The REST API is built using the [FastAPI](https://fastapi.tiangolo.com/) library. 
 The application supports authentication through the [flaat](https://flaat.readthedocs.io/en/latest/) library and authorization can be implemented using [OPA](https://www.openpolicyagent.org/).
 
-The application stores its data in a DB and uses the [SQLModel](https://sqlmodel.tiangolo.com/) library (which is based on [SQLAlchemy](https://www.sqlalchemy.org/)) as an abstraction layer for python to communicate with any kind of relational DB. 
+The application stores its data in a DB and uses the [SQLModel](https://sqlmodel.tiangolo.com/) library (which is based on [SQLAlchemy](https://www.sqlalchemy.org/)) as an abstraction layer for python to communicate with any kind of relational DB. DB migrations are managed using the [alembic](https://alembic.sqlalchemy.org/en/latest/) library.
 
 The application is also designed to communicate with [Kafka](https://kafka.apache.org/) to read the monitoring results on the federated resource providers.
 
@@ -67,6 +67,8 @@ This command starts the application on port 8000 of your host and set the SECRET
 If you want to pass multiple environment variables you can do so passing the file name to the `--env-file` argument.
 
 > Container's user is a non-root user.
+
+> On start up, the application updates the target DB to match the latest DB models.
 
 As an alternative, you can use the example docker compose file available in this repository:
 
@@ -181,6 +183,26 @@ docker run \
   -e MYSQL_PASSWORD=changeit \
   mysql:8
 ```
+
+### DB migrations
+
+DB migrations are managed through the [alembic](https://alembic.sqlalchemy.org/en/latest/) library.
+
+When changing the DB schema (add columns, remove tables and so on), update the tests related to models and schemas and write a new migration for alembic. To autogenerate the migration starting from the python models run:
+
+```bash
+alembic revision --autogenerate -m "<message>"
+```
+
+This command will generate a new file under `alembic/versions` directory. **Review the newly generated file.** If the content of the file is correct, apply the migration:
+
+```bash
+alembic upgrade head
+```
+
+> If in your DB models definition you define dialects-based operations, when writing the migration file verify that it works for all the application's supported DB dialects (currently *sqlite* and *mysql*).
+
+**When switching between branches, DB versions may differ. In that cases you may need to downgrade or upgrade the DB to a specific DB version: `alembic upgrade <version-id>` or `alembic downgrade <version-id>`. For downgrade operations, these should be usually done *before* changing branch.**
 
 ### Run Kafka
 
