@@ -1,8 +1,9 @@
 """DB connection and creation details."""
 
+import collections.abc
 import typing
-from typing import Annotated
 
+import sqlalchemy
 import sqlmodel
 from fastapi import Depends
 from sqlmodel import Session, SQLModel
@@ -14,7 +15,7 @@ from fed_mgr.logger import get_logger
 class DBHandlerMeta(type):
     """Singleton metaclass for DBHandler."""
 
-    _instances = {}
+    _instances: typing.ClassVar = {}
 
     def __call__(cls, *args, **kwargs):
         """Return the singleton instance of DBHandler."""
@@ -27,19 +28,19 @@ class DBHandlerMeta(type):
 class DBHandler(metaclass=DBHandlerMeta):
     """Class for managing database connections."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the DBHandler."""
         self._logger = get_logger(__class__.__name__)
         self._settings = get_settings()
         self._engine = self.__create_engine()
         self.__initialize_db()
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Disconnect from the database."""
         self._logger.info("Disconnecting from database")
         self._engine.dispose()
 
-    def __create_engine(self):
+    def __create_engine(self) -> sqlalchemy.Engine:
         """Create the database engine."""
         connect_args = {}
         if self._settings.DB_URL.startswith("sqlite"):
@@ -50,7 +51,7 @@ class DBHandler(metaclass=DBHandlerMeta):
             echo=self._settings.DB_ECO,
         )
 
-    def __initialize_db(self):
+    def __initialize_db(self) -> None:
         """Initialize the database."""
         assert self._engine is not None
         self._logger.info("Connecting to database and generating tables")
@@ -59,12 +60,12 @@ class DBHandler(metaclass=DBHandlerMeta):
             with self._engine.connect() as connection:
                 connection.execute(sqlmodel.text("PRAGMA foreign_keys=ON"))
 
-    def get_engine(self):
+    def get_engine(self) -> sqlalchemy.Engine:
         """Return the database engine."""
         return self._engine
 
 
-def get_session():
+def get_session() -> collections.abc.Generator[Session, typing.Any, None]:
     """Dependency generator that yields a SQLModel Session for database operations.
 
     Yields:
@@ -76,4 +77,4 @@ def get_session():
         yield session
 
 
-SessionDep = Annotated[Session, Depends(get_session)]
+SessionDep = typing.Annotated[Session, Depends(get_session)]
