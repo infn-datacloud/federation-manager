@@ -60,7 +60,7 @@ class DBHandler(metaclass=DBHandlerMeta):
                 connection.execute(sqlmodel.text("PRAGMA foreign_keys=ON"))
 
     def get_engine(self):
-        """Returns the database engine."""
+        """Return the database engine."""
         return self._engine
 
 
