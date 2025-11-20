@@ -5,9 +5,11 @@ the database. It wraps generic CRUD operations with resource providers-specific 
 and exception handling.
 """
 
+import logging
 import time
+import typing
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import event
 from sqlmodel import Session
@@ -15,7 +17,6 @@ from sqlmodel import Session
 from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
-from fed_mgr.kafka import send_provider_to_be_evaluated
 from fed_mgr.logger import get_logger
 from fed_mgr.utils import encrypt
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
@@ -605,7 +606,7 @@ async def update_provider_status(provider: Provider) -> Provider:
         case ProviderStatus.submitted:
             if provider_can_be_evaluated(provider):
                 provider.status = ProviderStatus.evaluation
-                await send_provider_to_be_evaluated(provider, settings, logger)
+                # await send_provider_to_be_evaluated(provider, settings, logger) FIXME: restore this
     return provider
 
 
@@ -619,3 +620,76 @@ async def before_update_provider(mapper, connection, provider: Provider):
     - advance from submit to evaluation and send message to kafka
     """
     await update_provider_status(provider)
+
+
+def handle_rally_result(
+    session: Session,
+    provider_id: uuid.UUID,
+    status: typing.Literal["finished"] | typing.Literal["crashed"],
+    success: bool,
+    timestamp: str,
+    logger: logging.Logger,
+):
+    provider = get_provider(session=session, provider_id=provider_id)
+
+    if provider is None:
+        raise ItemNotFoundError("Provider", id=provider_id)
+
+    dt = datetime.fromisoformat(timestamp)
+
+    if provider.tested_at and dt.timestamp() <= provider.tested_at.timestamp():
+        logger.warning("provider %s rally result is older than last test", provider_id)
+        return
+
+    current_status = provider.status
+    provider.tested_at = dt
+    provider.total_tests += 1  # FIXME: we are not using this value yet
+
+    test_failed = status == "finished" and not success
+
+    if test_failed:
+        provider.failed_tests += 1
+        logger.warning("provider %s failed Rally's test", provider_id)
+        return
+    else:
+        provider.failed_tests = 0
+
+    healthy = provider.failed_tests < 3  # TODO: implement health check
+
+    match provider.status:
+        case ProviderStatus.evaluation:
+            # this is a valid noop status
+            pass
+        case ProviderStatus.active:
+            if not healthy:
+                provider.status = ProviderStatus.degraded
+        case (
+            ProviderStatus.degraded
+            | ProviderStatus.pre_production
+            | ProviderStatus.re_evaluation
+        ):
+            if healthy:
+                provider.status = ProviderStatus.active
+            else:
+                logger.warning(
+                    "provider %s failed Rally's test while in %s status",
+                    provider_id,
+                    provider.status,
+                )
+        case _:
+            logger.warning(
+                "provider %s status '%s' is not valid", provider_id, provider.status
+            )
+
+    if provider.status != current_status:
+        logger.info(
+            "provider %s changed status from %s to %s",
+            provider_id,
+            current_status,
+            provider.status,
+        )
+    else:
+        logger.info("provider %s status unchanged", provider_id)
+
+    session.add(provider)
+    session.commit()
