@@ -1,7 +1,7 @@
 services:
   devcontainer:
     container_name: fed-mgr-devcontainer
-    image: mcr.microsoft.com/vscode/devcontainers/python:3
+    image: mcr.microsoft.com/vscode/devcontainers/python:3.13
     command: sleep infinity
     volumes:
       - ..:/workspace:cached
