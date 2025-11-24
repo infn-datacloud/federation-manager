@@ -606,7 +606,6 @@ async def update_provider_status(provider: Provider) -> Provider:
         case ProviderStatus.submitted:
             if provider_can_be_evaluated(provider):
                 provider.status = ProviderStatus.evaluation
-                # await send_provider_to_be_evaluated(provider, settings, logger) FIXME: restore this
     return provider
 
 
