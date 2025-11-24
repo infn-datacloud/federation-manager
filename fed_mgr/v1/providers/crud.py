@@ -633,7 +633,7 @@ def handle_rally_result(
     provider = get_provider(session=session, provider_id=provider_id)
 
     if provider is None:
-        raise ItemNotFoundError("Provider", id=provider_id)
+        raise ItemNotFoundError(f"Provider with ID '{provider_id}' not found")
 
     dt = datetime.fromisoformat(timestamp)
 

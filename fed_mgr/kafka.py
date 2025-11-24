@@ -1,8 +1,8 @@
 import asyncio
-from datetime import datetime
 import json
 import typing
 import uuid
+from datetime import datetime
 from logging import Logger
 from typing import Literal, NotRequired
 
@@ -71,7 +71,7 @@ class KafkaHandler:
         ssl_context = self.__create_ssl_context()
         self._consumer_context = self.__create_consumer_context(ssl_context)
         self._producer_context = self.__create_producer_context(ssl_context)
-        self._logger: Logger = get_logger(self._settings, "kafka")
+        self._logger: Logger = get_logger("kafka")
         self._tasks: set[asyncio.Task[None]] = set()
 
     def __del__(self):
