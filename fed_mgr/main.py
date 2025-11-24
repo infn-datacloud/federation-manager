@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
         dict: A dictionary with the logger instance, available in the request state.
 
     """
-    logger = get_logger(log_level=settings.LOG_LEVEL)
+    logger = get_logger()
     configure_flaat(settings, logger)
     db_handler = DBHandler()
     db_handler.initialize_db()
@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
     # At application startup create or delete fake user based on authn mode
     with Session(db_handler.get_engine()) as session:
         if settings.KAFKA_ENABLED:
-            kafka = KafkaApp(session)
+            kafka = KafkaApp(session)  # pyright: ignore[reportUnusedVariable]  # noqa: F841
         if settings.AUTHN_MODE is None:
             create_fake_user(session)
         else:
