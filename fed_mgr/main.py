@@ -66,7 +66,8 @@ async def lifespan(app: FastAPI):
     """
     logger = get_logger(log_level=settings.LOG_LEVEL)
     configure_flaat(settings, logger)
-    db = DBHandler()
+    db_handler = DBHandler()
+    db_handler.initialize_db()
 
     # At application startup create or delete fake user based on authn mode
     with Session(db.get_engine()) as session:
