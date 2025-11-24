@@ -1,3 +1,9 @@
+"""KafkaApp class to handle Kafka operations.
+
+This module provides a KafkaApp class to listen to Kafka messages for handling
+Rally tests results.
+"""
+
 import asyncio
 import json
 import typing
@@ -66,6 +72,8 @@ type KafkaMessage = ak.ConsumerRecord[str, RallyResult]
 
 @typing.final
 class KafkaHandler:
+    """Kafka handler for sending and receiving messages."""
+
     def __init__(self):  # noqa: D107
         self._settings: Settings = get_settings()
         ssl_context = self.__create_ssl_context()
@@ -164,17 +172,33 @@ class KafkaHandler:
         self._tasks.remove(task)
 
     def settings(self):
+        """Return the settings used to initialize the KafkaHandler."""
         return self._settings
 
     def logger(self):
+        """Return the logger used by the KafkaHandler."""
         return self._logger
 
     def listen_topic(self, *topic: str | list[str], callback: Callback) -> None:
+        """Listen to a topic and call the callback when a message is received.
+
+        Args:
+            topic (str | list[str]): One or more topics to listen to.
+            callback (Callback): The callback to handle the incoming message.
+
+        """
         task = asyncio.create_task(self.__start_consumer(*topic, callback=callback))
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
 
     def send(self, topic: str, message: str | dict[str, typing.Any]):
+        """Send a message to a topic.
+
+        Args:
+            topic (str): The topic to send the message to.
+            message (str | dict[str, typing.Any]): The message to send.
+
+        """
         task = asyncio.create_task(self.__send_one(topic, message))
         task.add_done_callback(self.__on_task_complete)
         self._tasks.add(task)
@@ -182,7 +206,18 @@ class KafkaHandler:
 
 @typing.final
 class KafkaApp:
+    """Kafka application class."""
+
     def __init__(self, session: sqlmodel.Session | None = None, listen: bool = True):
+        """Initialize the Kafka application.
+
+        Args:
+            session (sqlmodel.Session | None, optional): The SQL session to use.
+            Defaults to None.
+            listen (bool, optional): Whether to start listening to Kafka messages.
+            Defaults to True.
+
+        """
         settings = get_settings()
         self._handler = KafkaHandler()
         self._logger = self._handler.logger()
@@ -192,6 +227,7 @@ class KafkaApp:
         self._logger.info("KafkaApp started")
 
     def __del__(self):
+        """Destructor for KafkaApp."""
         self._logger.info("KafkaApp exited")
 
     def __listen(self, topic: str, callback: Callback):
@@ -225,6 +261,13 @@ class KafkaApp:
         )
 
     def send(self, topic: str, message: dict[str, typing.Any]):
+        """Send a message to the specified topic.
+
+        Args:
+            topic (str): The topic to send the message to.
+            message (dict[str, typing.Any]): The message to send.
+
+        """
         self._handler.send(topic, message)
 
 

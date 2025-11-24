@@ -14,10 +14,8 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import event
 from sqlmodel import Session
 
-from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
-from fed_mgr.logger import get_logger
 from fed_mgr.utils import encrypt
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
@@ -627,6 +625,23 @@ def handle_rally_result(
     timestamp: str,
     logger: logging.Logger,
 ):
+    """Handle the result of a Rally test.
+
+    This method updates the provider's status based on the incoming test result
+    and the previous ones. After three consecutive failures, the provider is
+    marked as failed. After only one success, the provider is marked as ready.
+    After two successes, the provider is marked as ready.
+
+    Args:
+        session (Session): The SQL session to use.
+        provider_id (uuid.UUID): The ID of the provider.
+        status (typing.Literal["finished"] | typing.Literal["crashed"]):
+            The status of the test ('finished' or 'crashed').
+        success (bool): Whether the test was successful.
+        timestamp (str): The timestamp of the test.
+        logger (logging.Logger): The logger to use.
+
+    """
     provider = get_provider(session=session, provider_id=provider_id)
 
     if provider is None:
