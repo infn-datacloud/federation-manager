@@ -578,7 +578,7 @@ def provider_can_be_evaluated(provider: Provider) -> bool:
     return len(provider.site_testers) > 0
 
 
-async def update_provider_status(provider: Provider) -> Provider:
+def update_provider_status(provider: Provider) -> Provider:
     """Update the status of a Provider instance based on its attributes.
 
     Transitions the provider's status according to the following rules:
@@ -594,8 +594,6 @@ async def update_provider_status(provider: Provider) -> Provider:
         None
 
     """
-    settings = get_settings()
-    logger = get_logger(log_level=settings.LOG_LEVEL)
     match provider.status:
         case ProviderStatus.draft:
             if is_provider_ready(provider):
@@ -610,7 +608,7 @@ async def update_provider_status(provider: Provider) -> Provider:
 
 
 @event.listens_for(Provider, "before_update")
-async def before_update_provider(mapper, connection, provider: Provider):
+def before_update_provider(mapper, connection, provider: Provider):
     """Listen for the 'before_update' event.
 
     Apply automatic state changes when all conditions are met:
@@ -618,7 +616,7 @@ async def before_update_provider(mapper, connection, provider: Provider):
     - revert from ready to draft
     - advance from submit to evaluation and send message to kafka
     """
-    await update_provider_status(provider)
+    update_provider_status(provider)
 
 
 def handle_rally_result(
