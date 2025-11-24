@@ -20,7 +20,7 @@ from sqlmodel import (
     true,
 )
 
-from fed_mgr.db import engine
+from fed_mgr.db import DBHandler
 from fed_mgr.v1.identity_providers.schemas import IdentityProviderBase
 from fed_mgr.v1.identity_providers.user_groups.schemas import UserGroupBase
 from fed_mgr.v1.identity_providers.user_groups.slas.schemas import SLABase
@@ -602,7 +602,7 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
         back_populates="project", cascade_delete=True
     )
 
-    if engine.dialect.name == "mysql":
+    if DBHandler.get_dialect() == "mysql":
         provider_root_id: Annotated[
             int | None,
             Field(
@@ -621,7 +621,7 @@ class Project(ItemID, CreationTime, UpdateTime, ProjectBase, table=True):
             Index("ix_unique_provider_root", "provider_root_id", unique=True),
         )
 
-    elif engine.dialect.name == "sqlite":
+    elif DBHandler.get_dialect() == "sqlite":
 
         @declared_attr
         def __table_args__(self):

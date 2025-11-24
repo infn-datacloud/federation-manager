@@ -33,7 +33,7 @@ class DBHandler(metaclass=DBHandlerMeta):
         self._logger = get_logger(__class__.__name__)
         self._settings = get_settings()
         self._engine = self.__create_engine()
-        self.__initialize_db()
+        self._initialized = False
 
     def __del__(self) -> None:
         """Disconnect from the database."""
@@ -51,9 +51,13 @@ class DBHandler(metaclass=DBHandlerMeta):
             echo=self._settings.DB_ECO,
         )
 
-    def __initialize_db(self) -> None:
+    def initialize_db(self) -> None:
         """Initialize the database."""
         assert self._engine is not None
+        if self._initialized:
+            self._logger.warning("Database already initialized")
+            return
+
         self._logger.info("Connecting to database and generating tables")
         SQLModel.metadata.create_all(self._engine)
         if self._engine.dialect.name == "sqlite":
@@ -63,6 +67,15 @@ class DBHandler(metaclass=DBHandlerMeta):
     def get_engine(self) -> sqlalchemy.Engine:
         """Return the database engine."""
         return self._engine
+
+    @classmethod
+    def get_dialect(cls) -> str:
+        """Return the database dialect."""
+        instance = cls()
+        dialect_name = instance._engine.dialect.name
+        if dialect_name is None or dialect_name == "":
+            raise ValueError("Dialect name not set")
+        return dialect_name
 
 
 def get_session() -> collections.abc.Generator[Session, typing.Any, None]:
