@@ -171,7 +171,7 @@ class Settings(BaseSettings):
       description="Enable Kafka consumer"
     )]
     KAFKA_BOOTSTRAP_SERVERS: Annotated[str, Field(
-        default="host.docker.internal:9092",
+        default="kafka:9092",
         description="Kafka address or comma separated list of addresses"
     )]
     KAFKA_EVALUATE_PROVIDERS_TOPIC: Annotated[
