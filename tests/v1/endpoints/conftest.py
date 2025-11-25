@@ -48,7 +48,7 @@ def client():
 
 
 @pytest.fixture
-def session():
+def session() -> mock.MagicMock:
     """Create and return a mock session object for testing purposes.
 
     Returns:
@@ -61,7 +61,7 @@ def session():
 
 
 @pytest.fixture
-def current_user():
+def current_user() -> mock.MagicMock:
     """Create and return a mock session object for testing purposes.
 
     Returns:
