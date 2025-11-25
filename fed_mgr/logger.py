@@ -23,6 +23,12 @@ def get_logger(
         logging.Logger: The configured logger instance.
 
     """
+    try:
+        settings = get_settings()
+        log_level = log_level or settings.LOG_LEVEL
+    except ValueError:
+        log_level = log_level or LogLevelEnum.INFO
+
     formatter = logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s "
         + "[%(processName)s: %(process)d - %(threadName)s: %(thread)d] "
@@ -32,7 +38,7 @@ def get_logger(
     stream_handler.setFormatter(formatter)
 
     logger = logging.getLogger(name)
-    logger.setLevel(level=log_level or get_settings().LOG_LEVEL)
+    logger.setLevel(level=log_level)
     logger.addHandler(stream_handler)
 
     return logger
