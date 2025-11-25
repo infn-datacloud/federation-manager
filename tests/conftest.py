@@ -13,15 +13,10 @@ from fed_mgr.config import Settings
 
 # Store original get_settings for any needs and override the module's get_settings
 original_get_settings_func = conf.get_settings
+os.environ.clear()
 conf.get_settings = lambda: Settings(
     SECRET_KEY=Fernet.generate_key(), _env_file=".test.env"
 )
-
-
-@pytest.fixture(autouse=True)
-def clear_os_environment() -> None:
-    """Clear the OS environment."""
-    os.environ.clear()
 
 
 @pytest.fixture
