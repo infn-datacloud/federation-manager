@@ -92,7 +92,11 @@ def get_providers(
 
 
 def add_provider(
-    *, session: Session, provider: ProviderCreate, created_by: User, secret_key: str
+    *,
+    session: Session,
+    provider: ProviderCreate,
+    created_by: User,
+    secret_key: str | None,
 ) -> Provider:
     """Add a new provider to the database.
 
@@ -109,7 +113,8 @@ def add_provider(
 
     """
     site_admins = check_users_exist(session=session, user_ids=provider.site_admins)
-    provider.rally_password = encrypt(provider.rally_password, secret_key)
+    if secret_key is not None:
+        provider.rally_password = encrypt(provider.rally_password, secret_key)
     return add_item(
         session=session,
         entity=Provider,
@@ -126,7 +131,7 @@ def update_provider(
     provider_id: uuid.UUID,
     new_provider: ProviderUpdate,
     updated_by: User,
-    secret_key: str,
+    secret_key: str | None,
 ) -> None:
     """Update an provider by their unique provider_id from the database.
 
@@ -143,7 +148,7 @@ def update_provider(
         None
 
     """
-    if new_provider.rally_password is not None:
+    if new_provider.rally_password is not None and secret_key is not None:
         new_provider.rally_password = encrypt(new_provider.rally_password, secret_key)
     return update_item(
         session=session,

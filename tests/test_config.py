@@ -191,12 +191,6 @@ def test_settings_with_invalid_secret_key_raises(
     """Test that ValueError is raised if AUTHZ_MODE is set but AUTHN_MODE is None."""
     with pytest.raises(
         ValueError,
-        match="1 validation error for Settings\nSECRET_KEY\n  Field required",
-    ):
-        Settings(**override_env_fields)
-
-    with pytest.raises(
-        ValueError,
         match="1 validation error for Settings\nSECRET_KEY\n  Value error, "
         "Fernet key must be 32 url-safe base64-encoded bytes",
     ):

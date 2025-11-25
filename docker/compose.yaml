@@ -20,7 +20,6 @@ services:
       AUTHZ_MODE: opa
       TRUSTED_IDP_LIST: '["https://iam.cloud.infn.it/"]'
       OPA_AUTHZ_URL: http://opa:8181/v1/data/fed_mgr
-      SECRET_KEY: changeit
     volumes:
       - ../certs:/certs:ro
     networks:

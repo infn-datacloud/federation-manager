@@ -60,10 +60,10 @@ Requirements:
 Run the docker image (if the image is not available it will be automatically downloaded from the docker reporitory):
 
 ```bash
-docker run -p 8000:80 --env SECRET_KEY=<MY_SECRET> harbor.cloud.infn.it/datacloud-middleware/fed-mgr 
+docker run -p 8000:80 harbor.cloud.infn.it/datacloud-middleware/fed-mgr 
 ```
 
-This command starts the application on port 8000 of your host and set the SECRET_KEY environment variable (which is mandatory).
+This command starts the application on port 8000 of your host.
 If you want to pass multiple environment variables you can do so passing the file name to the `--env-file` argument.
 
 > Container's user is a non-root user.
@@ -104,7 +104,7 @@ If you kafka instance has SSL communication enabled, copy in the certs folder of
 | LOG_LEVEL | str | No | INFO | Logs level. One between: _CRITICAL_, _ERROR_, _WARNING_, _INFO_ or _DEBUG_ |
 | BASE_URL | str (URI format) | No | http://localhost:8000 | Application base URL. Used to build documentation redirect links |
 | BACKEND_CORS_ORIGINS | list of str (URI format) | No | [http://localhost:3000/] | JSON-formatted list of allowed origins",
-| SECRET_KEY | str | Yes | None | Secret key used to encrypt values in the DB. **To generate a valid key run the following command in shell and copy the generated output: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`** |
+| SECRET_KEY | str | No | None | Secret key used to encrypt values in the DB. **To generate a valid key run the following command in shell and copy the generated output: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`** |
 | DB_URL | str | No | sqlite+pysqlite:///:memory: | DB URL. By default it use an in memory SQLite DB. The application builds the DB URL starting from `DB_SCHEME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` and `DB_NAME` environment variables only if **all** of them have been defined. If `DB_URL` has been set to None and not all of these variables have been defined, DB URL can't be defined and the application can't start. |
 | DB_SCHEME | str | No | None | Database type and library (i.e _mysql+pymysql_) |
 | DB_USER | str | No | None | Database user |
@@ -113,7 +113,7 @@ If you kafka instance has SSL communication enabled, copy in the certs folder of
 | DB_PORT | int | No | None | Database exposed port |
 | DB_NAME | str | No | None | Name of the database's schema to use |
 | DB_ECO | bool | No | False | Print DB operations |
-| AUTHN_MODE | str | Yes | None | Authentication method to use. Allowed values: _local_ (uses flaat module) |
+| AUTHN_MODE | str | No | None | Authentication method to use. Allowed values: _local_ (uses flaat module) |
 | AUTHZ_MODE | str | No | None | Authorization method to use. If not defined no authorization check is implemented and all endpoints can be access by any authenticated user (if authentication is enabled). Allowed values: _opa_ (uses OPA) |
 | TRUSTED_IDP_LIST | list of str (URI format) | Yes | [] | List of the application trusted identity providers |
 | API_KEY | str | No | None | API Key to set into the header field 'X-API-Key'. This authentication and authorization method is enabled only if this variable is set |
