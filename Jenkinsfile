@@ -32,7 +32,7 @@ pipeline {
                 }
             }
             when {
-                expression { return env.CHANGE_ID != null } // It is a PR
+                expression { return env.CHANGE_ID != null || env.BRANCH_NAME == 'main' } // It is a PR or main branch
             }
             steps {
                 script {
@@ -127,7 +127,7 @@ pipeline {
                 allOf {
                     expression { return currentBuild.currentResult != 'UNSTABLE' }
                     expression { return currentBuild.result != 'UNSTABLE' }
-                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null } // It is a PR or tag
+                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null || env.BRANCH_NAME == 'main' } // It is a PR or tag or main branch
                 }
             }
             matrix {
@@ -153,7 +153,7 @@ pipeline {
                 allOf {
                     expression { return currentBuild.currentResult != 'UNSTABLE' }
                     expression { return currentBuild.result != 'UNSTABLE' }
-                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null } // It is a PR or tag
+                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null || env.BRANCH_NAME == 'main' } // It is a PR or tag or main branch
                 }
             }
             matrix {
@@ -188,7 +188,7 @@ pipeline {
                 allOf {
                     expression { return currentBuild.currentResult != 'UNSTABLE' }
                     expression { return currentBuild.result != 'UNSTABLE' }
-                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null } // It is a PR or tag
+                    expression { return env.CHANGE_ID != null || env.TAG_NAME != null || env.BRANCH_NAME == 'main' } // It is a PR or tag or main branch
                 }
             }
             matrix {
