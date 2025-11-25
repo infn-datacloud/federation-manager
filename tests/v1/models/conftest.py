@@ -21,7 +21,7 @@ tests can control transaction boundaries via the `db_session` fixture.
 
 from datetime import date
 
-from pytest import fixture
+import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import Session, SQLModel, StaticPool, create_engine, text
@@ -38,7 +38,7 @@ from fed_mgr.v1.models import (
 from tests.utils import random_lower_string
 
 
-@fixture(scope="session")
+@pytest.fixture(scope="session")
 def engine():
     """Create an in-memory SQLite engine for the whole test session.
 
@@ -56,14 +56,13 @@ def engine():
     engine.dispose()
 
 
-@fixture
+@pytest.fixture
 def db_session(engine: Engine):
     """Create a new database session for a test and rolls back after."""
     connection = engine.connect()
     transaction = connection.begin()
 
-    Session = sessionmaker(bind=connection)  # noqa: N806
-    session = Session()
+    session = sessionmaker(bind=connection)()
 
     yield session  # This is where the test runs
 
@@ -72,7 +71,7 @@ def db_session(engine: Engine):
     connection.close()
 
 
-@fixture
+@pytest.fixture
 def user_model(db_session: Session) -> User:
     """Create and add a sample User to the current test session.
 
@@ -88,7 +87,7 @@ def user_model(db_session: Session) -> User:
     return user
 
 
-@fixture
+@pytest.fixture
 def idp_model(db_session: Session, user_model: User) -> IdentityProvider:
     """Create and add a sample IdentityProvider linked to `user_model`.
 
@@ -115,7 +114,7 @@ def idp_model(db_session: Session, user_model: User) -> IdentityProvider:
     return idp
 
 
-@fixture
+@pytest.fixture
 def user_group_model(
     db_session: Session, user_model: User, idp_model: IdentityProvider
 ) -> UserGroup:
@@ -136,7 +135,7 @@ def user_group_model(
     return group
 
 
-@fixture
+@pytest.fixture
 def sla_model(
     db_session: Session, user_model: User, user_group_model: UserGroup
 ) -> SLA:
@@ -163,7 +162,7 @@ def sla_model(
     return sla
 
 
-@fixture
+@pytest.fixture
 def provider_model(db_session: Session, user_model: User) -> Provider:
     """Create and add a sample Provider linked to `user_model`.
 
@@ -192,7 +191,7 @@ def provider_model(db_session: Session, user_model: User) -> Provider:
     return provider
 
 
-@fixture
+@pytest.fixture
 def region_model(
     db_session: Session, user_model: User, provider_model: Provider
 ) -> Region:
@@ -213,7 +212,7 @@ def region_model(
     return region
 
 
-@fixture
+@pytest.fixture
 def project_model(
     db_session: Session, user_model: User, provider_model: Provider
 ) -> Project:
