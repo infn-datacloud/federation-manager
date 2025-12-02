@@ -154,7 +154,7 @@ class KafkaHandler:
                     self._logger.error(e)
                     await consumer.commit()
                 except Exception as e:
-                    self._logger.error("Error processing message from kafka%s", e)
+                    self._logger.error("Error processing message from kafka: '%s'", e)
         finally:
             self._logger.info("Stopping KafkaConsumer")
             await consumer.stop()
@@ -287,7 +287,6 @@ async def main():
             "timestamp": datetime.now().isoformat(),
             "subtasks": ["task1", "task2"],
         }
-        print(message["timestamp"])
         app.send(settings.KAFKA_EVALUATE_PROVIDERS_TOPIC, message)
         await asyncio.sleep(5)
 
