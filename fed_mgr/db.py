@@ -30,15 +30,19 @@ class DBHandler(metaclass=DBHandlerMeta):
 
     def __init__(self) -> None:
         """Initialize the DBHandler."""
-        self._logger = get_logger(__class__.__name__)
-        self._settings = get_settings()
-        self._engine = self.__create_engine()
         self._initialized = False
+        self._logger = None
+        self._engine = None
+
+        self._settings = get_settings()
+        self._logger = get_logger(__class__.__name__, self._settings.LOG_LEVEL)
+        self._engine = self.__create_engine()
 
     def __del__(self) -> None:
         """Disconnect from the database."""
-        self._logger.info("Disconnecting from database")
-        self._engine.dispose()
+        if self._engine is not None:
+            self._logger.info("Disconnecting from database")
+            self._engine.dispose()
 
     def __create_engine(self) -> sqlalchemy.Engine:
         """Create the database engine."""
