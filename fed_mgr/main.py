@@ -16,7 +16,7 @@ from fed_mgr.exceptions import (
     add_rest_exception_handlers,
     add_service_exception_handlers,
 )
-from fed_mgr.kafka import start_kafka_listeners, stop_kafka_listeners
+from fed_mgr.kafka import KafkaApp
 from fed_mgr.logger import get_logger
 from fed_mgr.v1.providers.crud import start_tasks_to_remove_deprecated_providers
 from fed_mgr.v1.router import public_router_v1, secured_router_v1
@@ -64,26 +64,23 @@ async def lifespan(app: FastAPI):
         dict: A dictionary with the logger instance, available in the request state.
 
     """
-    logger = get_logger(log_level=settings.LOG_LEVEL)
+    logger = get_logger()
     configure_flaat(settings, logger)
     db_handler = DBHandler()
     db_handler.initialize_db()
 
+    kafka = None
     # At application startup create or delete fake user based on authn mode
     with Session(db_handler.get_engine()) as session:
+        if settings.KAFKA_ENABLED:
+            kafka = KafkaApp(session)  # pyright: ignore[reportUnusedVariable]  # noqa: F841
         if settings.AUTHN_MODE is None:
             create_fake_user(session)
         else:
             delete_fake_user(session)
         start_tasks_to_remove_deprecated_providers(session)
 
-    if settings.KAFKA_ENABLE:
-        kafka_tasks = await start_kafka_listeners(settings, logger)
-
     yield {"logger": logger}
-
-    if settings.KAFKA_ENABLE:
-        await stop_kafka_listeners(kafka_tasks, logger)
 
 
 app = FastAPI(

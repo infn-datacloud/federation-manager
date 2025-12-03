@@ -5,18 +5,17 @@ the database. It wraps generic CRUD operations with resource providers-specific 
 and exception handling.
 """
 
+import logging
 import time
+import typing
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import event
 from sqlmodel import Session
 
-from fed_mgr.config import get_settings
 from fed_mgr.db import SessionDep
 from fed_mgr.exceptions import ConflictError, ItemNotFoundError, ProviderStateError
-from fed_mgr.kafka import send_provider_to_be_evaluated
-from fed_mgr.logger import get_logger
 from fed_mgr.utils import encrypt
 from fed_mgr.v1.crud import add_item, delete_item, get_item, get_items, update_item
 from fed_mgr.v1.models import Provider, User
@@ -582,7 +581,7 @@ def provider_can_be_evaluated(provider: Provider) -> bool:
     return len(provider.site_testers) > 0
 
 
-async def update_provider_status(provider: Provider) -> Provider:
+def update_provider_status(provider: Provider) -> Provider:
     """Update the status of a Provider instance based on its attributes.
 
     Transitions the provider's status according to the following rules:
@@ -598,8 +597,6 @@ async def update_provider_status(provider: Provider) -> Provider:
         None
 
     """
-    settings = get_settings()
-    logger = get_logger(log_level=settings.LOG_LEVEL)
     match provider.status:
         case ProviderStatus.draft:
             if is_provider_ready(provider):
@@ -610,12 +607,11 @@ async def update_provider_status(provider: Provider) -> Provider:
         case ProviderStatus.submitted:
             if provider_can_be_evaluated(provider):
                 provider.status = ProviderStatus.evaluation
-                await send_provider_to_be_evaluated(provider, settings, logger)
     return provider
 
 
 @event.listens_for(Provider, "before_update")
-async def before_update_provider(mapper, connection, provider: Provider):
+def before_update_provider(mapper, connection, provider: Provider):
     """Listen for the 'before_update' event.
 
     Apply automatic state changes when all conditions are met:
@@ -623,4 +619,94 @@ async def before_update_provider(mapper, connection, provider: Provider):
     - revert from ready to draft
     - advance from submit to evaluation and send message to kafka
     """
-    await update_provider_status(provider)
+    update_provider_status(provider)
+
+
+def handle_rally_result(
+    session: Session,
+    provider_id: uuid.UUID,
+    status: typing.Literal["finished"] | typing.Literal["crashed"],
+    success: bool,
+    timestamp: str,
+    logger: logging.Logger,
+):
+    """Handle the result of a Rally test.
+
+    This method updates the provider's status based on the incoming test result
+    and the previous ones. After three consecutive failures, the provider is
+    marked as failed. After only one success, the provider is marked as ready.
+    After two successes, the provider is marked as ready.
+
+    Args:
+        session (Session): The SQL session to use.
+        provider_id (uuid.UUID): The ID of the provider.
+        status (typing.Literal["finished"] | typing.Literal["crashed"]):
+            The status of the test ('finished' or 'crashed').
+        success (bool): Whether the test was successful.
+        timestamp (str): The timestamp of the test.
+        logger (logging.Logger): The logger to use.
+
+    """
+    provider = get_provider(session=session, provider_id=provider_id)
+
+    if provider is None:
+        raise ItemNotFoundError(f"Provider with ID '{provider_id}' not found")
+
+    dt = datetime.fromisoformat(timestamp)
+
+    if provider.tested_at and dt.timestamp() <= provider.tested_at.timestamp():
+        logger.warning("provider %s rally result is older than last test", provider_id)
+        return
+
+    current_status = provider.status
+    provider.tested_at = dt
+    provider.total_tests += 1  # FIXME: we are not using this value yet
+
+    test_succeeded = status == "finished" and success
+
+    if not test_succeeded:
+        provider.failed_tests += 1
+        logger.warning("provider %s failed Rally's test", provider_id)
+        return
+    else:
+        provider.failed_tests = 0
+
+    healthy = provider.failed_tests < 3  # TODO: implement health check
+
+    match provider.status:
+        case ProviderStatus.evaluation:
+            # this is a valid noop status
+            pass
+        case ProviderStatus.active:
+            if not healthy:
+                provider.status = ProviderStatus.degraded
+        case (
+            ProviderStatus.degraded
+            | ProviderStatus.pre_production
+            | ProviderStatus.re_evaluation
+        ):
+            if healthy:
+                provider.status = ProviderStatus.active
+            else:
+                logger.warning(
+                    "provider %s failed Rally's test while in %s status",
+                    provider_id,
+                    provider.status,
+                )
+        case _:
+            logger.warning(
+                "provider %s status '%s' is not valid", provider_id, provider.status
+            )
+
+    if provider.status != current_status:
+        logger.info(
+            "provider %s changed status from %s to %s",
+            provider_id,
+            current_status,
+            provider.status,
+        )
+    else:
+        logger.info("provider %s status unchanged", provider_id)
+
+    session.add(provider)
+    session.commit()

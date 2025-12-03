@@ -7,3 +7,7 @@ services:
       - ..:/workspace:cached
     networks:
       - fed-mgr-net
+    env_file:
+      - ../.env
+    ports:
+      - 8001:8000
