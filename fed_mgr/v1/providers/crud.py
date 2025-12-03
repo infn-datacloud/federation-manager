@@ -657,9 +657,9 @@ def handle_rally_result(
     provider.tested_at = dt
     provider.total_tests += 1  # FIXME: we are not using this value yet
 
-    test_failed = status == "finished" and not success
+    test_succeeded = status == "finished" and success
 
-    if test_failed:
+    if not test_succeeded:
         provider.failed_tests += 1
         logger.warning("provider %s failed Rally's test", provider_id)
         return
