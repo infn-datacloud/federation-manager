@@ -413,7 +413,7 @@ def add_item(*, entity: type[Entity], session: Session, **kwargs) -> Entity:
 
 def update_item(
     *, entity: type[Entity], session: Session, updated_by: User, **kwargs
-) -> None:  # FIXME Return Entity
+) -> None:
     """Update an existing item in the database with new data.
 
     Args:
@@ -439,10 +439,7 @@ def update_item(
 
     try:
         statement = (
-            update(entity)
-            .where(sqlalchemy.and_(True, *conditions))
-            .values(**kwargs)
-            .returning(entity)
+            update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
         )
         result = session.exec(statement)
         session.commit()
@@ -458,8 +455,6 @@ def update_item(
         message = f"{split_camel_case(entity.__name__)} with given attributes does not "
         message += f"exist: {where_values!s}"
         raise ItemNotFoundError(message)
-
-    # FIXME: return updated_value
 
 
 def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
