@@ -442,19 +442,21 @@ def update_item(
             update(entity).where(sqlalchemy.and_(True, *conditions)).values(**kwargs)
         )
         result = session.exec(statement)
+        if result.rowcount == 0:
+            session.rollback()
+            message = (
+                f"{split_camel_case(entity.__name__)} with given attributes does not "
+            )
+            message += f"exist: {where_values!s}"
+            raise ItemNotFoundError(message)
         session.commit()
+
     except sqlalchemy.exc.IntegrityError as e:
         session.rollback()
         message = _message_for_conflict(e.args[0], entity.__name__, **kwargs)
         if message is None:
             raise DatabaseOperationError(e.args[0]) from e
         raise ConflictError(message) from e
-
-    updated_value = result.first()
-    if updated_value is None:
-        message = f"{split_camel_case(entity.__name__)} with given attributes does not "
-        message += f"exist: {where_values!s}"
-        raise ItemNotFoundError(message)
 
 
 def delete_item(*, entity: type[Entity], session: Session, **kwargs) -> None:
